@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="135" height="40" viewBox="0 0 135 40">
+  <defs>
+    <linearGradient id="googleGradient" x1="0%" x2="100%" y1="50%" y2="50%">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="50%" stop-color="#2d2d2d"/>
+      <stop offset="100%" stop-color="#1a1a1a"/>
+    </linearGradient>
+    <linearGradient id="playIcon1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d4ff"/>
+      <stop offset="100%" stop-color="#01579b"/>
+    </linearGradient>
+    <linearGradient id="playIcon2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffd600"/>
+      <stop offset="100%" stop-color="#ff8f00"/>
+    </linearGradient>
+    <linearGradient id="playIcon3" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff3d00"/>
+      <stop offset="100%" stop-color="#cc2900"/>
+    </linearGradient>
+    <linearGradient id="playIcon4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f076"/>
+      <stop offset="100%" stop-color="#00c853"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="135" height="40" rx="2" ry="2" fill="url(#googleGradient)" stroke="#a6a6a6" stroke-width="0.5"/>
+
+  <!-- Google Play Icon -->
+  <g transform="translate(8, 8)">
+    <!-- Play triangle pieces -->
+    <path d="M0 0L0 24L15 12L0 0Z" fill="url(#playIcon1)"/>
+    <path d="M15 12L9 6L0 0L15 12Z" fill="url(#playIcon2)"/>
+    <path d="M15 12L9 18L0 24L15 12Z" fill="url(#playIcon3)"/>
+    <path d="M15 12L9 6L9 18L15 12Z" fill="url(#playIcon4)"/>
+  </g>
+
+  <!-- Text -->
+  <g transform="translate(32, 0)" fill="#fff">
+    <text x="0" y="13" font-family="Roboto, Arial, sans-serif" font-size="8" font-weight="400">GET IT ON</text>
+    <text x="0" y="28" font-family="Roboto, Arial, sans-serif" font-size="16" font-weight="500">Google Play</text>
+  </g>
+</svg>

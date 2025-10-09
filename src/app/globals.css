@@ -1,0 +1,208 @@
+/* Updated: 2025-09-26T20:32:05.359Z */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: #000000;
+  --color-foreground: #ffffff;
+
+  --color-card: #ffffff;
+  --color-card-foreground: #0a0a0a;
+
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0a0a0a;
+
+  --color-primary: #FF3D71;
+  --color-primary-foreground: #ffffff;
+
+  --color-secondary: #FF6B9D;
+  --color-secondary-foreground: #ffffff;
+
+  --color-muted: #f5f5f5;
+  --color-muted-foreground: #737373;
+
+  --color-accent: #FF6B35;
+  --color-accent-foreground: #ffffff;
+
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #fafafa;
+
+  --color-border: #e5e5e5;
+  --color-input: #e5e5e5;
+  --color-ring: #0a0a0a;
+
+  --color-chart-1: #e67e22;
+  --color-chart-2: #2d8659;
+  --color-chart-3: #1e3a5f;
+  --color-chart-4: #f1c40f;
+  --color-chart-5: #e74c3c;
+
+  --color-speech-bubble: #ffffff;
+  --color-speech-bubble-foreground: #000000;
+  --color-gradient-start: #FF3D71;
+  --color-gradient-end: #FF8E3C;
+
+  --radius-lg: 1.875rem; /* 30px */
+  --radius-md: 1.25rem; /* 20px */
+  --radius-sm: 1.25rem; /* 20px */
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+
+  --font-display: "Inter", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-navigation: "Inter", sans-serif;
+  --font-button: "Inter", sans-serif;
+}
+
+/*
+  The default border color has changed to `currentColor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: #e5e5e5;
+  }
+}
+
+@layer utilities {
+  body {
+    font-family: var(--font-body);
+  }
+}
+
+@layer base {
+  :root {
+    --background: #000000;
+    --foreground: #ffffff;
+    --card: #ffffff;
+    --card-foreground: #0a0a0a;
+    --popover: #ffffff;
+    --popover-foreground: #0a0a0a;
+    --primary: #FF3D71;
+    --primary-foreground: #ffffff;
+    --secondary: #FF6B9D;
+    --secondary-foreground: #ffffff;
+    --muted: #f5f5f5;
+    --muted-foreground: #737373;
+    --accent: #FF6B35;
+    --accent-foreground: #ffffff;
+    --destructive: #ef4444;
+    --destructive-foreground: #fafafa;
+    --border: #e5e5e5;
+    --input: #e5e5e5;
+    --ring: #0a0a0a;
+    --chart-1: #e67e22;
+    --chart-2: #2d8659;
+    --chart-3: #1e3a5f;
+    --chart-4: #f1c40f;
+    --chart-5: #e74c3c;
+    --radius: 1.25rem; /* Default for cards/images */
+    --speech-bubble: #ffffff;
+    --speech-bubble-foreground: #000000;
+    --gradient-start: #FF3D71;
+    --gradient-end: #FF8E3C;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    @apply bg-background text-foreground;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    text-transform: lowercase;
+    color: var(--foreground);
+  }
+
+  h1 {
+    font-size: 5rem; /* 80px */
+    font-weight: 900; /* Inter Black */
+    line-height: 1;
+  }
+
+  h2 {
+    font-size: 3rem; /* 48px */
+    font-weight: 700; /* Inter Bold */
+    line-height: 1.2;
+  }
+
+  p {
+    font-size: 1.125rem; /* 18px */
+    font-weight: 500; /* Inter Medium */
+    line-height: 1.5;
+  }
+
+  .text-body {
+    font-size: 1.125rem; /* 18px */
+    font-weight: 500; /* Inter Medium */
+  }
+
+  .text-button {
+    font-size: 1.125rem; /* 18px */
+    font-weight: 700; /* Inter Bold */
+  }
+
+  .text-navigation {
+    font-size: 1rem; /* 16px */
+    font-weight: 500; /* Inter Medium */
+  }
+
+  .container {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.25rem; /* 20px */
+    padding-right: 1.25rem; /* 20px */
+  }
+
+  @media (min-width: 768px) {
+    h1 {
+      font-size: 7.5rem; /* 120px */
+    }
+    h2 {
+      font-size: 4rem; /* 64px */
+    }
+    .container {
+      padding-left: 2.5rem; /* 40px */
+      padding-right: 2.5rem; /* 40px */
+    }
+  }
+}
+
+/* Hide Next.js error overlay portal */
+nextjs-portal {
+  display: none !important;
+}
