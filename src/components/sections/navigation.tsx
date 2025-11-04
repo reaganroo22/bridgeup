@@ -1,6 +1,7 @@
 "use client";
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 const navItems = [
@@ -32,7 +33,7 @@ const Navigation = () => {
       <div className={`flex items-center justify-between px-8 md:px-16 lg:px-20 transition-all duration-500 ${
         scrolled ? 'h-12' : 'h-20'
       }`}>
-        <a href="/">
+        <Link href="/">
           <Image
             src="/wizzmo-logo.svg"
             alt="Wizzmo Logo"
@@ -43,7 +44,7 @@ const Navigation = () => {
             }`}
             priority
           />
-        </a>
+        </Link>
 
         <nav className="hidden md:flex items-center gap-x-8">
           {navItems.map((item) => (
