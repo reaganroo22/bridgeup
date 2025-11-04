@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   title: "Wizzmo",
   description: "Get personalized college advice from students who've been there",
   icons: {
-    icon: '/bear-favicon.svg',
-    shortcut: '/bear-favicon.svg',
-    apple: '/bear-favicon.svg',
+    icon: '/wizzmo-bear.png',
+    shortcut: '/wizzmo-bear.png',
+    apple: '/wizzmo-bear.png',
   },
 };
 
