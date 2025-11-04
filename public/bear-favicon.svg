@@ -1,0 +1,47 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="50" fill="url(#gradient)"/>
+  
+  <!-- Gradient definition -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E879F9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#C084FC;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Bear head -->
+  <ellipse cx="50" cy="45" rx="20" ry="18" fill="#FF9BB5" stroke="#8B5A5F" stroke-width="2"/>
+  
+  <!-- Ears -->
+  <circle cx="37" cy="32" r="8" fill="#FF9BB5" stroke="#8B5A5F" stroke-width="2"/>
+  <circle cx="63" cy="32" r="8" fill="#FF9BB5" stroke="#8B5A5F" stroke-width="2"/>
+  <circle cx="37" cy="32" r="4" fill="#FF7A9A"/>
+  <circle cx="63" cy="32" r="4" fill="#FF7A9A"/>
+  
+  <!-- Eyes -->
+  <circle cx="44" cy="42" r="3" fill="#8B5A5F"/>
+  <circle cx="56" cy="42" r="3" fill="#8B5A5F"/>
+  <circle cx="45" cy="41" r="1" fill="white"/>
+  <circle cx="57" cy="41" r="1" fill="white"/>
+  
+  <!-- Snout -->
+  <ellipse cx="50" cy="50" rx="6" ry="4" fill="#F8E8E8" stroke="#8B5A5F" stroke-width="1"/>
+  
+  <!-- Nose -->
+  <circle cx="50" cy="48" r="1.5" fill="#8B5A5F"/>
+  
+  <!-- Mouth -->
+  <path d="M 50 52 Q 47 55 44 53" stroke="#8B5A5F" stroke-width="1.5" fill="none"/>
+  <path d="M 50 52 Q 53 55 56 53" stroke="#8B5A5F" stroke-width="1.5" fill="none"/>
+  
+  <!-- Body -->
+  <ellipse cx="50" cy="70" rx="15" ry="12" fill="#FF9BB5" stroke="#8B5A5F" stroke-width="2"/>
+  
+  <!-- Belly -->
+  <ellipse cx="50" cy="72" rx="8" ry="6" fill="#F8E8E8"/>
+  
+  <!-- Star on belly -->
+  <polygon points="50,68 51.5,71 55,71 52.25,73.5 53.75,77 50,74.5 46.25,77 47.75,73.5 45,71 48.5,71" 
+           fill="#FFD700" stroke="#8B5A5F" stroke-width="0.5"/>
+</svg>
