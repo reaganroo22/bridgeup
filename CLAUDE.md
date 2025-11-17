@@ -1,0 +1,1 @@
+- We can't build and it crashes upon every startup so we're transferring to Animated instead of Reanimated
