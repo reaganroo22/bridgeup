@@ -627,7 +627,7 @@ export default function MentorsScreen() {
   return (
     <>
       <CustomHeader 
-        title="find a wizzmo"
+        title="find an advisor"
         showBackButton={false}
         showChatButton={false}
         showProfileButton={true}
@@ -713,7 +713,7 @@ export default function MentorsScreen() {
         {/* Results Header */}
         <View style={styles.resultsHeader}>
           <Text style={[styles.resultsText, { color: colors.textSecondary }]}>
-            {filteredMentors.length} wizzmo{filteredMentors.length === 1 ? '' : 's'} found
+            {filteredMentors.length} advisor{filteredMentors.length === 1 ? '' : 's'} found
           </Text>
           <TouchableOpacity 
             style={styles.sortButton}
@@ -742,7 +742,7 @@ export default function MentorsScreen() {
                 <View style={styles.loadingFooter}>
                   <ActivityIndicator size="small" color={colors.primary} />
                   <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                    loading more wizzmos...
+                    loading more advisors...
                   </Text>
                 </View>
               );
@@ -751,7 +751,7 @@ export default function MentorsScreen() {
               return (
                 <View style={styles.endFooter}>
                   <Text style={[styles.endText, { color: colors.textSecondary }]}>
-                    you've seen all {filteredMentors.length} wizzmos
+                    you've seen all {filteredMentors.length} advisors
                   </Text>
                 </View>
               );
@@ -1206,7 +1206,8 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '400',
+    fontFamily: 'Georgia',
   },
   actionsSection: {
     flexDirection: 'row',
@@ -1227,6 +1228,7 @@ const styles = StyleSheet.create({
   filterButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Avenir Next',
   },
   filterBadge: {
     backgroundColor: '#FF4DB8',

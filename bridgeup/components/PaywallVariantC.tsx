@@ -51,7 +51,7 @@ export default function PaywallVariantC({ visible, onClose }: PaywallVariantCPro
       const success = await purchasePackage(selectedPackage);
       if (success) {
         onClose();
-        Alert.alert('Welcome to Wizzmo Pro! ✨', 'You now have unlimited access to dating advice!');
+        Alert.alert('Welcome to BridgeUp Pro! 🎓', 'You now have unlimited access to college advice!');
       }
     } catch (error) {
       console.error('[PaywallVariantC] Purchase error:', error);
@@ -66,7 +66,7 @@ export default function PaywallVariantC({ visible, onClose }: PaywallVariantCPro
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>upgrade to pro 💕</Text>
+          <Text style={styles.headerTitle}>upgrade to pro 🎓</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={20} color="#666666" />
           </TouchableOpacity>
@@ -79,7 +79,7 @@ export default function PaywallVariantC({ visible, onClose }: PaywallVariantCPro
             <View style={styles.benefitsSection}>
               <View style={styles.benefit}>
                 <Text style={styles.benefitIcon}>💬</Text>
-                <Text style={styles.benefitText}>unlimited questions (vs 3 total free)</Text>
+                <Text style={styles.benefitText}>unlimited college questions (vs 3 total free)</Text>
               </View>
               <View style={styles.benefit}>
                 <Text style={styles.benefitIcon}>💕</Text>
@@ -87,7 +87,7 @@ export default function PaywallVariantC({ visible, onClose }: PaywallVariantCPro
               </View>
               <View style={styles.benefit}>
                 <Text style={styles.benefitIcon}>⚡</Text>
-                <Text style={styles.benefitText}>priority responses from wizzmos</Text>
+                <Text style={styles.benefitText}>priority responses from advisors</Text>
               </View>
               <View style={styles.benefit}>
                 <Text style={styles.benefitIcon}>✨</Text>

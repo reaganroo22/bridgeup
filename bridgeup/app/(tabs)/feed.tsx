@@ -467,7 +467,7 @@ export default function FeedScreen() {
                 no questions yet
               </Text>
               <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
-                Be the first to ask a question!
+                Be the first to ask for college advice!
               </Text>
             </View>
           ) : (
@@ -719,12 +719,15 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 18,
     fontWeight: '600',
+    fontFamily: 'Georgia',
     marginTop: 16,
     marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 14,
+    fontFamily: 'Georgia',
     textAlign: 'center',
+    lineHeight: 20,
   },
   questionCard: {
     padding: 16,
@@ -759,14 +762,17 @@ const styles = StyleSheet.create({
   questionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    letterSpacing: -0.2,
-    lineHeight: 22,
+    fontFamily: 'Georgia',
+    letterSpacing: 0.1,
+    lineHeight: 24,
     marginBottom: 8,
   },
   questionContent: {
     fontSize: 14,
     fontWeight: '400',
-    lineHeight: 20,
+    fontFamily: 'Georgia',
+    lineHeight: 21,
+    letterSpacing: 0.05,
     marginBottom: 8,
   },
   expandHint: {

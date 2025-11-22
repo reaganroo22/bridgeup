@@ -19,7 +19,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Text, View } from '@/components/Themed';
 import Colors from '@/constants/Colors';
-import { Typography, FontFamily } from '@/constants/Fonts';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
@@ -188,6 +187,14 @@ export default function AskScreen() {
     return sortedCategories;
   };
 
+  // Default categories matching real Wizzmo topics
+  const defaultCategories = [
+    'Dating', 'Drama Talk', 'Matchmaking', 'Classes', 'Roommates', 'Style', 'Wellness',
+    'Friend Drama', 'Situationships', 'Hookup Culture', 'Study Tips', 'Social Life',
+    'First Dates', 'Breakups', 'Body Image', 'Mental Health', 'Self Care',
+    'Greek Life', 'Making Friends', 'Dining Hall', 'Confidence', 'Fashion'
+  ];
+
   // Fetch categories from database
   useEffect(() => {
     const fetchCategories = async () => {
@@ -195,21 +202,37 @@ export default function AskScreen() {
         setLoadingCategories(true);
         const { data, error } = await supabaseService.getCategories();
         
-        if (data && !error) {
-          console.log('[AskScreen] Successfully fetched categories:', data.length);
-          console.log('[AskScreen] Category IDs:', data.map(cat => ({ id: cat.id, name: cat.name })));
-          setCategories(data.map(cat => ({
-            id: cat.id,
-            slug: cat.slug,
-            name: cat.name,
-            icon: cat.icon,
-            description: cat.description
+        if (data && !error && data.length > 0) {
+          console.log('[AskScreen] Database returned old categories, using Wizzmo categories instead');
+          // Force use of Wizzmo categories instead of old database categories
+          setCategories(defaultCategories.map((name, index) => ({
+            id: `wizzmo-${index}`,
+            slug: name.toLowerCase().replace(/\s+/g, '-').replace(/&/g, 'and'),
+            name: name,
+            icon: null,
+            description: null
           })));
-        } else if (error) {
-          console.error('[AskScreen] Error fetching categories:', error);
+        } else {
+          console.log('[AskScreen] Using fallback categories');
+          // Use fallback categories if database fails or is empty
+          setCategories(defaultCategories.map((name, index) => ({
+            id: `fallback-${index}`,
+            slug: name.toLowerCase().replace(/\s+/g, '-').replace(/&/g, 'and'),
+            name: name,
+            icon: null,
+            description: null
+          })));
         }
       } catch (error) {
-        console.error('[AskScreen] Error fetching categories:', error);
+        console.error('[AskScreen] Error fetching categories, using fallback:', error);
+        // Use fallback categories on error
+        setCategories(defaultCategories.map((name, index) => ({
+          id: `fallback-${index}`,
+          slug: name.toLowerCase().replace(/\s+/g, '-').replace(/&/g, 'and'),
+          name: name,
+          icon: null,
+          description: null
+        })));
       } finally {
         setLoadingCategories(false);
       }
@@ -681,7 +704,7 @@ export default function AskScreen() {
           {/* Category Selection */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              what type of advice?
+              what type of advice? 💭
             </Text>
 
             {loadingCategories ? (
@@ -720,7 +743,28 @@ export default function AskScreen() {
                 >
                   <View style={[styles.categoryContent, { backgroundColor: 'transparent' }]}>
                     <Text style={[styles.categoryEmoji, { fontSize: 20 }]}>
-                      {category.icon || '💬'}
+                      {category.name === 'Dating' ? '💕' : 
+                       category.name === 'Drama Talk' ? '🍵' :
+                       category.name === 'Matchmaking' ? '💘' :
+                       category.name === 'Classes' ? '📚' :
+                       category.name === 'Roommates' ? '🏠' :
+                       category.name === 'Style' ? '✨' :
+                       category.name === 'Wellness' ? '🌱' :
+                       category.name === 'Friend Drama' ? '😤' :
+                       category.name === 'Situationships' ? '💭' :
+                       category.name === 'Hookup Culture' ? '🔥' :
+                       category.name === 'Study Tips' ? '📖' :
+                       category.name === 'Social Life' ? '🎉' :
+                       category.name === 'First Dates' ? '💫' :
+                       category.name === 'Breakups' ? '💔' :
+                       category.name === 'Body Image' ? '💪' :
+                       category.name === 'Mental Health' ? '🧠' :
+                       category.name === 'Self Care' ? '🌸' :
+                       category.name === 'Greek Life' ? '🏛️' :
+                       category.name === 'Making Friends' ? '👯‍♀️' :
+                       category.name === 'Dining Hall' ? '🍽️' :
+                       category.name === 'Confidence' ? '👑' :
+                       category.name === 'Fashion' ? '👗' : '💬'}
                     </Text>
                     <Text
                       style={[
@@ -1019,7 +1063,7 @@ export default function AskScreen() {
                 style={styles.submitButtonGradient}
               >
                 <Text style={[styles.submitButtonText, { color: '#FFFFFF' }]}>
-                  {isSubmitting ? 'connecting you with your advisor...' : 'get my advice ✨'}
+                  {isSubmitting ? 'connecting you with your wizzmo...' : 'get my advice ✨'}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -1070,7 +1114,6 @@ const styles = StyleSheet.create({
   upgradeBannerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    fontFamily: FontFamily.heading,
     color: '#FFFFFF',
     letterSpacing: -0.3,
     marginBottom: 4,
@@ -1078,7 +1121,6 @@ const styles = StyleSheet.create({
   upgradeBannerSubtitle: {
     fontSize: 14,
     fontWeight: '500',
-    fontFamily: FontFamily.primary,
     color: '#FFFFFF',
     opacity: 0.9,
     letterSpacing: -0.1,
@@ -1088,15 +1130,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    fontFamily: FontFamily.heading,
+    fontWeight: '700',
     letterSpacing: -0.3,
     marginBottom: 12,
   },
   sectionSubtitle: {
     fontSize: 13,
     fontWeight: '400',
-    fontFamily: FontFamily.primary,
     letterSpacing: -0.1,
     marginBottom: 12,
     lineHeight: 18,
@@ -1112,7 +1152,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlignVertical: 'top',
     fontWeight: '400',
-    fontFamily: FontFamily.primary,
     paddingVertical: 12,
     minHeight: 56,
     maxHeight: 56,
@@ -1124,14 +1163,12 @@ const styles = StyleSheet.create({
     minHeight: 140,
     textAlignVertical: 'top',
     fontWeight: '400',
-    fontFamily: FontFamily.primary,
   },
   characterCount: {
     alignSelf: 'flex-end',
     marginTop: 12,
     fontSize: 12,
     fontWeight: '500',
-    fontFamily: FontFamily.primary,
   },
   categoriesContainer: {
     borderWidth: 1,
@@ -1161,7 +1198,6 @@ const styles = StyleSheet.create({
   categoryRowName: {
     fontSize: 16,
     fontWeight: '500',
-    fontFamily: FontFamily.primary,
     marginLeft: 12,
     letterSpacing: -0.2,
   },
@@ -1230,7 +1266,6 @@ const styles = StyleSheet.create({
   relevantBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    fontFamily: FontFamily.secondary,
     color: '#FFFFFF',
     letterSpacing: -0.1,
     textTransform: 'lowercase',
@@ -1252,7 +1287,6 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: FontFamily.secondary,
     letterSpacing: -0.2,
   },
   privacyCard: {
@@ -1269,8 +1303,7 @@ const styles = StyleSheet.create({
   },
   privacyTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    fontFamily: FontFamily.heading,
+    fontWeight: '700',
     letterSpacing: -0.2,
     marginBottom: 4,
   },
@@ -1278,13 +1311,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '400',
-    fontFamily: FontFamily.primary,
     letterSpacing: -0.1,
   },
   loadingText: {
     fontSize: 14,
     fontWeight: '500',
-    fontFamily: FontFamily.primary,
     textAlign: 'center',
     letterSpacing: -0.1,
     textTransform: 'lowercase',
@@ -1292,7 +1323,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     fontWeight: '500',
-    fontFamily: FontFamily.primary,
     textAlign: 'center',
     letterSpacing: -0.1,
     textTransform: 'lowercase',
@@ -1321,13 +1351,11 @@ const styles = StyleSheet.create({
   favoriteInitial: {
     fontSize: 24,
     fontWeight: '700',
-    fontFamily: FontFamily.secondary,
     color: '#FFFFFF',
   },
   favoriteName: {
     fontSize: 13,
     fontWeight: '600',
-    fontFamily: FontFamily.primary,
     letterSpacing: -0.2,
     textAlign: 'center',
   },
@@ -1347,7 +1375,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '400',
-    fontFamily: FontFamily.primary,
     letterSpacing: -0.1,
   },
   searchResults: {
@@ -1373,7 +1400,6 @@ const styles = StyleSheet.create({
   searchResultInitial: {
     fontSize: 16,
     fontWeight: '700',
-    fontFamily: FontFamily.secondary,
   },
   searchResultInfo: {
     flex: 1,
@@ -1381,14 +1407,12 @@ const styles = StyleSheet.create({
   searchResultName: {
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: FontFamily.primary,
     letterSpacing: -0.2,
     marginBottom: 2,
   },
   searchResultUsername: {
     fontSize: 13,
     fontWeight: '500',
-    fontFamily: FontFamily.primary,
     letterSpacing: -0.1,
     marginBottom: 4,
   },
@@ -1400,7 +1424,6 @@ const styles = StyleSheet.create({
   searchResultRatingText: {
     fontSize: 12,
     fontWeight: '500',
-    fontFamily: FontFamily.primary,
     letterSpacing: -0.1,
   },
 
@@ -1418,15 +1441,13 @@ const styles = StyleSheet.create({
   },
   mentorToggleTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    fontFamily: FontFamily.heading,
+    fontWeight: '700',
     letterSpacing: -0.2,
     marginBottom: 4,
   },
   mentorToggleSubtitle: {
     fontSize: 14,
     fontWeight: '400',
-    fontFamily: FontFamily.primary,
     letterSpacing: -0.1,
   },
   mentorSearchContent: {
@@ -1439,8 +1460,7 @@ const styles = StyleSheet.create({
   },
   favoritesTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    fontFamily: FontFamily.heading,
+    fontWeight: '700',
     letterSpacing: -0.2,
     marginBottom: 12,
   },
@@ -1474,12 +1494,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     fontWeight: '400',
-    fontFamily: FontFamily.primary,
   },
   cursor: {
     fontSize: 16,
     fontWeight: '400',
-    fontFamily: FontFamily.primary,
     opacity: 1,
   },
 
@@ -1493,13 +1511,11 @@ const styles = StyleSheet.create({
   preSelectedTitle: {
     fontSize: 16,
     fontWeight: '700',
-    fontFamily: FontFamily.heading,
     marginBottom: 4,
   },
   preSelectedSubtitle: {
     fontSize: 14,
     fontWeight: '400',
-    fontFamily: FontFamily.primary,
     marginBottom: 12,
   },
   preSelectedScroll: {
@@ -1524,12 +1540,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-    fontFamily: FontFamily.secondary,
   },
   preSelectedName: {
     fontSize: 12,
     fontWeight: '500',
-    fontFamily: FontFamily.primary,
     textAlign: 'center',
   },
   clearSelectedButton: {
@@ -1541,6 +1555,5 @@ const styles = StyleSheet.create({
   clearSelectedText: {
     fontSize: 14,
     fontWeight: '500',
-    fontFamily: FontFamily.secondary,
   },
 });

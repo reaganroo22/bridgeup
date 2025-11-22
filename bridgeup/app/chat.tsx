@@ -2598,13 +2598,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    fontWeight: '600',
+    fontFamily: 'Georgia',
+    letterSpacing: 0.1,
   },
   headerSubtitle: {
     fontSize: 14,
     fontWeight: '400',
-    letterSpacing: -0.1,
+    fontFamily: 'Avenir Next',
+    letterSpacing: 0.1,
   },
   messagesList: {
     flex: 1,
@@ -2677,8 +2679,10 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 24,
     fontWeight: '400',
+    fontFamily: 'Georgia',
+    letterSpacing: 0.1,
   },
   timestamp: {
     fontSize: 12,

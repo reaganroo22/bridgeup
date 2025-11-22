@@ -15,7 +15,6 @@ import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { Text, View } from '@/components/Themed';
 import Colors from '@/constants/Colors';
-import { Typography, FontFamily } from '@/constants/Fonts';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useSubscription, SubscriptionPlan } from '@/contexts/SubscriptionContext';
 import { PurchasesPackage } from 'react-native-purchases';
@@ -248,7 +247,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
   const openTermsAndConditions = async () => {
     try {
-      await WebBrowser.openBrowserAsync('https://bridgeup.app/terms-of-service');
+      await WebBrowser.openBrowserAsync('https://wizzmo.app/terms-of-service');
     } catch (error) {
       console.error('Error opening terms and conditions:', error);
     }

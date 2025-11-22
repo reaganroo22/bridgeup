@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
-import { Typography, FontFamily } from '@/constants/Fonts';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -539,7 +538,6 @@ const styles = StyleSheet.create({
   greetingText: {
     fontSize: 24,
     fontWeight: '700',
-    fontFamily: 'Palatino',
     letterSpacing: -0.5,
     marginBottom: 4,
     textTransform: 'lowercase',
@@ -553,7 +551,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    fontFamily: 'Palatino',
     letterSpacing: -0.3,
     marginBottom: 16,
   },
@@ -673,7 +670,6 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: 11,
     fontWeight: '700',
-    fontFamily: 'Avenir Next',
     textTransform: 'lowercase',
   },
   timeStamp: {
@@ -683,7 +679,6 @@ const styles = StyleSheet.create({
   enhancedQuestionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    fontFamily: 'Times New Roman',
     letterSpacing: -0.3,
     lineHeight: 24,
     marginBottom: 12,
@@ -718,7 +713,6 @@ const styles = StyleSheet.create({
   enhancedQuestionContent: {
     fontSize: 15,
     fontWeight: '400',
-    fontFamily: 'Times New Roman',
     letterSpacing: -0.1,
     lineHeight: 22,
   },
@@ -737,7 +731,6 @@ const styles = StyleSheet.create({
   enhancedDeclineText: {
     fontSize: 14,
     fontWeight: '600',
-    fontFamily: 'Avenir Next',
   },
   enhancedAcceptButton: {
     flex: 2,
@@ -749,7 +742,6 @@ const styles = StyleSheet.create({
   enhancedAcceptText: {
     fontSize: 14,
     fontWeight: '700',
-    fontFamily: 'Avenir Next',
     color: 'white',
   },
 
@@ -762,7 +754,6 @@ const styles = StyleSheet.create({
   tipTitle: {
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'Palatino',
     letterSpacing: -0.2,
     marginBottom: 8,
   },

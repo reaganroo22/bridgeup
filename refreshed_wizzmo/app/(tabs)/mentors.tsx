@@ -1,6 +1,6 @@
 /**
  * Brutalist College Advisor Discovery
- * Clean, focused, no-bullshit advisor finding
+ * Clean, focused, no-bullshit wizzmo finding
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -21,7 +21,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
-import { Typography, FontFamily } from '@/constants/Fonts';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import CustomHeader from '@/components/CustomHeader';
@@ -462,7 +461,7 @@ export default function MentorsScreen() {
 
   const handleMentorPress = (mentor: AdvisorProfile) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push(`/bridgeup-profile?userId=${mentor.user_id}`);
+    router.push(`/wizzmo-profile?userId=${mentor.user_id}`);
   };
 
   const clearAllFilters = () => {
@@ -628,7 +627,7 @@ export default function MentorsScreen() {
   return (
     <>
       <CustomHeader 
-        title="find an advisor"
+        title="find a wizzmo"
         showBackButton={false}
         showChatButton={false}
         showProfileButton={true}
@@ -714,7 +713,7 @@ export default function MentorsScreen() {
         {/* Results Header */}
         <View style={styles.resultsHeader}>
           <Text style={[styles.resultsText, { color: colors.textSecondary }]}>
-            {filteredMentors.length} advisor{filteredMentors.length === 1 ? '' : 's'} found
+            {filteredMentors.length} wizzmo{filteredMentors.length === 1 ? '' : 's'} found
           </Text>
           <TouchableOpacity 
             style={styles.sortButton}
@@ -743,7 +742,7 @@ export default function MentorsScreen() {
                 <View style={styles.loadingFooter}>
                   <ActivityIndicator size="small" color={colors.primary} />
                   <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                    loading more advisors...
+                    loading more wizzmos...
                   </Text>
                 </View>
               );
@@ -752,7 +751,7 @@ export default function MentorsScreen() {
               return (
                 <View style={styles.endFooter}>
                   <Text style={[styles.endText, { color: colors.textSecondary }]}>
-                    you've seen all {filteredMentors.length} advisors
+                    you've seen all {filteredMentors.length} wizzmos
                   </Text>
                 </View>
               );
@@ -845,12 +844,10 @@ export default function MentorsScreen() {
               <Text style={[styles.sectionTitle, { color: colors.text }]}>topics</Text>
               <View style={styles.topicGrid}>
                 {[
-                  'Dating & Relationships', 'Breakups & Moving On', 'Roommate Issues', 
-                  'Friend Drama', 'Confidence & Self-Esteem', 'Stress & Mental Health',
-                  'Social Anxiety', 'Long Distance', 'Toxic Relationships', 'First Dates',
-                  'Communication Skills', 'Body Image', 'Academic Help', 'Career Advice',
-                  'Family Issues', 'Money & Budgeting', 'Greek Life', 'Transfer Life',
-                  'Future Planning', 'Work-Life Balance', 'Independence', 'Making Friends'
+                  'Dating', 'Drama Talk', 'Matchmaking', 'Classes', 'Roommates', 'Style', 'Wellness',
+                  'Friend Drama', 'Situationships', 'Hookup Culture', 'Study Tips', 'Social Life',
+                  'First Dates', 'Breakups', 'Body Image', 'Mental Health', 'Self Care',
+                  'Greek Life', 'Making Friends', 'Dining Hall', 'Confidence', 'Fashion'
                 ].map((topic) => (
                 <TouchableOpacity 
                   key={topic}
@@ -1153,7 +1150,7 @@ export default function MentorsScreen() {
             </Text>
             
             <Text style={[styles.proDescription, { color: colors.textSecondary }]}>
-              Get access to advanced filtering by advisor ratings and experience levels to find the perfect advisor for your needs.
+              Get access to advanced filtering by wizzmo ratings and experience levels to find the perfect wizzmo for your needs.
             </Text>
 
             <View style={styles.proFeatures}>
@@ -1205,7 +1202,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   searchInput: {
-    ...Typography.body,
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
@@ -1227,7 +1223,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   filterButtonText: {
-    ...Typography.buttonSmall,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1291,7 +1286,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   resultsText: {
-    ...Typography.caption,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -1343,13 +1337,11 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: '700',
-    fontFamily: FontFamily.primary,
     marginBottom: 2,
   },
   school: {
     fontSize: 12,
     fontWeight: '600',
-    fontFamily: FontFamily.secondary,
     marginBottom: 1,
   },
   major: {

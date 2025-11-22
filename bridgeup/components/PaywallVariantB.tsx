@@ -51,7 +51,7 @@ export default function PaywallVariantB({ visible, onClose }: PaywallVariantBPro
       const success = await purchasePackage(selectedPackage);
       if (success) {
         onClose();
-        Alert.alert('Welcome to Wizzmo Pro! 💕', 'You now have unlimited access to dating advice!');
+        Alert.alert('Welcome to BridgeUp Pro! 🎓', 'You now have unlimited access to college advice!');
       }
     } catch (error) {
       console.error('[PaywallVariantB] Purchase error:', error);
@@ -79,9 +79,9 @@ export default function PaywallVariantB({ visible, onClose }: PaywallVariantBPro
           <View style={styles.content}>
             {/* Title */}
             <View style={styles.titleSection}>
-              <Text style={styles.title}>upgrade your dating game 💫</Text>
+              <Text style={styles.title}>upgrade your college journey 🎓</Text>
               <Text style={styles.subtitle}>
-                get unlimited advice from college wizzmos who know what works
+                get unlimited advice from college advisors who know what works
               </Text>
             </View>
 
@@ -89,7 +89,7 @@ export default function PaywallVariantB({ visible, onClose }: PaywallVariantBPro
             <View style={styles.benefitsSection}>
               <View style={styles.benefit}>
                 <Text style={styles.benefitIcon}>💬</Text>
-                <Text style={styles.benefitText}>unlimited questions (vs 3 total free)</Text>
+                <Text style={styles.benefitText}>unlimited college questions (vs 3 total free)</Text>
               </View>
               <View style={styles.benefit}>
                 <Text style={styles.benefitIcon}>💕</Text>
@@ -150,7 +150,7 @@ export default function PaywallVariantB({ visible, onClose }: PaywallVariantBPro
                   {isPurchasing ? (
                     <ActivityIndicator color="#8B5CF6" size="small" />
                   ) : (
-                    <Text style={styles.ctaText}>get unlimited access</Text>
+                    <Text style={styles.ctaText}>get unlimited college guidance</Text>
                   )}
                 </View>
               </TouchableOpacity>

@@ -90,7 +90,7 @@ export function UserProfileProvider({ children }: { children: React.ReactNode })
     if (isHighSchool) {
       return `${timeGreeting} ${firstName}! how's high school treating you? 🎒`;
     } else if (isUniversity) {
-      return `${timeGreeting} ${firstName}! college life hitting different? 📚`;
+      return `${timeGreeting} ${firstName}! ready for some wizzmo advice? ✨`;
     } else if (isGraduate) {
       return `${timeGreeting} ${firstName}! grad school is tough but you got this 🎓`;
     } else {

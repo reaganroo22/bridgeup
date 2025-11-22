@@ -187,6 +187,14 @@ export default function AskScreen() {
     return sortedCategories;
   };
 
+  // Default college admissions categories for BridgeUp
+  const defaultBridgeUpCategories = [
+    'College Applications', 'Essays', 'SAT/ACT Prep', 'Financial Aid', 'Scholarships', 'College Selection',
+    'Admissions Interviews', 'Letters of Recommendation', 'Extracurriculars', 'AP Classes', 'Standardized Tests',
+    'Early Decision/Action', 'College Visits', 'Personal Statement', 'Academic Planning', 'Major Selection',
+    'Campus Life', 'Dorm Applications', 'Transfer Applications', 'Gap Year', 'College Prep', 'Application Strategy'
+  ];
+
   // Fetch categories from database
   useEffect(() => {
     const fetchCategories = async () => {
@@ -194,9 +202,8 @@ export default function AskScreen() {
         setLoadingCategories(true);
         const { data, error } = await supabaseService.getCategories();
         
-        if (data && !error) {
+        if (data && !error && data.length > 0) {
           console.log('[AskScreen] Successfully fetched categories:', data.length);
-          console.log('[AskScreen] Category IDs:', data.map(cat => ({ id: cat.id, name: cat.name })));
           setCategories(data.map(cat => ({
             id: cat.id,
             slug: cat.slug,
@@ -204,8 +211,16 @@ export default function AskScreen() {
             icon: cat.icon,
             description: cat.description
           })));
-        } else if (error) {
-          console.error('[AskScreen] Error fetching categories:', error);
+        } else {
+          console.log('[AskScreen] Using default BridgeUp categories');
+          // Use default college admissions categories
+          setCategories(defaultBridgeUpCategories.map((name, index) => ({
+            id: `bridgeup-${index}`,
+            slug: name.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-'),
+            name: name,
+            icon: null,
+            description: null
+          })));
         }
       } catch (error) {
         console.error('[AskScreen] Error fetching categories:', error);
@@ -217,7 +232,7 @@ export default function AskScreen() {
     fetchCategories();
   }, []);
 
-  // Fetch favorite wizzmos
+  // Fetch favorite advisors
   useEffect(() => {
     if (!user) return;
 
@@ -236,8 +251,8 @@ export default function AskScreen() {
 
       if (data) {
         // Log mentor_id values to debug UUID issues
-        console.log('[AskScreen] Favorite wizzmos mentor IDs:', data.map(f => ({id: f.id, mentor_id: f.mentor_id})));
-        console.log('[AskScreen] Loaded', data.length, 'favorite wizzmos');
+        console.log('[AskScreen] Favorite advisors mentor IDs:', data.map(f => ({id: f.id, mentor_id: f.mentor_id})));
+        console.log('[AskScreen] Loaded', data.length, 'favorite advisors');
         setFavoriteWizzmos(data);
       } else if (error) {
         console.error('[AskScreen] Error loading favorites:', error);
@@ -719,7 +734,29 @@ export default function AskScreen() {
                 >
                   <View style={[styles.categoryContent, { backgroundColor: 'transparent' }]}>
                     <Text style={[styles.categoryEmoji, { fontSize: 20 }]}>
-                      {category.icon || '💬'}
+                      {category.name === 'College Applications' ? '🎓' :
+                       category.name === 'Essays' ? '📝' :
+                       category.name === 'SAT/ACT Prep' ? '📚' :
+                       category.name === 'Financial Aid' ? '💰' :
+                       category.name === 'Scholarships' ? '🏆' :
+                       category.name === 'College Selection' ? '🎯' :
+                       category.name === 'Admissions Interviews' ? '💬' :
+                       category.name === 'Letters of Recommendation' ? '📋' :
+                       category.name === 'Extracurriculars' ? '⚡' :
+                       category.name === 'AP Classes' ? '📖' :
+                       category.name === 'Standardized Tests' ? '✏️' :
+                       category.name === 'Early Decision/Action' ? '⏰' :
+                       category.name === 'College Visits' ? '🚗' :
+                       category.name === 'Personal Statement' ? '✍️' :
+                       category.name === 'Academic Planning' ? '📅' :
+                       category.name === 'Major Selection' ? '🔬' :
+                       category.name === 'Campus Life' ? '🏫' :
+                       category.name === 'Dorm Applications' ? '🏠' :
+                       category.name === 'Transfer Applications' ? '🔄' :
+                       category.name === 'Gap Year' ? '🌍' :
+                       category.name === 'College Prep' ? '📊' :
+                       category.name === 'Application Strategy' ? '🗂️' :
+                       category.icon || '💬'}
                     </Text>
                     <Text
                       style={[
@@ -763,12 +800,12 @@ export default function AskScreen() {
             </View>
           </View>
 
-          {/* Choose Specific Wizzmo Section */}
+          {/* Choose Specific Advisor Section */}
           <View style={styles.section}>
             <View style={[styles.mentorSearchToggle, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
               <View style={styles.mentorToggleContent}>
                 <Text style={[styles.mentorToggleTitle, { color: colors.text }]}>
-                  specific mentor?
+                  specific advisor?
                 </Text>
                 <Text style={[styles.mentorToggleSubtitle, { color: colors.textSecondary }]}>
                   search or select from favorites
@@ -1086,13 +1123,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    letterSpacing: -0.3,
+    fontFamily: 'Georgia',
+    letterSpacing: 0.1,
     marginBottom: 12,
   },
   sectionSubtitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '400',
-    letterSpacing: -0.1,
+    fontFamily: 'Avenir Next',
+    letterSpacing: 0.05,
     marginBottom: 12,
     lineHeight: 18,
   },
@@ -1118,6 +1157,8 @@ const styles = StyleSheet.create({
     minHeight: 140,
     textAlignVertical: 'top',
     fontWeight: '400',
+    fontFamily: 'Georgia',
+    letterSpacing: 0.1,
   },
   characterCount: {
     alignSelf: 'flex-end',

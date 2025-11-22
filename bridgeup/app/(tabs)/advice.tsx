@@ -702,7 +702,8 @@ const styles = StyleSheet.create({
   mentorName: {
     fontSize: 16,
     fontWeight: '600',
-    letterSpacing: -0.2,
+    fontFamily: 'Georgia',
+    letterSpacing: 0.1,
     flex: 1,
   },
   categoryPill: {
@@ -718,9 +719,11 @@ const styles = StyleSheet.create({
     textTransform: 'lowercase',
   },
   questionPreview: {
-    fontSize: 13,
-    fontWeight: '500',
-    letterSpacing: -0.1,
+    fontSize: 14,
+    fontWeight: '400',
+    fontFamily: 'Georgia',
+    letterSpacing: 0.05,
+    lineHeight: 20,
     marginBottom: 2,
   },
   lastMessageRow: {

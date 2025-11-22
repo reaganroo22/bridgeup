@@ -183,11 +183,12 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   brandTitle: {
-    fontSize: 32,
-    fontWeight: '900',
+    fontSize: 28,
+    fontWeight: '500',
+    fontFamily: 'Georgia',
     color: '#FFFFFF',
-    letterSpacing: -1,
-    textTransform: 'lowercase',
+    letterSpacing: 0.8,
+    textTransform: 'capitalize',
   },
   actionButton: {
     padding: 8,

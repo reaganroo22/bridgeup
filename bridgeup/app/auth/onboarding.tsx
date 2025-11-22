@@ -657,7 +657,7 @@ export default function Onboarding() {
       case 3: return { title: 'about you', subtitle: 'help us personalize your experience' };
       case 4: return { title: 'details', subtitle: 'just a few more things' };
       case 5: return { title: 'complete', subtitle: 'profile setup finished!' };
-      case 6: return { title: 'enhance', subtitle: 'unlock your full wizzmo experience' };
+      case 6: return { title: 'enhance', subtitle: 'unlock your full bridgeup experience' };
       case 7: return { title: 'rate us', subtitle: 'help us grow' };
       case 8: return { title: 'share', subtitle: 'spread the love' };
       case 9: return { title: 'ready', subtitle: 'let\'s begin your journey' };

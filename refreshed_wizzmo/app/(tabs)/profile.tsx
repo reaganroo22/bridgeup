@@ -54,7 +54,7 @@ interface FavoriteMentor {
 }
 
 interface SubscriptionPlan {
-  type: 'free_trial' | 'bridgeup_monthly' | 'bridgeup_annual';
+  type: 'free_trial' | 'wizzmo_monthly' | 'wizzmo_annual';
   questionsRemaining: number;
   nextBillingDate?: Date;
 }
@@ -132,11 +132,11 @@ export default function ProfileScreen() {
 
     const fetchFavorites = async () => {
       const { data, error } = await supabase
-        .from('favorite_wizzmos')
+        .from('favorite_mentors')
         .select(`
           id,
           mentor_id,
-          mentors:users!favorite_wizzmos_mentor_id_fkey (
+          mentors:users!favorite_mentors_mentor_id_fkey (
             full_name,
             avatar_url
           )
@@ -144,7 +144,7 @@ export default function ProfileScreen() {
         .eq('student_id', authUser.id);
 
       if (data) {
-        setFavoriteWizzmos(data);
+        setFavoriteMentors(data);
       }
     };
 
@@ -189,7 +189,7 @@ export default function ProfileScreen() {
   const stats = {
     questionsAsked: recentSessions.length,
     activeChats: recentSessions.filter(s => s.status === 'active').length,
-    favoriteWizzmos: favoriteWizzmos.length,
+    favoriteWizzmos: favoriteMentors.length,
   };
 
   // Loading state
@@ -848,10 +848,10 @@ export default function ProfileScreen() {
 
               <View style={[styles.statCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
                 <Text style={[styles.statValue, { color: colors.primary }]}>
-                  {stats.favoriteAdvisors}
+                  {stats.favoriteMentors}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  favorite advisors
+                  favorite wizzmos
                 </Text>
               </View>
             </View>
@@ -1011,17 +1011,17 @@ export default function ProfileScreen() {
           </View>
 
           {/* Favorite Advisors Section */}
-          {favoriteAdvisors.length > 0 && (
+          {favoriteMentors.length > 0 && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                favorite advisors
+                favorite wizzmos
               </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.favoritesScrollContent}
               >
-                {favoriteAdvisors.map((favorite) => (
+                {favoriteMentors.map((favorite) => (
                   <TouchableOpacity
                     key={favorite.id}
                     style={[styles.favoriteCard, { backgroundColor: colors.surface, borderColor: colors.border }]}

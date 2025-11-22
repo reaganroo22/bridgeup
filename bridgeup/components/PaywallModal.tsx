@@ -84,7 +84,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
           period: 'forever',
           features: [
             { text: '3 questions total', included: true },
-            { text: 'access to wizzmos', included: true },
+            { text: 'access to advisors', included: true },
             { text: 'unlimited questions', included: false },
             { text: 'priority matching', included: false },
             { text: 'ad-free experience', included: false },
@@ -141,11 +141,11 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
     // Find the main offering - try multiple patterns to be flexible
     const mainOffering = offerings.find(o => 
-      o.identifier === 'wizzmo default' ||
+      o.identifier === 'bridgeup default' ||
       o.identifier === 'default' || 
       o.identifier.toLowerCase().includes('default') ||
       o.identifier.toLowerCase().includes('main') ||
-      o.identifier.toLowerCase().includes('wizzmo') ||
+      o.identifier.toLowerCase().includes('bridgeup') ||
       offerings.length === 1
     ) || offerings[0];
 
@@ -247,7 +247,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
   const openTermsAndConditions = async () => {
     try {
-      await WebBrowser.openBrowserAsync('https://wizzmo.app/terms-of-service');
+      await WebBrowser.openBrowserAsync('https://bridgeup.app/terms-of-service');
     } catch (error) {
       console.error('Error opening terms and conditions:', error);
     }

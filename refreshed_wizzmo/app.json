@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "Bridge Up",
-    "slug": "bridgeup-college-advice",
+    "name": "Wizzmo",
+    "slug": "wizzmo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "wizzmo",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#FF4DB8"
@@ -15,31 +15,7 @@
     "backgroundColor": "#FF4DB8",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bridgeup.app",
-      "usesAppleSignIn": true,
-      "entitlements": {
-        "com.apple.developer.in-app-payments": [
-          "merchant.com.bridgeup.app"
-        ],
-        "aps-environment": "production"
-      },
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": [
-          "remote-notification"
-        ],
-        "NSUserNotificationAlertStyle": "alert",
-        "UIFileSharingEnabled": false,
-        "CFBundleURLTypes": [
-          {
-            "CFBundleURLName": "google-oauth",
-            "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.682302619545-mski67oikngevikcke5t4m5j2vaus5vm"
-            ]
-          }
-        ]
-      },
-      "googleServicesFile": "./Client ID for iOS BridgeUp.plist"
+      "bundleIdentifier": "com.wizzmo.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -48,7 +24,7 @@
       },
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
-      "package": "com.bridgeup.app",
+      "package": "com.wizzmo.app",
       "permissions": [
         "INTERNET",
         "VIBRATE",

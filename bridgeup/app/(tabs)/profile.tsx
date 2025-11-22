@@ -126,7 +126,7 @@ export default function ProfileScreen() {
     setNotificationsEnabled(permissionStatus === 'granted');
   }, [permissionStatus]);
 
-  // Fetch favorite wizzmos from database
+  // Fetch favorite advisors from database
   useEffect(() => {
     if (!authUser) return;
 
@@ -623,7 +623,7 @@ export default function ProfileScreen() {
       
       Alert.alert(
         'account deleted',
-        'your account and all data have been permanently deleted. thank you for using wizzmo.'
+        'your account and all data have been permanently deleted. thank you for using bridgeup.'
       );
     } catch (error) {
       console.error('Account deletion error:', error);
@@ -851,7 +851,7 @@ export default function ProfileScreen() {
                   {stats.favoriteWizzmos}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  favorite wizzmos
+                  favorite advisors
                 </Text>
               </View>
             </View>
@@ -881,8 +881,8 @@ export default function ProfileScreen() {
                   </View>
                   <Text style={[styles.subscriptionType, { color: colors.text }]}>
                     {subscription.type === 'free_trial' ? 'free trial' : 
-                     subscription.type === 'pro_monthly' ? 'wizzmo pro monthly' : 
-                     subscription.type === 'pro_yearly' ? 'wizzmo pro yearly' : 'wizzmo pro'}
+                     subscription.type === 'pro_monthly' ? 'bridgeup pro monthly' : 
+                     subscription.type === 'pro_yearly' ? 'bridgeup pro yearly' : 'bridgeup pro'}
                   </Text>
                   <Text style={[styles.subscriptionSubtext, { color: colors.textSecondary }]}>
                     {subscription.questionsRemaining === -1 ? 'unlimited questions • priority support' : 
@@ -1014,7 +1014,7 @@ export default function ProfileScreen() {
           {favoriteWizzmos.length > 0 && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                favorite wizzmos
+                favorite advisors
               </Text>
               <ScrollView
                 horizontal
@@ -1479,23 +1479,25 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: -0.5,
+    fontWeight: '600',
+    fontFamily: 'Georgia',
+    letterSpacing: 0.2,
     marginBottom: 4,
-    textTransform: 'lowercase',
+    textTransform: 'capitalize',
   },
   profileUsername: {
     fontSize: 16,
-    fontWeight: '500',
-    letterSpacing: -0.2,
+    fontWeight: '400',
+    fontFamily: 'Avenir Next',
+    letterSpacing: 0.1,
     marginBottom: 4,
-    textTransform: 'lowercase',
   },
   profileUniversity: {
     fontSize: 14,
-    fontWeight: '400',
-    letterSpacing: -0.1,
-    textTransform: 'lowercase',
+    fontWeight: '500',
+    fontFamily: 'Georgia',
+    letterSpacing: 0.1,
+    fontStyle: 'italic',
   },
   bioContainer: {
     marginBottom: 16,

@@ -48,12 +48,12 @@ export default function TabLayout() {
               elevation: 8,
             },
             tabBarLabelStyle: {
-              fontSize: 12,
-              fontWeight: '700',
-              fontFamily: FontFamily.primary, // Times New Roman for college feel
+              fontSize: 11,
+              fontWeight: '600',
+              fontFamily: FontFamily.secondary,
               marginTop: 6,
-              letterSpacing: -0.2,
-              textTransform: 'lowercase',
+              letterSpacing: 1.0,
+              textTransform: 'uppercase',
             },
             tabBarIconStyle: {
               marginTop: 2,

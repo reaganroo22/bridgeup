@@ -60,7 +60,7 @@ export default function PaywallVariantA({ visible, onClose }: PaywallVariantAPro
       const success = await purchasePackage(selectedPackage);
       if (success) {
         onClose();
-        Alert.alert('Welcome to Wizzmo Pro! 💕', 'You now have unlimited access to dating advice from college girls!');
+        Alert.alert('Welcome to BridgeUp Pro! 🎓', 'You now have unlimited access to college admissions advice from expert advisors!');
       }
     } catch (error) {
       console.error('[PaywallVariantA] Purchase error:', error);
@@ -88,9 +88,9 @@ export default function PaywallVariantA({ visible, onClose }: PaywallVariantAPro
           <View style={styles.content}>
             {/* Title */}
             <View style={styles.titleSection}>
-              <Text style={styles.title}>unlock unlimited spill 💅</Text>
+              <Text style={styles.title}>unlock unlimited guidance 🎓</Text>
               <Text style={styles.subtitle}>
-                get dating advice from college girls who actually know what they're talking about
+                get college admissions advice from advisors who know what it takes to succeed
               </Text>
             </View>
 
@@ -98,15 +98,15 @@ export default function PaywallVariantA({ visible, onClose }: PaywallVariantAPro
             <View style={styles.featuresSection}>
               <View style={styles.feature}>
                 <Text style={styles.featureEmoji}>💬</Text>
-                <Text style={styles.featureText}>unlimited questions & advice</Text>
+                <Text style={styles.featureText}>unlimited college admissions advice</Text>
               </View>
               <View style={styles.feature}>
                 <Text style={styles.featureEmoji}>⚡</Text>
-                <Text style={styles.featureText}>priority responses from top wizzmos</Text>
+                <Text style={styles.featureText}>priority responses from top advisors</Text>
               </View>
               <View style={styles.feature}>
                 <Text style={styles.featureEmoji}>🔥</Text>
-                <Text style={styles.featureText}>exclusive dating masterclasses</Text>
+                <Text style={styles.featureText}>exclusive college prep masterclasses</Text>
               </View>
               {selectedPlan === 'pro_yearly' && (
                 <>
@@ -116,11 +116,11 @@ export default function PaywallVariantA({ visible, onClose }: PaywallVariantAPro
                   </View>
                   <View style={styles.feature}>
                     <Text style={styles.featureEmoji}>💎</Text>
-                    <Text style={styles.featureText}>exclusive premium wizzmo network</Text>
+                    <Text style={styles.featureText}>exclusive premium advisor network</Text>
                   </View>
                   <View style={styles.feature}>
                     <Text style={styles.featureEmoji}>🎁</Text>
-                    <Text style={styles.featureText}>monthly dating guides & templates</Text>
+                    <Text style={styles.featureText}>monthly college application guides & templates</Text>
                   </View>
                 </>
               )}
@@ -145,7 +145,7 @@ export default function PaywallVariantA({ visible, onClose }: PaywallVariantAPro
                   {offerings?.[0]?.availablePackages.find(pkg => pkg.identifier === '$rc_monthly')?.product.priceString || '$9.99'}
                 </Text>
                 <Text style={styles.planPer}>per month</Text>
-                <Text style={styles.planFeatures}>unlimited advice + priority support</Text>
+                <Text style={styles.planFeatures}>unlimited college advice + priority support</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -180,7 +180,7 @@ export default function PaywallVariantA({ visible, onClose }: PaywallVariantAPro
                   {isPurchasing ? (
                     <ActivityIndicator color={CURRENT_VERTICAL.primaryColor} size="small" />
                   ) : (
-                    <Text style={styles.ctaText}>start getting advice</Text>
+                    <Text style={styles.ctaText}>start your college journey</Text>
                   )}
                 </View>
               </TouchableOpacity>

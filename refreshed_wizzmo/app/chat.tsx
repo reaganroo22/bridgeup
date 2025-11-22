@@ -858,7 +858,7 @@ export default function ChatScreen() {
         console.log('[Chat] Adding mentor to favorites:', session.mentor_id);
         // Add to favorites
         const { error: favoriteError } = await supabase
-          .from('favorite_wizzmos')
+          .from('favorite_mentors')
           .insert({
             student_id: user.id,
             mentor_id: session.mentor_id,

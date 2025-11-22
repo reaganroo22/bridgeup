@@ -40,7 +40,7 @@ export default function MentorIntroCard({ visible, onClose, mentor }: MentorIntr
   const handleViewProfile = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onClose();
-    router.push(`/bridgeup-profile?id=${mentor.id}`);
+    router.push(`/wizzmo-profile?id=${mentor.id}`);
   };
 
   const handleClose = () => {

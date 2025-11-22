@@ -1,32 +1,32 @@
 import { Platform } from 'react-native';
 
 export const FontFamily = {
-  // Primary college/academic style font 
+  // Primary modern style font 
   primary: Platform.select({
-    ios: 'Times New Roman', // Classic academic serif
-    android: 'serif',
-    default: 'SpaceMono',
+    ios: 'SF Pro Text', // Modern system UI font
+    android: 'Roboto',
+    default: 'system',
   }),
   
   // Secondary font for modern elements
   secondary: Platform.select({
-    ios: 'Avenir Next', // Clean, professional sans-serif
+    ios: 'SF Pro Text', // Clean, professional sans-serif
     android: 'Roboto',
-    default: 'SpaceMono',
+    default: 'system',
   }),
   
-  // Headers - Distinguished collegiate style
+  // Headers - Modern sans-serif style
   heading: Platform.select({
-    ios: 'Palatino', // Elegant serif for headings
-    android: 'serif',
-    default: 'SpaceMono',
+    ios: 'SF Pro Text', // Modern system UI font
+    android: 'Roboto',
+    default: 'system',
   }),
   
   // UI elements - Clean and readable
   ui: Platform.select({
     ios: 'SF Pro Text', // Modern system UI font
     android: 'Roboto',
-    default: 'SpaceMono',
+    default: 'system',
   }),
   
   // Monospace for special cases

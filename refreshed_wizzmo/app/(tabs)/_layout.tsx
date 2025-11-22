@@ -4,7 +4,6 @@ import { Tabs } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
 import Colors from '@/constants/Colors';
-import { FontFamily } from '@/constants/Fonts';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AppProvider } from '../../contexts/AppContext';
 import { SubscriptionProvider } from '../../contexts/SubscriptionContext';
@@ -50,7 +49,6 @@ export default function TabLayout() {
             tabBarLabelStyle: {
               fontSize: 12,
               fontWeight: '700',
-              fontFamily: FontFamily.primary, // Times New Roman for college feel
               marginTop: 6,
               letterSpacing: -0.2,
               textTransform: 'lowercase',
@@ -75,11 +73,11 @@ export default function TabLayout() {
             }}
           />
           
-          {/* TAB 2: ADVISORS - Only visible for students */}
+          {/* TAB 2: WIZZMOS - Only visible for students */}
           <Tabs.Screen
             name="mentors"
             options={{
-              title: '✨ advisors',
+              title: '✨ wizzmos',
               href: currentMode === 'student' ? undefined : null, // Only visible for students
               tabBarIcon: ({ color, size, focused }) => (
                 <Ionicons name={focused ? 'people' : 'people-outline'} size={size} color={color} />
