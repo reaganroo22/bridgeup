@@ -251,7 +251,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isAnonymous: q.is_anonymous,
         timestamp: new Date(q.created_at),
         status: mapQuestionStatus(q.status),
-        assignedWizzmos: [], // Will be populated from sessions
+        assignedAdvisors: [], // Will be populated from sessions
         chatId: undefined, // Will be populated from sessions
       }));
 
