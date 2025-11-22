@@ -15,17 +15,20 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
+import { Camera } from 'expo-camera';
 // Reanimated imports removed for build compatibility
 import { Text, View } from '@/components/Themed';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRealTimeProfile } from '../../contexts/RealTimeProfileContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useUserMode } from '../../contexts/UserModeContext';
 import CustomHeader from '@/components/CustomHeader';
 import ModeToggle from '@/components/ModeToggle';
+import VideoUploadModal from '@/components/VideoUploadModal';
 import Avatar from '@/components/Avatar';
 import PaywallManager from '@/components/PaywallManager';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,7 +44,7 @@ interface Question {
   timestamp: Date;
 }
 
-interface FavoriteWizzmo {
+interface FavoriteMentor {
   id: string;
   mentor_id: string;
   mentors: {
@@ -51,7 +54,7 @@ interface FavoriteWizzmo {
 }
 
 interface SubscriptionPlan {
-  type: 'free_trial' | 'wizzmo_monthly' | 'wizzmo_annual';
+  type: 'free_trial' | 'bridgeup_monthly' | 'bridgeup_annual';
   questionsRemaining: number;
   nextBillingDate?: Date;
 }
@@ -60,6 +63,7 @@ export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'dark'];
   const {  user, loading } = useApp();
+  const { updateProfile: updateRealtimeProfile, getProfile: getRealtimeProfile } = useRealTimeProfile();
   const insets = useSafeAreaInsets();
   const { user: authUser, signOut, updatePassword } = useAuth();
   const { subscriptionStatus, getQuestionsRemaining, isProUser, refreshSubscription, resetRevenueCatUser, customerInfo } = useSubscription();
@@ -92,7 +96,9 @@ export default function ProfileScreen() {
   const [editedGradYear, setEditedGradYear] = useState('');
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [usernameChecking, setUsernameChecking] = useState(false);
-  const [favoriteWizzmos, setFavoriteWizzmos] = useState<FavoriteWizzmo[]>([]);
+  const [favoriteMentors, setFavoriteMentors] = useState<FavoriteMentor[]>([]);
+  const [showVideoUploadModal, setShowVideoUploadModal] = useState(false);
+  const [selectedVideoUri, setSelectedVideoUri] = useState<string | null>(null);
 
   // Fetch user profile from Supabase
   useEffect(() => {
@@ -316,6 +322,8 @@ export default function ProfileScreen() {
   };
 
   const handleAvatarPress = async () => {
+    if (!authUser) return;
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     console.log('🖼️ [Profile] Starting avatar upload process');
 
@@ -338,74 +346,112 @@ export default function ProfileScreen() {
     console.log('📸 [Profile] Image picker result:', { canceled: result.canceled, hasAssets: !!result.assets?.[0] });
     if (result.canceled || !result.assets[0]) return;
 
+    const photo = result.assets[0];
+    
+    // Optimistic update - show new image immediately
+    const currentProfile = getRealtimeProfile(authUser.id);
+    const oldAvatarUrl = currentProfile?.avatar_url;
+    updateRealtimeProfile(authUser.id, { avatar_url: photo.uri });
+    setUserProfile(prev => ({ ...prev, avatar_url: photo.uri }));
+
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Upload to Supabase Storage
-      const photo = result.assets[0];
-      const fileExt = photo.uri.split('.').pop();
-      const fileName = `${authUser?.id}-${Date.now()}.${fileExt}`;
-      const filePath = `${authUser?.id}/${fileName}`;
+      // Upload with retry logic
+      const uploadWithRetry = async (retries = 3): Promise<string> => {
+        const fileExt = photo.uri.split('.').pop();
+        const fileName = `${authUser.id}-${Date.now()}.${fileExt}`;
+        const filePath = `${authUser.id}/${fileName}`;
 
-      console.log('📁 [Profile] Upload details:', { fileName, filePath, fileExt, userId: authUser?.id });
+        console.log(`📁 [Profile] Upload attempt (${4 - retries}/3):`, { fileName, filePath });
 
-      // Convert URI to ArrayBuffer for upload
-      const response = await fetch(photo.uri);
-      const arrayBuffer = await response.arrayBuffer();
-      console.log('📦 [Profile] ArrayBuffer size:', arrayBuffer.byteLength);
+        try {
+          // Convert URI to ArrayBuffer for upload
+          const response = await fetch(photo.uri);
+          if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+          
+          const arrayBuffer = await response.arrayBuffer();
+          console.log('📦 [Profile] ArrayBuffer size:', arrayBuffer.byteLength);
 
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, arrayBuffer, {
-          contentType: `image/${fileExt}`,
-          upsert: true,
-        });
+          const { data, error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, arrayBuffer, {
+              contentType: `image/${fileExt}`,
+              upsert: true,
+            });
 
-      if (uploadError) {
-        console.error('☁️ [Profile] Upload error:', uploadError);
-        throw uploadError;
-      }
-      console.log('✅ [Profile] Upload successful');
+          if (uploadError) throw uploadError;
+          
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath);
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-      console.log('🔗 [Profile] Public URL:', publicUrl);
+          return publicUrl;
+        } catch (error) {
+          if (retries > 0) {
+            console.log(`🔄 [Profile] Upload failed, retrying... (${retries} attempts left)`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * (4 - retries))); // Exponential backoff
+            return uploadWithRetry(retries - 1);
+          }
+          throw error;
+        }
+      };
 
-      // Update user profile
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ avatar_url: publicUrl })
-        .eq('id', authUser?.id);
+      const publicUrl = await uploadWithRetry();
+      console.log('✅ [Profile] Upload successful:', publicUrl);
 
-      if (updateError) {
-        console.error('💾 [Profile] Database update error:', updateError);
-        throw updateError;
-      }
-      console.log('✅ [Profile] Database updated');
+      // Update database with retry logic
+      const updateDatabaseWithRetry = async (retries = 3): Promise<void> => {
+        try {
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ avatar_url: publicUrl })
+            .eq('id', authUser.id);
 
-      // Update local state
+          if (updateError) throw updateError;
+        } catch (error) {
+          if (retries > 0) {
+            console.log(`🔄 [Profile] Database update failed, retrying... (${retries} attempts left)`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return updateDatabaseWithRetry(retries - 1);
+          }
+          throw error;
+        }
+      };
+
+      await updateDatabaseWithRetry();
+      console.log('✅ [Profile] Database updated successfully');
+
+      // Update real-time profile with final URL (this will broadcast to all users)
+      updateRealtimeProfile(authUser.id, { avatar_url: publicUrl });
+
+      // Update local state with final URL
       setUserProfile(prev => ({ ...prev, avatar_url: publicUrl }));
 
-      // Refresh profile data to ensure UI updates
-      setTimeout(async () => {
-        try {
-          const { data: updatedProfile } = await supabaseService.getUserProfile(authUser.id);
-          if (updatedProfile) {
-            setUserProfile(updatedProfile);
-            console.log('🔄 [Profile] Profile refreshed after upload');
-          }
-        } catch (error) {
-          console.error('🔄 [Profile] Error refreshing profile:', error);
-        }
-      }, 500);
-
+      // Success feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('success', 'profile picture updated!');
+      
     } catch (error) {
-      console.error('[Profile] Error uploading avatar:', error);
-      Alert.alert('error', 'failed to upload photo. please try again.');
+      console.error('💥 [Profile] Avatar update failed:', error);
+      
+      // Rollback optimistic update
+      updateRealtimeProfile(authUser.id, { avatar_url: oldAvatarUrl });
+      setUserProfile(prev => ({ ...prev, avatar_url: oldAvatarUrl }));
+      
+      // Error feedback
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      
+      // User-friendly error messages
+      let errorMessage = 'there was an issue updating your profile picture. please try again.';
+      if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorMessage = 'network error. please check your connection and try again.';
+      } else if (error.message?.includes('storage')) {
+        errorMessage = 'upload failed. please try again or use a smaller image.';
+      }
+      
+      Alert.alert('upload failed', errorMessage);
     }
   };
 
@@ -421,6 +467,71 @@ export default function ProfileScreen() {
   const handleUpgrade = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowPaywall(true);
+  };
+
+  const handlePostVideo = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    Alert.alert(
+      'post video',
+      'choose how you want to create your video',
+      [
+        { text: 'cancel', style: 'cancel' },
+        { text: 'camera', onPress: () => recordVideo() },
+        { text: 'gallery', onPress: () => pickVideoFromGallery() },
+      ]
+    );
+  };
+
+  const recordVideo = async () => {
+    try {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('permission needed', 'camera access is required to record videos');
+        return;
+      }
+
+      // For now, use ImagePicker for video recording since it's simpler
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true,
+        aspect: [9, 16], // Vertical video like TikTok
+        quality: 0.8,
+        videoMaxDuration: 60, // 1 minute max
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setSelectedVideoUri(result.assets[0].uri);
+        setShowVideoUploadModal(true);
+      }
+    } catch (error) {
+      console.error('Error recording video:', error);
+      Alert.alert('error', 'failed to record video. please try again.');
+    }
+  };
+
+  const pickVideoFromGallery = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true,
+        aspect: [9, 16],
+        quality: 0.8,
+        videoMaxDuration: 60,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setSelectedVideoUri(result.assets[0].uri);
+        setShowVideoUploadModal(true);
+      }
+    } catch (error) {
+      console.error('Error picking video:', error);
+      Alert.alert('error', 'failed to select video. please try again.');
+    }
+  };
+
+  const handleVideoUploadSuccess = () => {
+    Alert.alert('video posted!', 'your video has been posted and will appear in the student feed.');
   };
 
   const handleSignOut = async () => {
@@ -676,6 +787,40 @@ export default function ProfileScreen() {
             </View>
           )}
 
+          {/* Post Video Section - Mentor Mode Only */}
+          {currentMode === 'mentor' && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                content creation
+              </Text>
+              
+              <TouchableOpacity
+                style={[styles.postVideoCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                onPress={handlePostVideo}
+                activeOpacity={0.8}
+              >
+                <View style={styles.postVideoContent}>
+                  <View style={[styles.postVideoIcon, { backgroundColor: colors.primary + '20' }]}>
+                    <Ionicons name="videocam" size={28} color={colors.primary} />
+                  </View>
+                  
+                  <View style={styles.postVideoText}>
+                    <Text style={[styles.postVideoTitle, { color: colors.text }]}>
+                      post video
+                    </Text>
+                    <Text style={[styles.postVideoDescription, { color: colors.textSecondary }]}>
+                      share your advice with students. videos help them get to know you better and increase requests.
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.postVideoArrow}>
+                    <Ionicons name="add-circle" size={24} color={colors.primary} />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Stats Section */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -703,10 +848,10 @@ export default function ProfileScreen() {
 
               <View style={[styles.statCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
                 <Text style={[styles.statValue, { color: colors.primary }]}>
-                  {stats.favoriteWizzmos}
+                  {stats.favoriteAdvisors}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  favorite wizzmos
+                  favorite advisors
                 </Text>
               </View>
             </View>
@@ -736,8 +881,8 @@ export default function ProfileScreen() {
                   </View>
                   <Text style={[styles.subscriptionType, { color: colors.text }]}>
                     {subscription.type === 'free_trial' ? 'free trial' : 
-                     subscription.type === 'pro_monthly' ? 'wizzmo pro monthly' : 
-                     subscription.type === 'pro_yearly' ? 'wizzmo pro yearly' : 'wizzmo pro'}
+                     subscription.type === 'pro_monthly' ? 'bridge up pro monthly' : 
+                     subscription.type === 'pro_yearly' ? 'bridge up pro yearly' : 'bridge up pro'}
                   </Text>
                   <Text style={[styles.subscriptionSubtext, { color: colors.textSecondary }]}>
                     {subscription.questionsRemaining === -1 ? 'unlimited questions • priority support' : 
@@ -865,18 +1010,18 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          {/* Favorite Wizzmos Section */}
-          {favoriteWizzmos.length > 0 && (
+          {/* Favorite Advisors Section */}
+          {favoriteAdvisors.length > 0 && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                favorite wizzmos
+                favorite advisors
               </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.favoritesScrollContent}
               >
-                {favoriteWizzmos.map((favorite) => (
+                {favoriteAdvisors.map((favorite) => (
                   <TouchableOpacity
                     key={favorite.id}
                     style={[styles.favoriteCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -1281,6 +1426,20 @@ export default function ProfileScreen() {
         onClose={() => setShowPaywall(false)}
         variant="auto" // Let the system choose the best variant
       />
+
+      {/* Video Upload Modal */}
+      {selectedVideoUri && (
+        <VideoUploadModal
+          visible={showVideoUploadModal}
+          onClose={() => {
+            setShowVideoUploadModal(false);
+            setSelectedVideoUri(null);
+          }}
+          videoUri={selectedVideoUri}
+          mentorId={authUser?.id || ''}
+          onUploadSuccess={handleVideoUploadSuccess}
+        />
+      )}
     </>
   );
 }
@@ -1823,5 +1982,44 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: -0.1,
     textTransform: 'lowercase',
+  },
+  
+  // Post Video Section
+  postVideoCard: {
+    borderWidth: 2,
+    borderRadius: 16,
+    padding: 20,
+  },
+  postVideoContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  postVideoIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  postVideoText: {
+    flex: 1,
+  },
+  postVideoTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    marginBottom: 4,
+    textTransform: 'lowercase',
+  },
+  postVideoDescription: {
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    textTransform: 'lowercase',
+  },
+  postVideoArrow: {
+    marginLeft: 12,
   },
 });

@@ -108,7 +108,7 @@ export type Database = {
         }
         Relationships: []
       }
-      favorite_wizzmos: {
+      favorite_mentors: {
         Row: {
           created_at: string
           id: string
@@ -129,14 +129,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "favorite_wizzmos_mentor_id_fkey"
+            foreignKeyName: "favorite_mentors_mentor_id_fkey"
             columns: ["mentor_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "favorite_wizzmos_student_id_fkey"
+            foreignKeyName: "favorite_mentors_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "users"

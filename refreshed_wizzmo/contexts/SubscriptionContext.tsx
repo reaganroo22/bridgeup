@@ -44,7 +44,7 @@ export const useSubscription = () => {
 
 // RevenueCat Configuration
 const REVENUECAT_API_KEY = Platform.select({
-  ios: 'appl_YcszOesLPQEJgSAAwfWosRBrHkT', // Wizzmo iOS SDK key
+  ios: 'appl_YcszOesLPQEJgSAAwfWosRBrHkT', // Bridge Up iOS SDK key
   android: 'goog_YOUR_ANDROID_API_KEY', // Android key TBD
 }) || '';
 
@@ -282,7 +282,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Try to get annual subscription expiration date
         const annualSubscription = customerInfo.subscriptionsByProductIdentifier?.['com.wizzmo.app.pro_annual'];
         if (annualSubscription) {
-          billingPeriodEnd = annualSubscription.expirationDate ? new Date(annualSubscription.expirationDate) : null;
+          billingPeriodEnd = annualSubscription.expiresDate ? new Date(annualSubscription.expiresDate) : null;
           if (__DEV__) {
             console.log('[SubscriptionContext] Using annual expiration date:', billingPeriodEnd);
           }
@@ -292,18 +292,18 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (__DEV__) {
           console.log('[SubscriptionContext] Detected ANNUAL plan from entitlement');
         }
-        billingPeriodEnd = activeEntitlement.expirationDate ? new Date(activeEntitlement.expirationDate) : null;
+        billingPeriodEnd = activeEntitlement.latestPurchaseDate ? new Date(activeEntitlement.latestPurchaseDate) : null;
       } else if (productId.includes('monthly')) {
         plan = 'pro_monthly';
         if (__DEV__) {
           console.log('[SubscriptionContext] Detected MONTHLY plan from entitlement');
         }
-        billingPeriodEnd = activeEntitlement.expirationDate ? new Date(activeEntitlement.expirationDate) : null;
+        billingPeriodEnd = activeEntitlement.latestPurchaseDate ? new Date(activeEntitlement.latestPurchaseDate) : null;
       } else {
         if (__DEV__) {
           console.log('[SubscriptionContext] Unknown product ID format:', productId);
         }
-        billingPeriodEnd = activeEntitlement.expirationDate ? new Date(activeEntitlement.expirationDate) : null;
+        billingPeriodEnd = activeEntitlement.latestPurchaseDate ? new Date(activeEntitlement.latestPurchaseDate) : null;
       }
     }
 

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Wizzmo",
-    "slug": "wizzmo-college-advice",
+    "name": "Bridge Up",
+    "slug": "bridgeup-college-advice",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -15,11 +15,11 @@
     "backgroundColor": "#FF4DB8",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.wizzmo.app",
+      "bundleIdentifier": "com.bridgeup.app",
       "usesAppleSignIn": true,
       "entitlements": {
         "com.apple.developer.in-app-payments": [
-          "merchant.com.wizzmo.app"
+          "merchant.com.bridgeup.app"
         ],
         "aps-environment": "production"
       },
@@ -39,7 +39,7 @@
           }
         ]
       },
-      "googleServicesFile": "./Client ID for iOS Wismo.plist"
+      "googleServicesFile": "./Client ID for iOS BridgeUp.plist"
     },
     "android": {
       "adaptiveIcon": {
@@ -48,7 +48,7 @@
       },
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
-      "package": "com.wizzmo.app",
+      "package": "com.bridgeup.app",
       "permissions": [
         "INTERNET",
         "VIBRATE",

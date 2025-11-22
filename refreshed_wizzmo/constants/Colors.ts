@@ -1,6 +1,6 @@
 export default {
   light: {
-    // 🦄 WIZZMO WONDERLAND - pure white background with magical highlights
+    // 🦄 BRIDGE UP WONDERLAND - pure white background with magical highlights
     background: '#FFFFFF',
     surface: '#FFF2F9',
     surfaceElevated: '#FFEBF5',
@@ -17,7 +17,7 @@ export default {
     textTertiary: '#8B6B83',
     textQuaternary: '#B59BAF',
 
-    // 🌟 WIZZMO BRAND MAGIC - maximum vibrancy & personality
+    // 🌟 BRIDGE UP BRAND MAGIC - maximum vibrancy & personality
     primary: '#FF4DB8',
     primaryVibrant: '#FF2DA6',
     primarySoft: '#FFCCE9',
@@ -52,7 +52,7 @@ export default {
     cardShadow: 'rgba(255, 105, 196, 0.25)',
     border: 'rgba(255, 77, 184, 0.40)',
 
-    // 🌈 WIZZMO MAGIC GRADIENTS - dynamic personality system!
+    // 🌈 BRIDGE UP MAGIC GRADIENTS - dynamic personality system!
     gradientPrimary: ['#FF4DB8', '#8B5CF6'],     // Classic headers
     gradientSecondary: ['#FF69C4', '#8B5CF6'],   // Alt headers
     gradientHero: ['#FF4DB8', '#8B5CF6'],        // Main hero
@@ -72,7 +72,7 @@ export default {
     gradientPressed: ['#E91E95', '#6D28D9'],     // Pressed state
     gradientPulse: ['#FF85D1', '#A78BFA'],       // Pulse animation
 
-    // ✨ WIZZMO MAGICAL EFFECTS - visible at low brightness
+    // ✨ BRIDGE UP MAGICAL EFFECTS - visible at low brightness
     blur: 'rgba(255, 235, 245, 0.95)',
     blurRich: 'rgba(255, 199, 230, 0.90)',
     overlay: 'rgba(255, 220, 240, 0.98)',

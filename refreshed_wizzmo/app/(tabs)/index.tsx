@@ -9,11 +9,13 @@ import {
   Platform,
   TextInput,
   Animated,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
+import { Typography, FontFamily } from '@/constants/Fonts';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -24,6 +26,7 @@ import * as supabaseService from '../../lib/supabaseService';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import CustomHeader from '@/components/CustomHeader';
 import ModeToggle from '@/components/ModeToggle';
+import MentorShowcase from '@/components/MentorShowcase';
 import * as Haptics from 'expo-haptics';
 
 const { width, height } = Dimensions.get('window');
@@ -35,7 +38,7 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const { userProfile, getPersonalizedGreeting, isHighSchool, isUniversity, isGraduate } = useUserProfile();
   const { currentMode } = useUserMode();
-  const isWizzmo = currentMode === 'mentor';
+  const isMentor = currentMode === 'mentor';
   const [currentTime, setCurrentTime] = useState(new Date());
   
   // Mentor-specific state
@@ -44,6 +47,7 @@ export default function HomeScreen() {
   const [helpfulPercentage, setHelpfulPercentage] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [showAllQuestions, setShowAllQuestions] = useState(false);
+  const [processingQuestions, setProcessingQuestions] = useState<Set<string>>(new Set());
   
   const insets = useSafeAreaInsets();
 
@@ -74,7 +78,7 @@ export default function HomeScreen() {
     const pulseInterval = setInterval(pulseAnimation, 2000);
 
     // Fetch mentor data if user is a wizzmo
-    if (isWizzmo && user) {
+    if (isMentor && user) {
       fetchMentorData();
     }
 
@@ -82,7 +86,7 @@ export default function HomeScreen() {
       clearInterval(timer);
       clearInterval(pulseInterval);
     };
-  }, [isWizzmo, user, pulseScale]);
+  }, [isMentor, user, pulseScale]);
 
   const handlePress = (destination: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -145,12 +149,44 @@ export default function HomeScreen() {
     }
   };
 
+  const getTimeAgo = (timestamp: string) => {
+    const now = new Date();
+    const then = new Date(timestamp);
+    const diffMinutes = Math.floor((now.getTime() - then.getTime()) / 60000);
+
+    if (diffMinutes < 1) return 'just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  };
+
   const handleAcceptQuestion = async (questionId: string) => {
     if (!user) return;
 
+    // Prevent duplicate processing
+    if (processingQuestions.has(questionId)) {
+      console.log('[HomeScreen] Question already being processed:', questionId);
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+    // Mark as processing
+    setProcessingQuestions(prev => new Set(prev).add(questionId));
+
     try {
+      // Check if session already exists for this question
+      const { data: existingSession } = await supabaseService.getSessionByQuestionId(questionId);
+      
+      if (existingSession) {
+        console.log('[HomeScreen] Session already exists for question:', questionId);
+        setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
+        router.push(`/chat?chatId=${existingSession.id}`);
+        return;
+      }
+
       const { data: session, error } = await supabaseService.createAdviceSession(questionId, user.id);
       if (error) {
         console.error('[HomeScreen] Error creating session:', error);
@@ -164,12 +200,32 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error('[HomeScreen] Error accepting question:', error);
+    } finally {
+      // Remove from processing set
+      setProcessingQuestions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(questionId);
+        return newSet;
+      });
     }
   };
 
   const handleDeclineQuestion = async (questionId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
+  };
+
+  const handleMentorPress = (mentorId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Navigate to spill tab with mentor pre-selected
+    if (mentorId.startsWith('demo-')) {
+      // For demo mentors, just go to spill tab (they'll be available to select there)
+      router.push('/(tabs)/spill');
+    } else {
+      // For real mentors, go to their profile first, then they can ask for advice
+      router.push(`/wizzmo-profile?userId=${mentorId}`);
+    }
   };
 
 
@@ -192,7 +248,7 @@ export default function HomeScreen() {
   // Removed quick actions since we now have floating buttons
 
   // Render different content based on user role
-  if (isWizzmo) {
+  if (isMentor) {
     return (
       <>
         <CustomHeader 
@@ -225,12 +281,14 @@ export default function HomeScreen() {
               <View style={[styles.statDivider, { backgroundColor: colors.separator }]} />
               <View style={styles.statItem}>
                 <Text style={[styles.statValue, { color: colors.text }]}>{activeChatCount}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>active</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>active chats</Text>
               </View>
               <View style={[styles.statDivider, { backgroundColor: colors.separator }]} />
               <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: colors.text }]}>{helpfulPercentage}%</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>helpful</Text>
+                <Text style={[styles.statValue, { color: helpfulPercentage >= 90 ? '#10B981' : colors.text }]}>
+                  {Math.min(helpfulPercentage, 100)}%
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>helpful rate</Text>
               </View>
             </View>
 
@@ -246,49 +304,92 @@ export default function HomeScreen() {
                     <View
                       key={question.id}
                       style={[
-                        styles.questionCard,
+                        styles.enhancedQuestionCard,
                         {
                           backgroundColor: colors.surface,
-                          borderBottomColor: colors.separator
+                          borderColor: colors.border,
+                          shadowColor: colors.text
                         },
-                        index === (showAllQuestions ? pendingQuestions.length - 1 : Math.min(pendingQuestions.length - 1, 2)) && { borderBottomWidth: 0 },
                       ]}
                     >
-                      <View style={styles.topicContent}>
-                        <Text style={styles.topicEmoji}>{question.category_icon || '💬'}</Text>
-                        <View style={styles.topicInfo}>
-                          <View style={styles.topicTitleRow}>
-                            <Text style={[styles.topicTitle, { color: colors.text }]} numberOfLines={1}>
-                              {question.title}
+                      {/* Header with category and time */}
+                      <View style={styles.questionHeader}>
+                        <View style={styles.categoryRow}>
+                          <Text style={styles.categoryEmoji}>{question.category_icon || '💬'}</Text>
+                          <View style={[styles.categoryBadge, { backgroundColor: colors.primary + '20', borderColor: colors.primary + '40' }]}>
+                            <Text style={[styles.categoryText, { color: colors.primary }]}>
+                              {question.category}
                             </Text>
-                            <View style={[styles.liveBadge, { backgroundColor: colors.primary }]}>
-                              <Text style={styles.liveText}>{question.category}</Text>
-                            </View>
                           </View>
-                          <Text style={[styles.topicMeta, { color: colors.textSecondary }]} numberOfLines={2}>
-                            {question.content}
-                          </Text>
                         </View>
+                        <Text style={[styles.timeStamp, { color: colors.textSecondary }]}>
+                          {getTimeAgo(question.created_at)}
+                        </Text>
+                      </View>
+
+                      {/* Question Title */}
+                      <Text style={[styles.enhancedQuestionTitle, { color: colors.text }]} numberOfLines={3}>
+                        {question.title}
+                      </Text>
+
+                      {/* Question Content Preview */}
+                      <View style={[styles.enhancedQuestionPreview, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                        <View style={styles.questionLabelRow}>
+                          <Text style={[styles.enhancedQuestionLabel, { color: colors.primary }]}>
+                            💭 Student asks:
+                          </Text>
+                          {question.content && question.content.length > 120 && (
+                            <TouchableOpacity 
+                              style={[styles.expandButton, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}
+                              onPress={() => {
+                                Alert.alert(
+                                  `📚 ${question.category}`,
+                                  `"${question.title}"\n\n${question.content}`,
+                                  [
+                                    { 
+                                      text: '✨ Accept & Help', 
+                                      onPress: () => handleAcceptQuestion(question.id), 
+                                      style: 'default' 
+                                    },
+                                    { text: 'Close', onPress: () => {}, style: 'cancel' }
+                                  ]
+                                );
+                              }}
+                            >
+                              <Text style={[styles.expandText, { color: colors.primary }]}>
+                                Full question
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        
+                        <Text style={[styles.enhancedQuestionContent, { color: colors.textSecondary }]} numberOfLines={3}>
+                          {question.content}
+                        </Text>
                       </View>
                       
                       {/* Action Buttons */}
-                      <View style={styles.actionButtons}>
+                      <View style={styles.enhancedActionButtons}>
                         <TouchableOpacity
-                          style={[styles.declineButton, { borderColor: colors.border }]}
+                          style={[styles.enhancedDeclineButton, { borderColor: colors.border, backgroundColor: colors.background }]}
                           onPress={() => handleDeclineQuestion(question.id)}
                         >
-                          <Text style={[styles.declineButtonText, { color: colors.textSecondary }]}>
-                            pass
+                          <Text style={[styles.enhancedDeclineText, { color: colors.textSecondary }]}>
+                            Pass
                           </Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                          style={styles.acceptButton}
+                          style={[
+                            styles.enhancedAcceptButton,
+                            { backgroundColor: processingQuestions.has(question.id) ? colors.textSecondary : colors.primary }
+                          ]}
                           onPress={() => handleAcceptQuestion(question.id)}
+                          disabled={processingQuestions.has(question.id)}
                         >
-                          <View style={[styles.acceptButtonBg, { backgroundColor: colors.primary }]}>
-                            <Text style={styles.acceptButtonText}>accept</Text>
-                          </View>
+                          <Text style={styles.enhancedAcceptText}>
+                            {processingQuestions.has(question.id) ? 'Accepting...' : '✨ Accept & Help'}
+                          </Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -358,6 +459,8 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        {/* Mentor Showcase */}
+        <MentorShowcase onMentorPress={handleMentorPress} />
 
         {/* Active Conversations */}
         <View style={styles.section}>
@@ -436,6 +539,7 @@ const styles = StyleSheet.create({
   greetingText: {
     fontSize: 24,
     fontWeight: '700',
+    fontFamily: 'Palatino',
     letterSpacing: -0.5,
     marginBottom: 4,
     textTransform: 'lowercase',
@@ -449,6 +553,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
+    fontFamily: 'Palatino',
     letterSpacing: -0.3,
     marginBottom: 16,
   },
@@ -504,6 +609,149 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
 
+  // Enhanced Question Preview
+  questionPreview: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  questionLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  questionContent: {
+    fontSize: 14,
+    fontWeight: '400',
+    letterSpacing: -0.1,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  readMoreButton: {
+    alignSelf: 'flex-start',
+  },
+  readMoreText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+  },
+
+  // Enhanced Question Cards
+  enhancedQuestionCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  questionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  categoryEmoji: {
+    fontSize: 20,
+  },
+  categoryBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  categoryText: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: 'Avenir Next',
+    textTransform: 'lowercase',
+  },
+  timeStamp: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  enhancedQuestionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'Times New Roman',
+    letterSpacing: -0.3,
+    lineHeight: 24,
+    marginBottom: 12,
+  },
+  enhancedQuestionPreview: {
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 16,
+  },
+  questionLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  enhancedQuestionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: -0.1,
+  },
+  expandButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  expandText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  enhancedQuestionContent: {
+    fontSize: 15,
+    fontWeight: '400',
+    fontFamily: 'Times New Roman',
+    letterSpacing: -0.1,
+    lineHeight: 22,
+  },
+  enhancedActionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  enhancedDeclineButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  enhancedDeclineText: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Avenir Next',
+  },
+  enhancedAcceptButton: {
+    flex: 2,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  enhancedAcceptText: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Avenir Next',
+    color: 'white',
+  },
 
   // Tip Card
   tipCard: {
@@ -514,6 +762,7 @@ const styles = StyleSheet.create({
   tipTitle: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Palatino',
     letterSpacing: -0.2,
     marginBottom: 8,
   },
@@ -594,6 +843,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: -0.1,
     color: '#FFFFFF',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   
   // Show More Button

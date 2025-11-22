@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Colors from '@/constants/Colors';
+import { Typography, FontFamily, FontWeight } from '@/constants/Fonts';
 import { useColorScheme } from '@/components/useColorScheme';
 import NotificationBadge from './NotificationBadge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,7 +35,7 @@ interface CustomHeaderProps {
 }
 
 export default function CustomHeader({
-  title = 'wizzmo',
+  title = 'bridge up',
   showBackButton = false,
   showProfileButton = true,
   showChatButton = true,
@@ -183,8 +184,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   brandTitle: {
+    ...Typography.navTitle,
     fontSize: 32,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -1,
     textTransform: 'lowercase',

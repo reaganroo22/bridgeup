@@ -4,6 +4,7 @@ import { Tabs } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
 import Colors from '@/constants/Colors';
+import { FontFamily } from '@/constants/Fonts';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AppProvider } from '../../contexts/AppContext';
 import { SubscriptionProvider } from '../../contexts/SubscriptionContext';
@@ -49,6 +50,7 @@ export default function TabLayout() {
             tabBarLabelStyle: {
               fontSize: 12,
               fontWeight: '700',
+              fontFamily: FontFamily.primary, // Times New Roman for college feel
               marginTop: 6,
               letterSpacing: -0.2,
               textTransform: 'lowercase',
@@ -73,7 +75,19 @@ export default function TabLayout() {
             }}
           />
           
-          {/* TAB 2: CHAT - MIDDLE TAB */}
+          {/* TAB 2: ADVISORS - Only visible for students */}
+          <Tabs.Screen
+            name="mentors"
+            options={{
+              title: '✨ advisors',
+              href: currentMode === 'student' ? undefined : null, // Only visible for students
+              tabBarIcon: ({ color, size, focused }) => (
+                <Ionicons name={focused ? 'people' : 'people-outline'} size={size} color={color} />
+              ),
+            }}
+          />
+          
+          {/* TAB 3: CHAT */}
           <Tabs.Screen
             name="mentor-chats"
             options={{
@@ -85,7 +99,7 @@ export default function TabLayout() {
             }}
           />
           
-          {/* TAB 3: TRENDING/FEED */}
+          {/* TAB 4: TRENDING/FEED */}
           <Tabs.Screen
             name="feed"
             options={{
@@ -103,6 +117,9 @@ export default function TabLayout() {
             options={{
               title: '☕ spill',
               href: null, // Hidden from tabs, accessible as full form
+              presentation: 'modal',
+              headerShown: false,
+              tabBarStyle: { display: 'none' }, // Hide tab bar on this screen
               tabBarIcon: ({ color, size, focused }) => (
                 <Ionicons name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={size} color={color} />
               ),

@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { UserProfileProvider } from '@/contexts/UserProfileContext';
 import { UserModeProvider } from '@/contexts/UserModeContext';
+import { RealTimeProfileProvider } from '@/contexts/RealTimeProfileContext';
 import * as supabaseService from '@/lib/supabaseService';
 
 export {
@@ -38,6 +39,10 @@ try {
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    'Inter-Regular': require('../assets/fonts/SpaceMono-Regular.ttf'), // Using SpaceMono as fallback for now
+    'Inter-Medium': require('../assets/fonts/SpaceMono-Regular.ttf'),
+    'Inter-SemiBold': require('../assets/fonts/SpaceMono-Regular.ttf'), 
+    'Inter-Bold': require('../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
   });
 
@@ -131,13 +136,16 @@ function RootLayoutNav() {
             return;
           }
           
-          if (!userProfile?.onboarding_completed) {
-            // Needs onboarding
+          // Check if user has mentor profile - mentors bypass onboarding
+          const hasMentorProfile = userProfile?.mentor_profile || userProfile?.role === 'mentor' || userProfile?.role === 'both';
+          
+          if (!userProfile?.onboarding_completed && !hasMentorProfile) {
+            // Needs onboarding (students without mentor profile)
             if (!inOnboarding) {
               router.replace('/auth/onboarding');
             }
           } else {
-            // Ready for app - only redirect if not in tabs AND not in allowed screens
+            // Ready for app - either completed onboarding OR has mentor profile
             if (!inTabs && !inAllowedScreen) {
               router.replace('/(tabs)');
             }
@@ -172,8 +180,9 @@ function RootLayoutNav() {
             <AppProvider>
               <UserProfileProvider>
                 <UserModeProvider>
-                  <NotificationProvider>
-                    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                  <RealTimeProfileProvider>
+                    <NotificationProvider>
+                      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
                 <Stack
                   screenOptions={{
                     contentStyle: { backgroundColor: headerColor },
@@ -194,7 +203,8 @@ function RootLayoutNav() {
                   <Stack.Screen name="about" options={{ headerShown: false }} />
                 </Stack>
                 </ThemeProvider>
-                  </NotificationProvider>
+                    </NotificationProvider>
+                  </RealTimeProfileProvider>
                 </UserModeProvider>
               </UserProfileProvider>
             </AppProvider>

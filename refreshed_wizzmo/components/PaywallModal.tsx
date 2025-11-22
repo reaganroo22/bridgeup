@@ -15,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { Text, View } from '@/components/Themed';
 import Colors from '@/constants/Colors';
+import { Typography, FontFamily } from '@/constants/Fonts';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useSubscription, SubscriptionPlan } from '@/contexts/SubscriptionContext';
 import { PurchasesPackage } from 'react-native-purchases';
@@ -44,7 +45,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'dark'];
   const { offerings, purchasePackage, isLoading } = useSubscription();
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('wizzmo_annual');
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_yearly');
   const [plans, setPlans] = useState<Plan[]>([]);
   const [isPurchasing, setIsPurchasing] = useState(false);
   
@@ -159,18 +160,18 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
         let isPopular = false;
 
         if (packageId.includes('monthly') || packageId === '$rc_monthly') {
-          planId = 'wizzmo_monthly';
+          planId = 'pro_monthly';
           name = 'pro monthly';
           period = '/month';
         } else if (packageId.includes('annual') || packageId.includes('yearly') || packageId === '$rc_annual') {
-          planId = 'wizzmo_annual';
+          planId = 'pro_yearly';
           name = 'pro yearly';
           period = '/year';
           savings = 'save $40';
           isPopular = true;
         } else {
           // Default to monthly for unknown packages
-          planId = 'wizzmo_monthly';
+          planId = 'pro_monthly';
           name = pkg.storeProduct.title || 'premium';
           period = '/month';
         }
@@ -247,7 +248,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
   const openTermsAndConditions = async () => {
     try {
-      await WebBrowser.openBrowserAsync('https://wizzmo.app/terms-of-service');
+      await WebBrowser.openBrowserAsync('https://bridgeup.app/terms-of-service');
     } catch (error) {
       console.error('Error opening terms and conditions:', error);
     }

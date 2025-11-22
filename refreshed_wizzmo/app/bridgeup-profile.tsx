@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import * as supabaseService from '@/lib/supabaseService';
 import { supabase } from '@/lib/supabase';
 import * as Haptics from 'expo-haptics';
+import FullscreenVideoModal from '@/components/FullscreenVideoModal';
 
 interface HelpfulAdvice {
   id: string;
@@ -22,14 +24,14 @@ interface HelpfulAdvice {
   preview: string;
 }
 
-export default function WizzmoProfileScreen() {
+export default function BridgeUpProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'dark'];
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { user: authUser } = useAuth();
   const [isFollowing, setIsFollowing] = useState(false);
-  const [wizzmoProfile, setWizzmoProfile] = useState<any>(null);
+  const [mentorProfile, setMentorProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isViewingSelf, setIsViewingSelf] = useState(false);
   const [ratings, setRatings] = useState<any[]>([]);
@@ -39,30 +41,35 @@ export default function WizzmoProfileScreen() {
   const [followerCount, setFollowerCount] = useState(0);
   const [isFavorited, setIsFavorited] = useState(false);
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
+  const [mentorVideos, setMentorVideos] = useState<any[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<any>(null);
+  const [showFullscreenVideo, setShowFullscreenVideo] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   const profileUserId = (params.userId || params.id) as string;
   const forcePublic = params.forcePublic === 'true';
 
   useEffect(() => {
-    fetchWizzmoProfile();
+    fetchMentorProfile();
   }, [profileUserId, authUser]);
 
   // Refetch profile when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log('[WizzmoProfile] Screen focused, refetching profile...');
+      console.log('[BridgeUpProfile] Screen focused, refetching profile...');
       if (profileUserId) {
-        fetchWizzmoProfile();
+        fetchMentorProfile();
       }
     }, [profileUserId])
   );
 
-  const fetchWizzmoProfile = async () => {
+  const fetchMentorProfile = async () => {
     if (!profileUserId) return;
 
     try {
-      // Check if viewing own profile (but force public view if forcePublic=true)
-      setIsViewingSelf(authUser?.id === profileUserId && !forcePublic);
+      // Check if viewing own profile - allow self-management even in public view
+      const isOwnProfile = authUser?.id === profileUserId;
+      setIsViewingSelf(isOwnProfile);
 
       // Fetch current user's profile to get their role
       let currentProfile = null;
@@ -75,7 +82,17 @@ export default function WizzmoProfileScreen() {
       // Fetch profile data
       const { data: profile } = await supabaseService.getUserProfile(profileUserId);
       if (profile) {
-        setWizzmoProfile(profile);
+        setMentorProfile(profile);
+        
+        // Update mentor stats to ensure helpful votes are current (now with corrected SQL)
+        if (profile.mentor_profile) {
+          await supabaseService.updateMentorHelpfulVotes(profileUserId);
+          // Refetch profile to get updated stats
+          const { data: updatedProfile } = await supabaseService.getUserProfile(profileUserId);
+          if (updatedProfile) {
+            setMentorProfile(updatedProfile);
+          }
+        }
 
         // Check if following
         if (authUser && authUser.id !== profileUserId) {
@@ -85,7 +102,7 @@ export default function WizzmoProfileScreen() {
           // Check if favorited - only for users who can act as students
           if (currentProfile?.role === 'student' || currentProfile?.role === 'both') {
             const { data: favorite } = await supabase
-              .from('favorite_wizzmos')
+              .from('favorite_mentors')
               .select('id')
               .eq('student_id', authUser.id)
               .eq('mentor_id', profileUserId)
@@ -100,8 +117,11 @@ export default function WizzmoProfileScreen() {
       
       // Fetch follower count
       await fetchFollowerCount();
+
+      // Fetch mentor videos
+      await fetchMentorVideos();
     } catch (error) {
-      console.error('[WizzmoProfile] Error fetching profile:', error);
+      console.error('[BridgeUpProfile] Error fetching profile:', error);
     } finally {
       setLoading(false);
     }
@@ -115,13 +135,13 @@ export default function WizzmoProfileScreen() {
         .eq('following_id', profileUserId);
 
       if (error) {
-        console.error('[WizzmoProfile] Error fetching followers:', error);
+        console.error('[BridgeUpProfile] Error fetching followers:', error);
         return;
       }
 
       setFollowerCount(data?.length || 0);
     } catch (error) {
-      console.error('[WizzmoProfile] Error fetching follower count:', error);
+      console.error('[BridgeUpProfile] Error fetching follower count:', error);
     }
   };
 
@@ -164,7 +184,7 @@ export default function WizzmoProfileScreen() {
         setAverageRating(data.length > 0 ? totalRating / data.length : 0);
       }
     } catch (error) {
-      console.error('[WizzmoProfile] Error fetching ratings:', error);
+      console.error('[BridgeUpProfile] Error fetching ratings:', error);
     }
   };
 
@@ -182,7 +202,24 @@ export default function WizzmoProfileScreen() {
         setIsFollowing(true);
       }
     } catch (error) {
-      console.error('[WizzmoProfile] Error toggling follow:', error);
+      console.error('[BridgeUpProfile] Error toggling follow:', error);
+    }
+  };
+
+  const fetchMentorVideos = async () => {
+    try {
+      if (!profileUserId) return;
+
+      const { data: videos, error } = await supabaseService.getMentorVideos(profileUserId);
+      if (error) {
+        console.error('[BridgeUpProfile] Error fetching videos:', error);
+        return;
+      }
+
+      setMentorVideos(videos || []);
+      console.log('[BridgeUpProfile] Loaded', videos?.length || 0, 'videos for mentor');
+    } catch (error) {
+      console.error('[BridgeUpProfile] Error fetching mentor videos:', error);
     }
   };
 
@@ -195,18 +232,18 @@ export default function WizzmoProfileScreen() {
       if (isFavorited) {
         // Remove from favorites
         const { error } = await supabase
-          .from('favorite_wizzmos')
+          .from('favorite_mentors')
           .delete()
           .eq('student_id', authUser.id)
           .eq('mentor_id', profileUserId);
 
         if (error) throw error;
         setIsFavorited(false);
-        console.log('[WizzmoProfile] Removed from favorites');
+        console.log('[BridgeUpProfile] Removed from favorites');
       } else {
         // Add to favorites
         const { error } = await supabase
-          .from('favorite_wizzmos')
+          .from('favorite_mentors')
           .insert({
             student_id: authUser.id,
             mentor_id: profileUserId,
@@ -215,14 +252,45 @@ export default function WizzmoProfileScreen() {
 
         if (error && error.code !== '23505') throw error; // Ignore duplicate key errors
         setIsFavorited(true);
-        console.log('[WizzmoProfile] Added to favorites');
+        console.log('[BridgeUpProfile] Added to favorites');
       }
     } catch (error) {
-      console.error('[WizzmoProfile] Error toggling favorite:', error);
+      console.error('[BridgeUpProfile] Error toggling favorite:', error);
     }
   };
 
-  if (loading || !wizzmoProfile) {
+  const handleVideoPress = (video: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedVideo({
+      ...video,
+      mentor_profile: mentorProfile
+    });
+    setShowFullscreenVideo(true);
+  };
+
+  const handleDeleteVideo = async (videoId: string) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      // Delete from storage and database
+      const { error } = await supabaseService.deleteMentorVideo(videoId);
+      
+      if (error) {
+        console.error('[BridgeUpProfile] Error deleting video:', error);
+        return;
+      }
+
+      // Remove from local state
+      setMentorVideos(mentorVideos.filter(video => video.id !== videoId));
+      setShowDeleteConfirm(null);
+      
+      console.log('[BridgeUpProfile] Video deleted successfully');
+    } catch (error) {
+      console.error('[BridgeUpProfile] Error deleting video:', error);
+    }
+  };
+
+  if (loading || !mentorProfile) {
     return (
       <>
         <CustomHeader
@@ -269,8 +337,8 @@ export default function WizzmoProfileScreen() {
               {/* Avatar */}
               <View style={styles.avatarContainer}>
                 <Avatar
-                  name={wizzmoProfile.full_name || wizzmoProfile.username || 'Wizzmo'}
-                  imageUrl={wizzmoProfile.avatar_url}
+                  name={mentorProfile.full_name || mentorProfile.username || 'Mentor'}
+                  imageUrl={mentorProfile.avatar_url}
                   size="xlarge"
                   showEditButton={false}
                 />
@@ -282,23 +350,23 @@ export default function WizzmoProfileScreen() {
             <View style={styles.bioSection}>
               <View style={styles.nameRow}>
                 <Text style={[styles.fullName, { color: colors.text }]}>
-                  {wizzmoProfile.full_name || wizzmoProfile.username || 'Wizzmo'}
+                  {mentorProfile.full_name || mentorProfile.username || 'Mentor'}
                 </Text>
-                {wizzmoProfile?.mentor_profile?.is_verified && (
+                {mentorProfile?.mentor_profile?.is_verified && (
                   <View style={[styles.verifiedBadge, { backgroundColor: colors.surfaceElevated }]}>
                     <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
                   </View>
                 )}
               </View>
               <Text style={[styles.username, { color: colors.textSecondary }]}>
-                @{wizzmoProfile.username || 'username'}
+                @{mentorProfile.username || 'username'}
               </Text>
               <Text style={[styles.university, { color: colors.textSecondary }]}>
-                {wizzmoProfile.university || 'University'} • Class of {wizzmoProfile.graduation_year || '2025'}
+                {mentorProfile.university || 'University'} • Class of {mentorProfile.graduation_year || '2025'}
               </Text>
-              {wizzmoProfile.bio && (
+              {mentorProfile.bio && (
                 <Text style={[styles.bio, { color: colors.text }]}>
-                  {wizzmoProfile.bio}
+                  {mentorProfile.bio}
                 </Text>
               )}
             </View>
@@ -350,7 +418,7 @@ export default function WizzmoProfileScreen() {
             <View style={styles.statsCardRow}>
               <View style={styles.statsCardItem}>
                 <Text style={[styles.statsCardValue, { color: colors.primary }]}>
-                  {wizzmoProfile?.mentor_profile?.total_questions_answered || 0}
+                  {mentorProfile?.mentor_profile?.total_questions_answered || 0}
                 </Text>
                 <Text style={[styles.statsCardLabel, { color: colors.textSecondary }]}>
                   questions answered
@@ -368,7 +436,7 @@ export default function WizzmoProfileScreen() {
               <View style={[styles.statsCardDivider, { backgroundColor: colors.separator }]} />
               <View style={styles.statsCardItem}>
                 <Text style={[styles.statsCardValue, { color: colors.primary }]}>
-                  {wizzmoProfile?.mentor_profile?.total_helpful_votes || 0}
+                  {mentorProfile?.mentor_profile?.total_helpful_votes || 0}
                 </Text>
                 <Text style={[styles.statsCardLabel, { color: colors.textSecondary }]}>
                   helpful votes
@@ -376,6 +444,82 @@ export default function WizzmoProfileScreen() {
               </View>
             </View>
           </View>
+
+          {/* Videos Section */}
+          {mentorVideos.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                recent videos
+              </Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.videosScrollContainer}
+              >
+                {mentorVideos.slice(0, 5).map((video) => (
+                  <View
+                    key={video.id}
+                    style={[styles.videoCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                  >
+                    {/* Delete button for own videos */}
+                    {isViewingSelf && (
+                      <TouchableOpacity
+                        style={[styles.deleteButton, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
+                        onPress={() => setShowDeleteConfirm(video.id)}
+                      >
+                        <Ionicons name="trash" size={16} color="white" />
+                      </TouchableOpacity>
+                    )}
+                    
+                    <TouchableOpacity
+                      onPress={() => handleVideoPress(video)}
+                      activeOpacity={0.8}
+                      style={styles.videoTouchable}
+                    >
+                    <View style={styles.videoThumbnail}>
+                      {/* Video Preview */}
+                      <Video
+                        source={{ uri: video.video_url }}
+                        style={styles.videoThumbnailImage}
+                        resizeMode={ResizeMode.COVER}
+                        shouldPlay={false}
+                        isMuted={true}
+                        usePosterFrame={true}
+                        posterSource={video.thumbnail_url ? { uri: video.thumbnail_url } : undefined}
+                      />
+                      
+                      {/* Play overlay */}
+                      <View style={styles.videoPlayOverlay}>
+                        <Ionicons name="play" size={24} color="white" />
+                      </View>
+                      
+
+                      {/* Duration overlay if available */}
+                      {video.duration_seconds && (
+                        <View style={styles.videoDuration}>
+                          <Text style={styles.videoDurationText}>
+                            {Math.floor(video.duration_seconds / 60)}:{(video.duration_seconds % 60).toString().padStart(2, '0')}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.videoInfo}>
+                      <Text 
+                        style={[styles.videoTitle, { color: colors.text }]}
+                        numberOfLines={2}
+                      >
+                        {video.title}
+                      </Text>
+                      <Text style={[styles.videoDescription, { color: colors.textSecondary }]}>
+                        {video.description || 'No description'}
+                      </Text>
+                    </View>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           {/* Ratings & Reviews Section */}
           {totalRatings > 0 ? (
@@ -486,6 +630,50 @@ export default function WizzmoProfileScreen() {
 
         </View>
       </ScrollView>
+
+      {/* Fullscreen Video Modal */}
+      {selectedVideo && (
+        <FullscreenVideoModal
+          visible={showFullscreenVideo}
+          onClose={() => {
+            setShowFullscreenVideo(false);
+            setSelectedVideo(null);
+          }}
+          video={selectedVideo}
+        />
+      )}
+
+      {/* Delete Video Confirmation */}
+      {showDeleteConfirm && (
+        <View style={styles.modalOverlay}>
+          <View style={[styles.deleteModal, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <Text style={[styles.deleteTitle, { color: colors.text }]}>
+              Delete Video
+            </Text>
+            <Text style={[styles.deleteMessage, { color: colors.textSecondary }]}>
+              Are you sure you want to delete this video? This action cannot be undone.
+            </Text>
+            <View style={styles.deleteActions}>
+              <TouchableOpacity
+                style={[styles.deleteCancel, { borderColor: colors.border }]}
+                onPress={() => setShowDeleteConfirm(null)}
+              >
+                <Text style={[styles.deleteCancelText, { color: colors.text }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteConfirm, { backgroundColor: '#FF4444' }]}
+                onPress={() => handleDeleteVideo(showDeleteConfirm)}
+              >
+                <Text style={styles.deleteConfirmText}>
+                  Delete
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </>
   );
 }
@@ -948,5 +1136,178 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     letterSpacing: -0.1,
     textTransform: 'lowercase',
+  },
+
+  // Videos Section
+  videosScrollContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  videoCard: {
+    width: 160,
+    borderWidth: 1,
+    borderRadius: 16,
+    marginRight: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  videoThumbnail: {
+    height: 240, // Portrait 9:16 ratio (160w x 240h)
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  videoInfo: {
+    padding: 16,
+  },
+  videoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+    marginBottom: 6,
+    lineHeight: 18,
+    textTransform: 'lowercase',
+  },
+  videoDescription: {
+    fontSize: 12,
+    fontWeight: '400',
+    letterSpacing: -0.1,
+    lineHeight: 16,
+    textTransform: 'lowercase',
+  },
+  videoMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  videoViews: {
+    fontSize: 12,
+    fontWeight: '400',
+    letterSpacing: -0.1,
+  },
+  videoThumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  videoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoPlayOverlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -12 }, { translateY: -12 }],
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoDuration: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  videoDurationText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
+  // Section
+  section: {
+    marginTop: 24,
+  },
+
+  // Video functionality
+  deleteButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  videoTouchable: {
+    flex: 1,
+  },
+  
+  // Delete modal
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  deleteModal: {
+    width: '80%',
+    maxWidth: 300,
+    padding: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  deleteTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  deleteMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  deleteActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  deleteCancel: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  deleteCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  deleteConfirm: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  deleteConfirmText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
   },
 });
