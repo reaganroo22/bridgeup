@@ -158,7 +158,7 @@ export default function OAuthSignIn() {
 
   const openTermsOfService = async () => {
     try {
-      await WebBrowser.openBrowserAsync('https://wizzmo.app/terms-of-service');
+      await WebBrowser.openBrowserAsync('https://bridgeup.app/terms-of-service');
     } catch (error) {
       console.error('Error opening terms of service:', error);
     }
@@ -166,7 +166,7 @@ export default function OAuthSignIn() {
 
   const openPrivacyPolicy = async () => {
     try {
-      await WebBrowser.openBrowserAsync('https://wizzmo.app/privacy-policy');
+      await WebBrowser.openBrowserAsync('https://bridgeup.app/privacy-policy');
     } catch (error) {
       console.error('Error opening privacy policy:', error);
     }
@@ -224,10 +224,10 @@ export default function OAuthSignIn() {
           {/* Logo Section */}
           <Animated.View style={[styles.logoSection, { transform: [{ scale: logoScale }] }]}>
             <View style={styles.logoContainer}>
-              <Text style={styles.logoText}>wizzmo</Text>
+              <Text style={styles.logoText}>bridgeup</Text>
             </View>
             <Text style={[styles.subtitle, { color: '#FFFFFF' }]}>
-              life / dating advice from college girls
+              college admissions advice from verified mentors
             </Text>
           </Animated.View>
 
@@ -243,7 +243,7 @@ export default function OAuthSignIn() {
             {/* Info Text */}
             <View style={styles.infoContainer}>
               <Text style={[styles.infoText, { color: 'rgba(255, 255, 255, 0.8)' }]}>
-                new to wizzmo? we'll create your account automatically
+                new to bridgeup? we'll create your account automatically
               </Text>
             </View>
           </Animated.View>

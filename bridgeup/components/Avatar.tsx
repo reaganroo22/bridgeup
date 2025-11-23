@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Image, TouchableOpacity, ActionSheetIOS, Platform, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -46,6 +46,16 @@ export default function Avatar({
 
   const avatarSize = sizeMap[size];
   const fontSize = fontSizeMap[size];
+
+  // Update currentImageUrl when imageUrl prop changes
+  useEffect(() => {
+    if (imageUrl !== currentImageUrl) {
+      // Add cache busting for updated images
+      const cacheBustedUrl = imageUrl ? `${imageUrl}?t=${Date.now()}` : imageUrl;
+      setCurrentImageUrl(cacheBustedUrl);
+      console.log('🔄 [Avatar] Image URL updated:', { old: currentImageUrl, new: cacheBustedUrl });
+    }
+  }, [imageUrl, currentImageUrl]);
 
   const getInitials = (fullName: string) => {
     if (!fullName || typeof fullName !== 'string') {

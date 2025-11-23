@@ -35,7 +35,7 @@ export default function FeedComment({ comment, onHelpfulPress }: FeedCommentProp
   const handleMentorNamePress = () => {
     if (comment.mentorId) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      router.push(`/wizzmo-profile?id=${comment.mentorId}`);
+      router.push(`/bridgeup-profile?id=${comment.mentorId}`);
     }
   };
 

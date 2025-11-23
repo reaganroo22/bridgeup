@@ -195,7 +195,7 @@ function RootLayoutNav() {
                   <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: false }} />
                   <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
                   <Stack.Screen name="student-profile" options={{ headerShown: false }} />
-                  <Stack.Screen name="wizzmo-profile" options={{ headerShown: false }} />
+                  <Stack.Screen name="bridgeup-profile" options={{ headerShown: false }} />
                   <Stack.Screen name="subscription" options={{ headerShown: false }} />
                   <Stack.Screen name="notifications" options={{ headerShown: false }} />
                   <Stack.Screen name="help" options={{ headerShown: false }} />

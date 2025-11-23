@@ -187,8 +187,8 @@ const MentorShowcase: React.FC<MentorShowcaseProps> = ({ onMentorPress }) => {
 
   const handleMentorProfilePress = (mentorId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // Navigate to public wizzmo-profile with favorites/ask advice
-    router.push(`/wizzmo-profile?userId=${mentorId}&forcePublic=true`);
+    // Navigate to public bridgeup-profile with favorites/ask advice
+    router.push(`/bridgeup-profile?userId=${mentorId}&forcePublic=true`);
   };
 
   const handleVideoTap = (video: MentorVideo) => {
@@ -241,10 +241,10 @@ const MentorShowcase: React.FC<MentorShowcaseProps> = ({ onMentorPress }) => {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.header}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            wizzmo posts
+            advisor stories
           </Text>
           <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-            real advice from college girls
+            real college guidance
           </Text>
         </View>
         <View style={[styles.emptyState, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
@@ -260,10 +260,10 @@ const MentorShowcase: React.FC<MentorShowcaseProps> = ({ onMentorPress }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          wizzmo posts
+          advisor stories
         </Text>
         <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-          real advice from college girls
+          real college guidance
         </Text>
       </View>
 

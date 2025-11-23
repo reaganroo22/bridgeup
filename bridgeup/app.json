@@ -17,6 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.bridgeupapp.app",
       "usesAppleSignIn": true,
+      "buildNumber": "1",
       "entitlements": {
         "com.apple.developer.in-app-payments": [
           "merchant.com.bridgeupapp.app"
@@ -49,6 +50,7 @@
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "package": "com.bridgeupapp.app",
+      "versionCode": 1,
       "permissions": [
         "INTERNET",
         "VIBRATE",

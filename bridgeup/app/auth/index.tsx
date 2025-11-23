@@ -19,7 +19,7 @@ export default function AuthIndex() {
         <View style={styles.content}>
           {/* Logo Section */}
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>wizzmo</Text>
+            <Text style={styles.logoText}>bridgeup</Text>
           </View>
 
           {/* Get Started Button */}

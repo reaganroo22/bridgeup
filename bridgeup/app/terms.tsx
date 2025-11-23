@@ -29,21 +29,21 @@ export default function TermsScreen() {
           {/* Introduction */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              welcome to wizzmo
+              welcome to bridgeup
             </Text>
             <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
-              these terms govern your use of wizzmo's dating and life advice platform. by using our app, you agree to these terms.
+              these terms govern your use of bridgeup's college admissions advice platform. by using our app, you agree to these terms.
             </Text>
           </View>
 
           {/* What Wizzmo Is */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              what wizzmo is
+              what bridgeup is
             </Text>
             <View style={[styles.infoCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• college students asking for dating & life advice</Text>
-              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• verified college women ("wizzmos") providing guidance</Text>
+              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• high school students asking for college admissions advice</Text>
+              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• verified college students ("advisors") providing guidance</Text>
               <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• peer-to-peer advice platform, not professional therapy</Text>
               <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• community focused on respectful, helpful interactions</Text>
             </View>
@@ -59,7 +59,7 @@ export default function TermsScreen() {
             <View style={[styles.infoCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
               <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• treat all users with kindness and respect</Text>
               <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• no harassment, hate speech, or inappropriate content</Text>
-              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• respect boundaries when wizzmos decline to answer</Text>
+              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• respect boundaries when advisors decline to answer</Text>
             </View>
 
             <Text style={[styles.subsectionTitle, { color: colors.text }]}>use appropriately</Text>
@@ -71,8 +71,8 @@ export default function TermsScreen() {
 
             <Text style={[styles.subsectionTitle, { color: colors.text }]}>age requirement</Text>
             <View style={[styles.infoCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• you must be 18+ to use wizzmo</Text>
-              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• wizzmos are verified college students or recent graduates</Text>
+              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• you must be 16+ to use bridgeup</Text>
+              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• advisors are verified college students or recent graduates</Text>
             </View>
           </View>
 
@@ -97,7 +97,7 @@ export default function TermsScreen() {
             </Text>
             <View style={[styles.warningCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.primary }]}>
               <Text style={[styles.warningText, { color: colors.textSecondary }]}>
-                wizzmo provides peer advice, not professional counseling. advice shared should not replace therapy, medical care, or legal counsel. use your judgment and seek professional help when needed.
+                bridgeup provides peer advice, not professional counseling. advice shared should not replace professional college consulting, therapy, medical care, or legal counsel. use your judgment and seek professional help when needed.
               </Text>
             </View>
           </View>
@@ -121,7 +121,7 @@ export default function TermsScreen() {
               content ownership
             </Text>
             <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
-              you own the content you share. by posting on wizzmo, you grant us permission to display and share your content within the platform to provide the service.
+              you own the content you share. by posting on bridgeup, you grant us permission to display and share your content within the platform to provide the service.
             </Text>
           </View>
 
@@ -131,7 +131,7 @@ export default function TermsScreen() {
               service availability
             </Text>
             <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
-              we strive to keep wizzmo available 24/7, but we can't guarantee uninterrupted service. we're not liable for any issues resulting from service outages or technical problems.
+              we strive to keep bridgeup available 24/7, but we can't guarantee uninterrupted service. we're not liable for any issues resulting from service outages or technical problems.
             </Text>
           </View>
 
@@ -151,7 +151,7 @@ export default function TermsScreen() {
               questions?
             </Text>
             <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
-              reach out to us at legal@wizzmo.app if you have any questions about these terms.
+              reach out to us at legal@bridgeup.app if you have any questions about these terms.
             </Text>
             <Text style={[styles.bodyText, { color: colors.textTertiary, marginTop: 16 }]}>
               last updated: november 2024

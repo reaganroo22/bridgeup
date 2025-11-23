@@ -44,13 +44,13 @@ export const useSubscription = () => {
 
 // RevenueCat Configuration
 const REVENUECAT_API_KEY = Platform.select({
-  ios: 'appl_YcszOesLPQEJgSAAwfWosRBrHkT', // Wizzmo iOS SDK key
+  ios: 'appl_qypWCkeBiDhsfVWAJYBmiQqIlVE', // BridgeUp iOS SDK key
   android: 'goog_YOUR_ANDROID_API_KEY', // Android key TBD
 }) || '';
 
 const ENTITLEMENT_ID = 'premium'; // This should match your RevenueCat entitlement
-const QUESTIONS_STORAGE_KEY = 'wizzmo_questions_used';
-const QUESTIONS_RESET_DATE_KEY = 'wizzmo_questions_reset_date';
+const QUESTIONS_STORAGE_KEY = 'bridgeup_questions_used';
+const QUESTIONS_RESET_DATE_KEY = 'bridgeup_questions_reset_date';
 
 export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();

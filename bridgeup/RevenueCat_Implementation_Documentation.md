@@ -31,7 +31,7 @@ The BridgeUp Expo app implements RevenueCat for subscription management using `r
 ```typescript
 // RevenueCat API Keys
 const REVENUECAT_API_KEY = Platform.select({
-  ios: 'appl_YcszOesLPQEJgSAAwfWosRBrHkT', // BridgeUp iOS SDK key
+  ios: 'appl_qypWCkeBiDhsfVWAJYBmiQqIlVE', // BridgeUp iOS SDK key
   android: 'goog_YOUR_ANDROID_API_KEY', // Android key TBD
 }) || '';
 

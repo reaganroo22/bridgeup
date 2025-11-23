@@ -73,7 +73,7 @@ export default function PrivacyScreen() {
             your privacy matters
           </Text>
           <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
-            wizzmo is built with privacy in mind. we collect only what's necessary to provide you with great advice and match you with the right mentors.
+            bridgeup is built with privacy in mind. we collect only what's necessary to provide you with great advice and match you with the right mentors.
           </Text>
         </View>
 
@@ -155,7 +155,7 @@ export default function PrivacyScreen() {
             questions about privacy?
           </Text>
           <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
-            reach out to us at privacy@wizzmo.app if you have any questions about how we handle your data.
+            reach out to us at privacy@bridgeup.app if you have any questions about how we handle your data.
           </Text>
         </View>
         </ScrollView>

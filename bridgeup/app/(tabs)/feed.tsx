@@ -39,7 +39,7 @@ export default function FeedScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'dark'];
   const { currentMode } = useUserMode();
-  const isWizzmo = currentMode === 'mentor';
+  const isAdvisor = currentMode === 'mentor';
   const { user: authUser } = useAuth();
   const { isProUser } = useSubscription();
   const [refreshing, setRefreshing] = useState(false);

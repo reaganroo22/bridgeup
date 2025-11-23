@@ -335,11 +335,30 @@ export default function MentorProfileScreen() {
 
       // Upload to Supabase Storage
       const photo = result.assets[0];
-      const fileExt = photo.uri.split('.').pop();
+      const fileExt = photo.uri.split('.').pop()?.toLowerCase() || 'jpeg';
       const fileName = `${authUser?.id}-${Date.now()}.${fileExt}`;
       const filePath = `${authUser?.id}/${fileName}`;
 
-      console.log('📁 [MentorProfile] Upload details:', { fileName, filePath, fileExt, userId: authUser?.id });
+      // Map file extensions to proper MIME types
+      const getMimeType = (ext: string): string => {
+        switch (ext) {
+          case 'jpg':
+          case 'jpeg':
+            return 'image/jpeg';
+          case 'png':
+            return 'image/png';
+          case 'gif':
+            return 'image/gif';
+          case 'webp':
+            return 'image/webp';
+          default:
+            return 'image/jpeg';
+        }
+      };
+
+      const contentType = getMimeType(fileExt);
+
+      console.log('📁 [MentorProfile] Upload details:', { fileName, filePath, fileExt, contentType, userId: authUser?.id });
 
       // Convert URI to ArrayBuffer for upload
       const response = await fetch(photo.uri);
@@ -349,7 +368,7 @@ export default function MentorProfileScreen() {
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, arrayBuffer, {
-          contentType: `image/${fileExt}`,
+          contentType,
           upsert: true,
         });
 

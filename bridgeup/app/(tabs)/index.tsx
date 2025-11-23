@@ -38,7 +38,7 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const { userProfile, getPersonalizedGreeting, isHighSchool, isUniversity, isGraduate } = useUserProfile();
   const { currentMode } = useUserMode();
-  const isWizzmo = currentMode === 'mentor';
+  const isAdvisor = currentMode === 'mentor';
   const [currentTime, setCurrentTime] = useState(new Date());
   
   // Mentor-specific state
@@ -77,8 +77,8 @@ export default function HomeScreen() {
     pulseAnimation();
     const pulseInterval = setInterval(pulseAnimation, 2000);
 
-    // Fetch mentor data if user is a wizzmo
-    if (isWizzmo && user) {
+    // Fetch mentor data if user is an advisor
+    if (isAdvisor && user) {
       fetchMentorData();
     }
 
@@ -86,7 +86,7 @@ export default function HomeScreen() {
       clearInterval(timer);
       clearInterval(pulseInterval);
     };
-  }, [isWizzmo, user, pulseScale]);
+  }, [isAdvisor, user, pulseScale]);
 
   const handlePress = (destination: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -248,7 +248,7 @@ export default function HomeScreen() {
   // Removed quick actions since we now have floating buttons
 
   // Render different content based on user role
-  if (isWizzmo) {
+  if (isAdvisor) {
     return (
       <>
         <CustomHeader 

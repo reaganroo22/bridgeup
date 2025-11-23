@@ -1331,13 +1331,13 @@ export default function ChatScreen() {
     // Determine sender info
     let senderName = 'Unknown';
     let senderAvatar = '👤';
-    let isWizzmo = false;
+    let isAdvisor = false;
 
     if (session) {
       if (item.sender_id === session.mentor_id) {
-        senderName = session.mentors?.full_name || 'Wizzmo';
+        senderName = session.mentors?.full_name || 'Advisor';
         senderAvatar = session.mentors?.avatar_url || '🎓';
-        isWizzmo = true;
+        isAdvisor = true;
       } else if (item.sender_id === session.student_id) {
         senderName = session.students?.full_name || 'User';
         senderAvatar = session.students?.avatar_url || '👤';
@@ -1396,9 +1396,9 @@ export default function ChatScreen() {
               <Text style={[styles.senderName, { color: colors.primary }]}>
                 {senderName}
               </Text>
-              {isWizzmo && (
-                <View style={[styles.wizmoBadge, { backgroundColor: colors.primary }]}>
-                  <Text style={styles.wizmoBadgeText}>✓</Text>
+              {isAdvisor && (
+                <View style={[styles.advisorBadge, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.advisorBadgeText}>✓</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -2659,14 +2659,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
     letterSpacing: -0.1,
   },
-  wizmoBadge: {
+  advisorBadge: {
     width: 16,
     height: 16,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  wizmoBadgeText: {
+  advisorBadgeText: {
     fontSize: 10,
     color: 'white',
     fontWeight: '700',

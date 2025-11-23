@@ -9,6 +9,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -75,6 +76,7 @@ export default function ProfileScreen() {
 
   // Real questions from Supabase
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(permissionStatus === 'granted');
   const [privacyMode, setPrivacyMode] = useState(false);
@@ -178,6 +180,89 @@ export default function ProfileScreen() {
 
     fetchSessions();
   }, [authUser]);
+
+  // Refresh function for pull-to-refresh
+  const handleRefresh = async () => {
+    if (!authUser) return;
+    
+    setRefreshing(true);
+    console.log('🔄 [Profile] Refreshing profile data...');
+    
+    try {
+      // Refresh user profile
+      const { data: profile } = await supabaseService.getUserProfile(authUser.id);
+      if (profile) {
+        setUserProfile(profile);
+        setBioText(profile.bio || '');
+      }
+      
+      // Refresh recent sessions
+      const { data: sessions } = await supabase
+        .from('advice_sessions')
+        .select(`
+          *,
+          questions (
+            title,
+            content,
+            category_id,
+            categories (name)
+          )
+        `)
+        .eq('student_id', authUser.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (sessions) {
+        setRecentSessions(sessions);
+      }
+      
+      // Refresh subscription status
+      await refreshSubscription();
+      
+      console.log('✅ [Profile] Profile refresh completed');
+    } catch (error) {
+      console.error('❌ [Profile] Error refreshing profile:', error);
+      Alert.alert('Error', 'Failed to refresh profile data. Please try again.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Real-time profile updates
+  useEffect(() => {
+    if (!authUser) return;
+
+    // Set up real-time subscription for profile changes
+    const profileSubscription = supabase
+      .channel(`profile_${authUser.id}`)
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'profiles',
+          filter: `id=eq.${authUser.id}`
+        }, 
+        (payload) => {
+          console.log('🔄 [Profile] Real-time profile update received:', payload.new);
+          
+          // Update local profile state with new data
+          const updatedProfile = payload.new as any;
+          setUserProfile(updatedProfile);
+          setBioText(updatedProfile.bio || '');
+          
+          // Also update the real-time profile context
+          updateRealtimeProfile(updatedProfile);
+        }
+      )
+      .subscribe();
+
+    console.log('📡 [Profile] Real-time subscription established for profile updates');
+
+    return () => {
+      console.log('📡 [Profile] Cleaning up real-time subscription');
+      profileSubscription.unsubscribe();
+    };
+  }, [authUser?.id, updateRealtimeProfile]);
 
   // Get subscription info from real subscription context
   const subscription = {
@@ -359,11 +444,30 @@ export default function ProfileScreen() {
 
       // Upload with retry logic
       const uploadWithRetry = async (retries = 3): Promise<string> => {
-        const fileExt = photo.uri.split('.').pop();
+        const fileExt = photo.uri.split('.').pop()?.toLowerCase() || 'jpeg';
         const fileName = `${authUser.id}-${Date.now()}.${fileExt}`;
         const filePath = `${authUser.id}/${fileName}`;
 
-        console.log(`📁 [Profile] Upload attempt (${4 - retries}/3):`, { fileName, filePath });
+        // Map file extensions to proper MIME types
+        const getMimeType = (ext: string): string => {
+          switch (ext) {
+            case 'jpg':
+            case 'jpeg':
+              return 'image/jpeg';
+            case 'png':
+              return 'image/png';
+            case 'gif':
+              return 'image/gif';
+            case 'webp':
+              return 'image/webp';
+            default:
+              return 'image/jpeg';
+          }
+        };
+
+        const contentType = getMimeType(fileExt);
+
+        console.log(`📁 [Profile] Upload attempt (${4 - retries}/3):`, { fileName, filePath, contentType });
 
         try {
           // Convert URI to ArrayBuffer for upload
@@ -376,7 +480,7 @@ export default function ProfileScreen() {
           const { data, error: uploadError } = await supabase.storage
             .from('avatars')
             .upload(filePath, arrayBuffer, {
-              contentType: `image/${fileExt}`,
+              contentType,
               upsert: true,
             });
 
@@ -423,11 +527,14 @@ export default function ProfileScreen() {
       await updateDatabaseWithRetry();
       console.log('✅ [Profile] Database updated successfully');
 
+      // Add cache busting timestamp to force image refresh
+      const cacheBustedUrl = `${publicUrl}?t=${Date.now()}`;
+      
       // Update real-time profile with final URL (this will broadcast to all users)
-      updateRealtimeProfile(authUser.id, { avatar_url: publicUrl });
+      updateRealtimeProfile(authUser.id, { avatar_url: cacheBustedUrl });
 
       // Update local state with final URL
-      setUserProfile(prev => ({ ...prev, avatar_url: publicUrl }));
+      setUserProfile(prev => ({ ...prev, avatar_url: cacheBustedUrl }));
 
       // Success feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -676,6 +783,15 @@ export default function ProfileScreen() {
       <ScrollView
         style={[styles.container, { backgroundColor: colors.background }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            title="Pull to refresh"
+            titleColor={colors.textSecondary}
+          />
+        }
       >
         <View style={{ height: insets.top + 100 }} />
         <View style={[styles.content, { backgroundColor: colors.background }]}>
@@ -1027,7 +1143,7 @@ export default function ProfileScreen() {
                     style={[styles.favoriteCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      router.push(`/wizzmo-profile?userId=${favorite.mentor_id}`);
+                      router.push(`/bridgeup-profile?userId=${favorite.mentor_id}`);
                     }}
                   >
                     <View style={[styles.favoriteAvatar, { backgroundColor: colors.primary }]}>
@@ -1458,6 +1574,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
+    fontFamily: 'Georgia',
     letterSpacing: -0.3,
     marginBottom: 12,
     textTransform: 'lowercase',
@@ -1505,6 +1622,7 @@ const styles = StyleSheet.create({
   bioText: {
     fontSize: 14,
     fontWeight: '400',
+    fontFamily: 'Georgia',
     lineHeight: 20,
     textAlign: 'center',
     letterSpacing: -0.1,
@@ -1512,6 +1630,7 @@ const styles = StyleSheet.create({
   bioInput: {
     fontSize: 14,
     fontWeight: '400',
+    fontFamily: 'Georgia',
     lineHeight: 20,
     textAlign: 'center',
     borderWidth: 1,
@@ -1535,6 +1654,7 @@ const styles = StyleSheet.create({
   editButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Georgia',
     color: '#FFFFFF',
     letterSpacing: -0.1,
     textTransform: 'lowercase',
@@ -1555,12 +1675,14 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 32,
     fontWeight: '700',
+    fontFamily: 'Georgia',
     letterSpacing: -1,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
     fontWeight: '500',
+    fontFamily: 'Georgia',
     textAlign: 'center',
     letterSpacing: -0.1,
     textTransform: 'lowercase',
@@ -1595,12 +1717,14 @@ const styles = StyleSheet.create({
   subscriptionBadgeText: {
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: 'Georgia',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   subscriptionType: {
     fontSize: 20,
     fontWeight: '800',
+    fontFamily: 'Georgia',
     letterSpacing: -0.4,
     marginBottom: 6,
     textTransform: 'lowercase',
@@ -1608,6 +1732,7 @@ const styles = StyleSheet.create({
   subscriptionSubtext: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'Georgia',
     letterSpacing: -0.1,
     lineHeight: 20,
     textTransform: 'lowercase',
@@ -1631,12 +1756,14 @@ const styles = StyleSheet.create({
   subscriptionDetailLabel: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'Georgia',
     letterSpacing: -0.1,
     textTransform: 'lowercase',
   },
   subscriptionDetailValue: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Georgia',
     letterSpacing: -0.1,
     textTransform: 'lowercase',
   },
@@ -1668,6 +1795,7 @@ const styles = StyleSheet.create({
   upgradeButtonText: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: 'Georgia',
     color: '#FFFFFF',
     letterSpacing: -0.2,
     textTransform: 'lowercase',
@@ -1719,6 +1847,7 @@ const styles = StyleSheet.create({
   categoryBadge: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'Georgia',
     letterSpacing: -0.1,
     textTransform: 'lowercase',
   },
@@ -1730,12 +1859,14 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'Georgia',
     color: '#FFFFFF',
     textTransform: 'lowercase',
   },
   questionText: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'Georgia',
     letterSpacing: -0.1,
     marginBottom: 4,
     textTransform: 'lowercase',
@@ -1743,6 +1874,7 @@ const styles = StyleSheet.create({
   questionTimestamp: {
     fontSize: 12,
     fontWeight: '400',
+    fontFamily: 'Georgia',
     textTransform: 'lowercase',
   },
 
@@ -1775,6 +1907,7 @@ const styles = StyleSheet.create({
   favoriteName: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: 'Georgia',
     letterSpacing: -0.2,
     textAlign: 'center',
   },
@@ -1791,6 +1924,7 @@ const styles = StyleSheet.create({
   followMoreText: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'Georgia',
     marginTop: 8,
     textTransform: 'lowercase',
   },
@@ -1814,6 +1948,7 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Georgia',
     letterSpacing: -0.2,
     marginBottom: 2,
     textTransform: 'lowercase',
@@ -1821,6 +1956,7 @@ const styles = StyleSheet.create({
   settingSubtitle: {
     fontSize: 14,
     fontWeight: '400',
+    fontFamily: 'Georgia',
     letterSpacing: -0.1,
     textTransform: 'lowercase',
   },
@@ -1835,6 +1971,7 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'Georgia',
     textAlign: 'center',
     letterSpacing: -0.1,
     textTransform: 'lowercase',
@@ -1882,6 +2019,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: '900',
+    fontFamily: 'Georgia',
     letterSpacing: -0.5,
     textTransform: 'lowercase',
   },
@@ -1894,6 +2032,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: 'Georgia',
     marginBottom: 10,
     letterSpacing: -0.3,
     textTransform: 'lowercase',
@@ -1924,6 +2063,7 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 18,
     fontWeight: '800',
+    fontFamily: 'Georgia',
     color: '#FFFFFF',
     letterSpacing: -0.3,
     textTransform: 'lowercase',
@@ -1949,6 +2089,7 @@ const styles = StyleSheet.create({
   usernameStatusText: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: 'Georgia',
     textTransform: 'lowercase',
     letterSpacing: -0.1,
   },
@@ -1974,6 +2115,7 @@ const styles = StyleSheet.create({
   modeTitle: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'Georgia',
     letterSpacing: -0.3,
     marginBottom: 4,
     textTransform: 'lowercase',
@@ -1981,6 +2123,7 @@ const styles = StyleSheet.create({
   modeDescription: {
     fontSize: 14,
     fontWeight: '400',
+    fontFamily: 'Georgia',
     lineHeight: 20,
     letterSpacing: -0.1,
     textTransform: 'lowercase',
@@ -2010,6 +2153,7 @@ const styles = StyleSheet.create({
   postVideoTitle: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'Georgia',
     letterSpacing: -0.3,
     marginBottom: 4,
     textTransform: 'lowercase',
@@ -2017,6 +2161,7 @@ const styles = StyleSheet.create({
   postVideoDescription: {
     fontSize: 14,
     fontWeight: '400',
+    fontFamily: 'Georgia',
     lineHeight: 20,
     letterSpacing: -0.1,
     textTransform: 'lowercase',

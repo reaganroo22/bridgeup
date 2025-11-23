@@ -461,7 +461,7 @@ export default function MentorsScreen() {
 
   const handleMentorPress = (mentor: MentorProfile) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push(`/wizzmo-profile?userId=${mentor.user_id}`);
+    router.push(`/bridgeup-profile?userId=${mentor.user_id}`);
   };
 
   const clearAllFilters = () => {

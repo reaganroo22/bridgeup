@@ -75,11 +75,11 @@ export default function ExitIntentPaywall({ visible, onClose, onFinalExit }: Exi
   useEffect(() => {
     if (offerings && offerings.length > 0) {
       const currentOffering = offerings.find(o => 
-        o.identifier === 'wizzmo default' ||
+        o.identifier === 'bridgeup default' ||
         o.identifier === 'default' || 
         o.identifier.toLowerCase().includes('default') ||
         o.identifier.toLowerCase().includes('main') ||
-        o.identifier.toLowerCase().includes('wizzmo') ||
+        o.identifier.toLowerCase().includes('bridgeup') ||
         offerings.length === 1
       ) || offerings[0];
 
@@ -133,11 +133,11 @@ export default function ExitIntentPaywall({ visible, onClose, onFinalExit }: Exi
     try {
       // Find the main offering (same logic as PaywallModal)
       const currentOffering = offerings?.find(o => 
-        o.identifier === 'wizzmo default' ||
+        o.identifier === 'bridgeup default' ||
         o.identifier === 'default' || 
         o.identifier.toLowerCase().includes('default') ||
         o.identifier.toLowerCase().includes('main') ||
-        o.identifier.toLowerCase().includes('wizzmo') ||
+        o.identifier.toLowerCase().includes('bridgeup') ||
         offerings.length === 1
       ) || offerings?.[0];
       
@@ -155,7 +155,7 @@ export default function ExitIntentPaywall({ visible, onClose, onFinalExit }: Exi
         const success = await purchasePackage(monthlyPackage);
         if (success) {
           onClose();
-          Alert.alert('Welcome to Wizzmo Pro! 💕', 'You now have unlimited advice access! 🎉');
+          Alert.alert('Welcome to BridgeUp Pro! 🎓', 'You now have unlimited college guidance access! 🎉');
         }
       } else {
         Alert.alert('Package Not Found', 'Unable to find the monthly subscription package.');
@@ -171,7 +171,7 @@ export default function ExitIntentPaywall({ visible, onClose, onFinalExit }: Exi
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
       <LinearGradient
-        colors={['#FF4DB8', '#8B5CF6']}
+        colors={['#4A90E2', '#6C9BD1']}
         style={styles.container}
       >
         {/* Header */}
@@ -185,12 +185,12 @@ export default function ExitIntentPaywall({ visible, onClose, onFinalExit }: Exi
         <View style={styles.content}>
           {/* Main Message */}
           <Animated.View style={[styles.messageSection, { opacity: fadeAnim1, transform: [{ translateY: fadeAnim1.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }]}>
-            <Text style={styles.emoji}>💕</Text>
+            <Text style={styles.emoji}>🎓</Text>
             <Text style={styles.title}>
               wait! special offer
             </Text>
             <Text style={styles.subtitle}>
-              get your first month 50% off
+              get your first month 50% off college guidance
             </Text>
           </Animated.View>
 
@@ -222,11 +222,11 @@ export default function ExitIntentPaywall({ visible, onClose, onFinalExit }: Exi
           <Animated.View style={[styles.featuresSection, { opacity: fadeAnim4, transform: [{ translateY: fadeAnim4.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }]}>
             <View style={styles.feature}>
               <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-              <Text style={styles.featureText}>unlimited questions</Text>
+              <Text style={styles.featureText}>unlimited college questions</Text>
             </View>
             <View style={styles.feature}>
               <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-              <Text style={styles.featureText}>priority responses</Text>
+              <Text style={styles.featureText}>priority advisor responses</Text>
             </View>
             <View style={styles.feature}>
               <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
@@ -243,10 +243,10 @@ export default function ExitIntentPaywall({ visible, onClose, onFinalExit }: Exi
             >
               <View style={styles.ctaContent}>
                 {isPurchasing ? (
-                  <ActivityIndicator color="#FF4DB8" />
+                  <ActivityIndicator color="#4A90E2" />
                 ) : (
                   <>
-                    <Text style={styles.ctaText}>claim 50% off ✨</Text>
+                    <Text style={styles.ctaText}>claim 50% off 🎓</Text>
                   </>
                 )}
               </View>
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ctaText: {
-    color: '#FF4DB8',
+    color: '#4A90E2',
     fontSize: 18,
     fontWeight: '800',
   },

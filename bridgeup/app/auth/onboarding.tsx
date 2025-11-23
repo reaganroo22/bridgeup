@@ -190,7 +190,7 @@ export default function Onboarding() {
       const { error } = await supabaseService.updateUserProfile(user.id, {
         username: username.trim(),
         bio: bio.trim(),
-        age: age ? parseInt(age) : null,
+        age: age ? parseInt(age) : undefined,
         gender,
         education_level: educationLevel,
         graduation_year: (educationLevel !== 'not_student' && graduationYear) ? parseInt(graduationYear) : null,
@@ -515,7 +515,7 @@ export default function Onboarding() {
     <View style={styles.stepContent}>
       <View>
         <LinearGradient
-          colors={CURRENT_VERTICAL.gradientColors}
+          colors={['#4A90E2', '#6C9BD1']}
           style={styles.completionIcon}
         >
           <Ionicons name="checkmark" size={32} color="#FFFFFF" />
@@ -615,8 +615,8 @@ export default function Onboarding() {
   const renderPaywall = () => (
     <View style={styles.stepContent}>
       <PaywallVariantA 
+        visible={true}
         onClose={() => setCurrentStep(7)}
-        onSuccess={() => setCurrentStep(7)}
       />
     </View>
   );
@@ -624,7 +624,7 @@ export default function Onboarding() {
   const renderFinalComplete = () => (
     <View style={styles.stepContent}>
       <LinearGradient
-        colors={CURRENT_VERTICAL.gradientColors}
+        colors={CURRENT_VERTICAL.gradientColors as readonly [string, string, ...string[]]}
         style={styles.finalIcon}
       >
         <Ionicons name="heart" size={40} color="#FFFFFF" />
@@ -637,7 +637,7 @@ export default function Onboarding() {
 
       <TouchableOpacity 
         style={styles.startButton} 
-        onPress={() => router.replace('/(tabs)/')}
+        onPress={() => router.replace('/(tabs)')}
       >
         <LinearGradient
           colors={['#FFFFFF', '#F8F9FA']}
@@ -671,7 +671,7 @@ export default function Onboarding() {
     <TouchableWithoutFeedback onPress={dismissKeyboard}>
       <View style={styles.container}>
         <LinearGradient
-          colors={CURRENT_VERTICAL.gradientColors}
+          colors={['#4A90E2', '#6C9BD1']}
           style={styles.gradientBackground}
         >
           <SafeAreaView style={styles.safeArea}>
@@ -1380,7 +1380,7 @@ const styles = StyleSheet.create({
   nextButtonWithSkip: {
     flex: 1,
   },
-  skipButton: {
+  skipButtonSecondary: {
     paddingVertical: 18,
     alignItems: 'center',
     borderWidth: 2,
@@ -1389,7 +1389,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
-  skipButtonText: {
+  skipButtonTextSecondary: {
     fontSize: 16,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.7)',
