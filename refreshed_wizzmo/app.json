@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Wizzmo",
-    "slug": "wizzmo",
+    "slug": "wizzmo-college-advice",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -15,7 +15,32 @@
     "backgroundColor": "#FF4DB8",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.wizzmo.app"
+      "bundleIdentifier": "com.wizzmo.app",
+      "buildNumber": "1",
+      "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.developer.in-app-payments": [
+          "merchant.com.wizzmo.app"
+        ],
+        "aps-environment": "production"
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
+        "NSUserNotificationAlertStyle": "alert",
+        "UIFileSharingEnabled": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "google-oauth-wizzmo",
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.753037060504-s9lvudr16n4cbpssfq7dbak0lt5hr7iv"
+            ]
+          }
+        ]
+      },
+      "googleServicesFile": "./Client ID for iOS Wismo.plist"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,6 +50,7 @@
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "package": "com.wizzmo.app",
+      "versionCode": 1,
       "permissions": [
         "INTERNET",
         "VIBRATE",
