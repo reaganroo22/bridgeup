@@ -213,7 +213,7 @@ export async function scheduleWelcomeNotifications(userId: string) {
     {
       type: 'weekly_reminder' as NotificationType,
       payload: {
-        title: 'missing you bestie! 💭',
+        title: 'Ready for college guidance? 💭',
         body: 'got any college questions? our advisors are here to help',
         data: { screen: 'ask' },
       },

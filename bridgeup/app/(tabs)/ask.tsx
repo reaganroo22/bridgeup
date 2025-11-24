@@ -528,12 +528,12 @@ export default function AskScreen() {
       setIsSubmitting(false);
 
       const message = selectedWizzmo
-        ? 'your chosen wizzmo is getting notified now! 💕'
+        ? 'Your chosen advisor is getting notified now! 🎯'
         : preSelectedMentors.length > 0
-        ? `your ${preSelectedMentors.length} selected wizzmos are getting notified now! 💕`
-        : 'ur wizzmos are getting ready to slide into the chat... this usually takes like 5-15 min max!';
+        ? `Your ${preSelectedMentors.length} selected advisors are getting notified now! 📚`
+        : 'Your advisors are getting ready to help... this usually takes 5-15 minutes max!';
 
-      const alertTitle = (userProfile?.gender === 'female') ? 'we got u girl! 💕' : 'we got u bestie! 💪';
+      const alertTitle = 'Question submitted! 🎉';
 
       Alert.alert(
         alertTitle,
@@ -550,7 +550,7 @@ export default function AskScreen() {
     } catch (error) {
       console.error('[AskScreen] Submit error:', error);
       setIsSubmitting(false);
-      Alert.alert('oops!', 'something went wrong... try again bestie 💕');
+      Alert.alert('Oops!', 'Something went wrong... please try again! 🔄');
     }
   };
 
@@ -562,7 +562,7 @@ export default function AskScreen() {
   return (
     <>
       <CustomHeader
-        title="Ask a Wizzmo!"
+        title="Ask an Advisor!"
         showBackButton={true}
         showChatButton={false}
         showProfileButton={false}
@@ -1014,7 +1014,7 @@ export default function AskScreen() {
                 {selectedWizzmo && !favoriteWizzmos.find(f => f.mentor_id === selectedWizzmo) && (
                   <View style={styles.selectedMentorSection}>
                     <Text style={[styles.favoritesTitle, { color: colors.text }]}>
-                      selected wizzmo
+                      selected advisor
                     </Text>
                     <View style={[styles.selectedMentorCard, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
                       <View style={[styles.favoriteAvatar, { backgroundColor: '#FFFFFF' }]}>
@@ -1023,7 +1023,7 @@ export default function AskScreen() {
                         </Text>
                       </View>
                       <Text style={[styles.favoriteName, { color: '#FFFFFF' }]} numberOfLines={1}>
-                        {selectedWizzmoData?.full_name || 'Selected Wizzmo'}
+                        {selectedWizzmoData?.full_name || 'Selected Advisor'}
                       </Text>
                       <TouchableOpacity onPress={() => {
                         setSelectedWizzmo(null);

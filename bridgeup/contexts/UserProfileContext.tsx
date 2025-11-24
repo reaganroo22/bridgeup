@@ -83,18 +83,18 @@ export function UserProfileProvider({ children }: { children: React.ReactNode })
     else if (hour < 17) timeGreeting = 'good afternoon';
     else timeGreeting = 'good evening';
 
-    // Extract first name from full_name or fall back to username, then to "bestie"
+    // Extract first name from full_name or fall back to username, then to default
     const firstName = userProfile?.full_name?.split(' ')[0]?.trim() || userProfile?.username?.trim();
-    if (!firstName) return `${timeGreeting} bestie 💕`;
+    if (!firstName) return `${timeGreeting}! Ready for college guidance? 📚`;
 
     if (isHighSchool) {
-      return `${timeGreeting} ${firstName}! how's high school treating you? 🎒`;
+      return `${timeGreeting} ${firstName}! Ready to tackle college prep? 🎯`;
     } else if (isUniversity) {
-      return `${timeGreeting} ${firstName}! college life hitting different? 📚`;
+      return `${timeGreeting} ${firstName}! How's your college journey going? 📚`;
     } else if (isGraduate) {
-      return `${timeGreeting} ${firstName}! grad school is tough but you got this 🎓`;
+      return `${timeGreeting} ${firstName}! How's your grad school journey? 🎓`;
     } else {
-      return `${timeGreeting} ${firstName}! ready to spill some tea? ☕`;
+      return `${timeGreeting} ${firstName}! Ready for some college guidance? 📚`;
     }
   };
 
