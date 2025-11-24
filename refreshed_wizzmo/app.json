@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "wizzmo",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#FF4DB8"
@@ -80,9 +80,10 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "2ab5fa57-3513-40d0-bff3-2b7130da1868"
+        "projectId": "051ac1ce-5198-481f-9ab0-406c876a2e9c"
       }
     },
-    "runtimeVersion": "1.0.0"
+    "runtimeVersion": "1.0.0",
+    "owner": "reaganroo22"
   }
 }
