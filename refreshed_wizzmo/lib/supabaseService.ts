@@ -2384,14 +2384,15 @@ export async function syncAllMentorStats(): Promise<ServiceResponse<boolean>> {
  * Get all categories
  * @returns Array of categories
  */
-export async function getCategories(): Promise<ServiceResponse<Category[]>> {
+export async function getCategories(vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<Category[]>> {
   try {
-    console.log('[getCategories] Fetching all categories')
+    console.log(`[getCategories] Fetching categories for vertical: ${vertical}`)
 
-    // SQL: SELECT * FROM categories ORDER BY name ASC
+    // SQL: SELECT * FROM categories WHERE vertical = $1 ORDER BY name ASC
     const { data, error } = await supabase
       .from('categories')
       .select('*')
+      .eq('vertical', vertical)
       .order('name', { ascending: true })
 
     if (error) throw error
