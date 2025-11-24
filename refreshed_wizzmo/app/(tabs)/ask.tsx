@@ -203,15 +203,9 @@ export default function AskScreen() {
         const { data, error } = await supabaseService.getCategories();
         
         if (data && !error && data.length > 0) {
-          console.log('[AskScreen] Database returned old categories, using Wizzmo categories instead');
-          // Force use of Wizzmo categories instead of old database categories
-          setCategories(defaultCategories.map((name, index) => ({
-            id: `wizzmo-${index}`,
-            slug: name.toLowerCase().replace(/\s+/g, '-').replace(/&/g, 'and'),
-            name: name,
-            icon: null,
-            description: null
-          })));
+          console.log('[AskScreen] Using database categories with proper UUIDs');
+          // Use real database categories with UUIDs
+          setCategories(data);
         } else {
           console.log('[AskScreen] Using fallback categories');
           // Use fallback categories if database fails or is empty
@@ -441,6 +435,12 @@ export default function AskScreen() {
     if (!categoryExists) {
       console.error('[AskScreen] Invalid category selected:', selectedCategory, 'Available categories:', categories.map(c => ({ id: c.id, name: c.name })));
       Alert.alert('Error', 'Invalid category selected. Please try selecting a category again.');
+      return;
+    }
+
+    // Additional check: if using fallback categories, prevent submission
+    if (selectedCategory.startsWith('fallback-')) {
+      Alert.alert('Error', 'Categories are still loading. Please wait a moment and try again.');
       return;
     }
 
