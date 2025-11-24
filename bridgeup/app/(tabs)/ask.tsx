@@ -427,10 +427,10 @@ export default function AskScreen() {
       return;
     }
 
-    // Validate selectedCategory is a proper UUID
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(selectedCategory)) {
-      console.error('[AskScreen] Invalid category UUID:', selectedCategory, 'Available categories:', categories.map(c => ({ id: c.id, name: c.name })));
+    // Validate selectedCategory exists in available categories
+    const categoryExists = categories.some(cat => cat.id === selectedCategory);
+    if (!categoryExists) {
+      console.error('[AskScreen] Invalid category selected:', selectedCategory, 'Available categories:', categories.map(c => ({ id: c.id, name: c.name })));
       Alert.alert('Error', 'Invalid category selected. Please try selecting a category again.');
       return;
     }

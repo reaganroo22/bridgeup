@@ -1818,7 +1818,8 @@ export async function markCommentHelpful(commentId: string, userId: string): Pro
 
     if (fetchError) {
       console.error('[markCommentHelpful] Comment not found:', fetchError)
-      throw fetchError
+      // Return gracefully for missing comments instead of throwing
+      return { data: null, error: new Error('Comment not found') }
     }
 
     // Update with incremented helpful votes
