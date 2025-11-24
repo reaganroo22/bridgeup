@@ -9,6 +9,7 @@
 
 import { supabase } from './supabase'
 import { RealtimeChannel } from '@supabase/supabase-js'
+import { CURRENT_VERTICAL_KEY } from '../config/current-vertical'
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -244,6 +245,7 @@ export async function updateUserProfile(
     gender?: string
     interests?: string[]
     onboarding_completed?: boolean
+    vertical?: string
   }
 ): Promise<ServiceResponse<User>> {
   try {
@@ -279,6 +281,7 @@ export async function updateUserProfile(
           full_name: updates.full_name || '',
           username: updates.username || '',
           role: 'student',
+          vertical: updates.vertical || CURRENT_VERTICAL_KEY,
           ...updates,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -740,10 +743,11 @@ export async function createQuestion(
   title: string,
   content: string,
   isAnonymous: boolean = false,
-  urgency: Urgency = 'low'
+  urgency: Urgency = 'low',
+  vertical: string = CURRENT_VERTICAL_KEY
 ): Promise<ServiceResponse<Question>> {
   try {
-    console.log('[createQuestion] Creating question:', { studentId, categoryId, title, urgency })
+    console.log('[createQuestion] Creating question:', { studentId, categoryId, title, urgency, vertical })
 
     // SQL: INSERT INTO questions (...) VALUES (...) RETURNING *
     const { data, error } = await supabase
@@ -756,6 +760,7 @@ export async function createQuestion(
         is_anonymous: isAnonymous,
         urgency,
         status: 'pending',
+        vertical,
       })
       .select()
       .single()
@@ -775,15 +780,16 @@ export async function createQuestion(
  * @param studentId - Student UUID
  * @returns Array of questions
  */
-export async function getQuestionsByStudent(studentId: string): Promise<ServiceResponse<Question[]>> {
+export async function getQuestionsByStudent(studentId: string, vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<Question[]>> {
   try {
-    console.log('[getQuestionsByStudent] Fetching questions for student:', studentId)
+    console.log(`[getQuestionsByStudent] Fetching questions for student: ${studentId}, vertical: ${vertical}`)
 
-    // SQL: SELECT * FROM questions WHERE student_id = $1 ORDER BY created_at DESC
+    // SQL: SELECT * FROM questions WHERE student_id = $1 AND vertical = $2 ORDER BY created_at DESC
     const { data, error } = await supabase
       .from('questions')
       .select('*')
       .eq('student_id', studentId)
+      .eq('vertical', vertical)
       .order('created_at', { ascending: false })
 
     if (error) throw error
@@ -801,9 +807,9 @@ export async function getQuestionsByStudent(studentId: string): Promise<ServiceR
  * @param mentorId - Mentor UUID
  * @returns Array of pending questions
  */
-export async function getPendingQuestions(mentorId: string): Promise<ServiceResponse<(Question & { category: Category })[]>> {
+export async function getPendingQuestions(mentorId: string, vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<(Question & { category: Category })[]>> {
   try {
-    console.log('[getPendingQuestions] Fetching ALL pending questions for mentor:', mentorId)
+    console.log(`[getPendingQuestions] Fetching ALL pending questions for mentor: ${mentorId}, vertical: ${vertical}`)
 
     // Check if user is a mentor
     const { data: profileData, error: profileError } = await supabase
@@ -829,6 +835,7 @@ export async function getPendingQuestions(mentorId: string): Promise<ServiceResp
       .from('questions')
       .select('*, category:categories(*)')
       .eq('status', 'pending')
+      .eq('vertical', vertical)
       .or(`preferred_mentor_id.is.null,preferred_mentor_id.eq.${mentorId}`)
       .order('created_at', { ascending: false })
 
@@ -851,9 +858,9 @@ export async function getPendingQuestions(mentorId: string): Promise<ServiceResp
  * @param mentorId - Mentor UUID
  * @returns Array of questions specifically requested for this mentor
  */
-export async function getRequestedQuestions(mentorId: string): Promise<ServiceResponse<(Question & { category: Category })[]>> {
+export async function getRequestedQuestions(mentorId: string, vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<(Question & { category: Category })[]>> {
   try {
-    console.log('[getRequestedQuestions] Fetching questions specifically requested for mentor:', mentorId)
+    console.log(`[getRequestedQuestions] Fetching questions specifically requested for mentor: ${mentorId}, vertical: ${vertical}`)
 
     // Check if user is a mentor
     const { data: profileData, error: profileError } = await supabase
@@ -877,6 +884,7 @@ export async function getRequestedQuestions(mentorId: string): Promise<ServiceRe
       .from('questions')
       .select('*, category:categories(*)')
       .eq('status', 'pending')
+      .eq('vertical', vertical)
       .eq('preferred_mentor_id', mentorId)
       .order('created_at', { ascending: false })
 
@@ -1499,9 +1507,9 @@ export async function updateMentorStats(mentorId: string): Promise<ServiceRespon
  * @param limit - Maximum number of questions to return
  * @returns Array of questions with engagement data
  */
-export async function getPublicQuestions(limit: number = 20, sortBy: 'recent' | 'trending' = 'recent'): Promise<ServiceResponse<any[]>> {
+export async function getPublicQuestions(limit: number = 20, sortBy: 'recent' | 'trending' = 'recent', vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<any[]>> {
   try {
-    console.log('[getPublicQuestions] Fetching public questions, limit:', limit, 'sortBy:', sortBy)
+    console.log('[getPublicQuestions] Fetching public questions, limit:', limit, 'sortBy:', sortBy, 'vertical:', vertical)
 
     // Simplified query - get questions with basic category info
     const { data: questions, error: questionsError } = await supabase
@@ -1511,6 +1519,7 @@ export async function getPublicQuestions(limit: number = 20, sortBy: 'recent' | 
         category:categories(id, name, slug, icon)
       `)
       .eq('is_anonymous', false)
+      .eq('vertical', vertical)
       .order('created_at', { ascending: false })
       .limit(limit)
 

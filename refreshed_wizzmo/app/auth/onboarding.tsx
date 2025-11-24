@@ -27,6 +27,7 @@ import * as supabaseService from '@/lib/supabaseService';
 // Reanimated imports removed for build compatibility
 import * as StoreReview from 'expo-store-review';
 import PaywallVariantA from '@/components/PaywallVariantA';
+import { CURRENT_VERTICAL_KEY } from '@/config/current-vertical';
 
 const categories = [
   { id: 'dating-advice', name: 'dating advice', emoji: '💕' },
@@ -190,6 +191,7 @@ export default function Onboarding() {
         graduation_year: (educationLevel !== 'not_student' && graduationYear) ? parseInt(graduationYear) : null,
         interests: selectedInterests,
         onboarding_completed: true,
+        vertical: CURRENT_VERTICAL_KEY,
       });
 
       if (error) {
