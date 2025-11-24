@@ -137,6 +137,7 @@ export default function AskScreen() {
           "Do girls judge guys for living with their parents?",
           "She said we should be friends... is there still a chance?",
           "I don't understand why she's being hot and cold...",
+          "She's taking 18 hour naps, what do I do?",
           "Should I tell her how I feel or will that ruin everything?",
           "What's more attractive: being mysterious or being open?",
           "She seems interested in person but distant over text...",
