@@ -3,12 +3,12 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>682302619545-mski67oikngevikcke5t4m5j2vaus5vm.apps.googleusercontent.com</string>
+	<string>753037060504-s9lvudr16n4cbpssfq7dbak0lt5hr7iv.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.682302619545-mski67oikngevikcke5t4m5j2vaus5vm</string>
+	<string>com.googleusercontent.apps.753037060504-s9lvudr16n4cbpssfq7dbak0lt5hr7iv</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.wizzmo.app</string>
+	<string>com.bridgeupapp.app</string>
 </dict>
 </plist>
