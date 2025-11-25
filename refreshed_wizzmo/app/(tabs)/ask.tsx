@@ -21,6 +21,7 @@ import { Text, View } from '@/components/Themed';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuth } from '../../contexts/AuthContext';
+import { useApp } from '../../contexts/AppContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useUserProfile } from '../../contexts/UserProfileContext';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -43,6 +44,7 @@ export default function AskScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'dark'];
   const { user } = useAuth();
+  const { submitQuestion } = useApp();
   const { canAskQuestion, incrementQuestionCount, getQuestionsRemaining, isProUser } = useSubscription();
   const { userProfile, getRelevantCategories, isHighSchool, isUniversity } = useUserProfile();
   const { notifyMentorsOfNewQuestion } = useNotifications();
@@ -139,7 +141,6 @@ export default function AskScreen() {
           "I don't understand why she's being hot and cold...",
           "She's taking 18 hour naps, what do I do?",
           "Should I tell her how I feel or will that ruin everything?",
-          "What's more attractive: being mysterious or being open?",
           "She seems interested in person but distant over text...",
           "I think she's out of my league but my friends say go for it...",
           "She talks to me about her problems... friend zone?",
@@ -255,7 +256,7 @@ export default function AskScreen() {
 
       if (data) {
         // Log mentor_id values to debug UUID issues
-        console.log('[AskScreen] Favorite wizzmos mentor IDs:', data.map(f => ({id: f.id, mentor_id: f.mentor_id})));
+        console.log('[AskScreen] Favorite wizzmos IDs:', data.map(f => ({id: f.id, mentor_id: f.mentor_id})));
         console.log('[AskScreen] Loaded', data.length, 'favorite wizzmos');
         setFavoriteMentors(data);
       } else if (error) {
@@ -391,6 +392,29 @@ export default function AskScreen() {
       setSelectedWizzmo(params.mentorId);
       setShowMentorSearch(true);
       console.log('[AskScreen] Pre-selected mentor:', params.mentorId);
+      
+      // Fetch mentor data to display their name
+      const fetchMentorData = async () => {
+        try {
+          const mentorId = Array.isArray(params.mentorId) ? params.mentorId[0] : params.mentorId;
+          const { data, error } = await supabase
+            .from('users')
+            .select('id, full_name, avatar_url')
+            .eq('id', mentorId)
+            .single();
+          
+          if (data && !error) {
+            setSelectedWizzmoData(data);
+            console.log('[AskScreen] Loaded mentor data:', data);
+          } else if (error) {
+            console.error('[AskScreen] Error fetching mentor data:', error);
+          }
+        } catch (error) {
+          console.error('[AskScreen] Error in fetchMentorData:', error);
+        }
+      };
+      
+      fetchMentorData();
     }
   }, [params.mentorId]);
 
@@ -400,6 +424,10 @@ export default function AskScreen() {
       try {
         const mentors = JSON.parse(params.selectedMentors);
         setPreSelectedMentors(mentors);
+        // Auto-enable specific mentor toggle when mentors are pre-selected
+        if (mentors.length > 0) {
+          setShowMentorSearch(true);
+        }
         console.log('[AskScreen] Pre-selected mentors from wizzmos tab:', mentors);
       } catch (error) {
         console.error('[AskScreen] Error parsing selected mentors:', error);
@@ -431,8 +459,8 @@ export default function AskScreen() {
       return;
     }
 
-    // Validate selectedCategory exists in available categories
-    const categoryExists = categories.some(cat => cat.id === selectedCategory);
+    // Validate selectedCategory exists in available categories (including manual "Other" option)
+    const categoryExists = categories.some(cat => cat.id === selectedCategory) || selectedCategory === 'other-manual';
     if (!categoryExists) {
       console.error('[AskScreen] Invalid category selected:', selectedCategory, 'Available categories:', categories.map(c => ({ id: c.id, name: c.name })));
       Alert.alert('Error', 'Invalid category selected. Please try selecting a category again.');
@@ -459,30 +487,58 @@ export default function AskScreen() {
       const isFemale = userProfile?.gender === 'female';
       console.log(`[Analytics] Question submitted - Gender: ${isFemale ? 'female' : 'male'}, Category: ${selectedCategory}, HasDetails: ${!!question.trim()}`);
 
-      // Create the question in Supabase
-      const { data: newQuestion, error } = await supabaseService.createQuestion(
-        user.id,
-        selectedCategory,
-        title.trim(),
-        question.trim() || title.trim(), // Use title as question if no details provided
-        isAnonymous
-      );
-
-      if (error) {
-        console.error('[AskScreen] Error creating question:', error);
-        throw error;
+      // Handle manual "Other" category - find a real "Other" category or use a default
+      let categoryId = selectedCategory;
+      if (selectedCategory === 'other-manual') {
+        const realOtherCategory = categories.find(cat => cat.slug === 'other' || cat.name.toLowerCase().includes('other'));
+        if (realOtherCategory) {
+          categoryId = realOtherCategory.id;
+        } else {
+          // Use the first available category as fallback
+          categoryId = categories[0]?.id || selectedCategory;
+        }
+        console.log('[AskScreen] Manual Other selected, using category ID:', categoryId);
       }
 
-      console.log('[AskScreen] Question created successfully:', newQuestion?.id);
+      // Create the question using AppContext (this updates local state automatically)
+      const preferredMentorId = selectedMentor || undefined; // For single mentor selection
+      const newQuestionId = await submitQuestion(
+        title.trim(),
+        question.trim() || title.trim(), // Use title as question if no details provided
+        categoryId,
+        isAnonymous,
+        preferredMentorId
+      );
+
+      console.log('[AskScreen] Question created successfully:', newQuestionId);
+
+      // If multiple mentors were pre-selected, create advice sessions for each
+      if (preSelectedMentors.length > 0 && newQuestionId) {
+        console.log('[AskScreen] Creating advice sessions for', preSelectedMentors.length, 'pre-selected mentors');
+        
+        for (const mentor of preSelectedMentors) {
+          try {
+            await supabaseService.createAdviceSession(newQuestionId, mentor.id);
+            console.log('[AskScreen] Created advice session for mentor:', mentor.name);
+          } catch (error) {
+            console.error('[AskScreen] Failed to create advice session for mentor:', mentor.name, error);
+            
+            // Skip self-mentoring attempts silently in bulk creation
+            if ((error as Error)?.message === 'Students cannot ask questions to themselves') {
+              console.log('[AskScreen] Skipping self-mentor in preselected list');
+            }
+          }
+        }
+      }
 
       // Notify mentors of the new question
-      if (newQuestion) {
+      if (newQuestionId) {
         const selectedCategoryName = categories.find(cat => cat.id === selectedCategory)?.name || 'general';
         const urgency = selectedCategoryName.includes('urgent') || selectedCategoryName.includes('emergency') ? 'high' : 
                       selectedCategoryName.includes('help') || selectedCategoryName.includes('advice') ? 'medium' : 'low';
         
         await notifyMentorsOfNewQuestion(
-          newQuestion.id,
+          newQuestionId,
           title.trim(),
           selectedCategoryName,
           urgency
@@ -490,7 +546,7 @@ export default function AskScreen() {
       }
 
       // If a specific wizzmo was selected, create advice session directly (premium feature)
-      if (selectedMentor && newQuestion) {
+      if (selectedMentor && newQuestionId) {
         // Validate selectedMentor is a proper UUID
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(selectedMentor)) {
@@ -502,13 +558,22 @@ export default function AskScreen() {
         
         console.log('[AskScreen] Creating direct session with selected wizzmo:', selectedMentor);
         const { data: session, error: sessionError } = await supabaseService.createAdviceSession(
-          newQuestion.id,
+          newQuestionId,
           selectedMentor
         );
 
         if (sessionError) {
           console.error('[AskScreen] Error creating session:', sessionError);
-          // Question still created, just not the direct session
+          
+          // Handle specific error for self-mentoring attempts
+          if (sessionError.message === 'Students cannot ask questions to themselves') {
+            Alert.alert(
+              'Cannot Select Yourself', 
+              "You can't select yourself as a mentor for your own question. This helps maintain objective advice.",
+              [{ text: 'OK', style: 'default' }]
+            );
+          }
+          // Question still created, just not the direct session - continue normally
         } else {
           console.log('[AskScreen] Direct session created:', session?.id);
         }
@@ -724,7 +789,7 @@ export default function AskScreen() {
                 contentContainerStyle={styles.categoriesScrollContent}
                 showsVerticalScrollIndicator={false}
               >
-              {sortCategoriesForUser(categories).map((category) => {
+              {[...sortCategoriesForUser(categories), ...(categories.find(cat => cat.slug === 'other') ? [] : [{ id: 'other-manual', slug: 'other', name: 'Other', icon: null, description: 'Other topics not covered above' }])].map((category) => {
                 const isSelected = selectedCategory === category.id;
                 return (
                 <TouchableOpacity
@@ -822,7 +887,8 @@ export default function AskScreen() {
               </View>
               <Switch
                 value={showMentorSearch}
-                onValueChange={setShowMentorSearch}
+                onValueChange={preSelectedMentors.length > 0 ? undefined : setShowMentorSearch}
+                disabled={preSelectedMentors.length > 0}
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={showMentorSearch ? '#FFFFFF' : colors.textTertiary}
               />

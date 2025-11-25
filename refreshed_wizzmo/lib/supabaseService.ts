@@ -217,7 +217,7 @@ export async function getUserProfile(userId: string): Promise<ServiceResponse<Us
       }
     }
 
-    console.log('[getUserProfile] Profile fetched successfully')
+    console.log('[getUserProfile] Profile fetched successfully. Role:', user.role, 'Email:', user.email)
     return { data: user, error: null }
   } catch (error) {
     console.error('[getUserProfile] Error:', error)
@@ -499,10 +499,36 @@ export async function acceptAdviceSession(
 ): Promise<ServiceResponse<any>> {
   try {
     console.log('[acceptAdviceSession] Accepting session:', sessionId, 'by mentor:', mentorId)
+    
+    // First, check if the session exists and the mentor is correctly assigned
+    const { data: existingSession, error: fetchError } = await supabase
+      .from('advice_sessions')
+      .select('id, mentor_id, status')
+      .eq('id', sessionId)
+      .single()
+    
+    if (fetchError) {
+      console.error('[acceptAdviceSession] Error fetching session:', fetchError)
+      throw new Error(`Could not find session: ${fetchError.message}`)
+    }
+    
+    if (!existingSession) {
+      throw new Error('Session not found')
+    }
+    
+    if (existingSession.mentor_id !== mentorId) {
+      throw new Error(`Mentor mismatch. Expected: ${existingSession.mentor_id}, Got: ${mentorId}`)
+    }
+    
+    console.log('[acceptAdviceSession] Session found, current status:', existingSession.status)
 
     const { data: session, error: sessionError } = await supabase
       .from('advice_sessions')
-      .update({ status: 'active' })
+      .update({ 
+        status: 'active',
+        accepted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
       .eq('id', sessionId)
       .eq('mentor_id', mentorId) // Security check - only the assigned mentor can accept
       .select()
@@ -510,10 +536,20 @@ export async function acceptAdviceSession(
 
     if (sessionError) {
       console.error('[acceptAdviceSession] Error accepting session:', sessionError)
+      console.error('[acceptAdviceSession] Error details:', {
+        code: sessionError.code,
+        message: sessionError.message,
+        details: sessionError.details,
+        hint: sessionError.hint
+      })
       throw sessionError
     }
+    
+    if (!session) {
+      throw new Error('No session returned after update - possible RLS policy issue')
+    }
 
-    console.log('[acceptAdviceSession] Session accepted successfully:', session.id)
+    console.log('[acceptAdviceSession] Session accepted successfully:', session.id, 'new status:', session.status)
     return { data: session, error: null }
   } catch (error) {
     console.error('[acceptAdviceSession] Error:', error)
@@ -744,7 +780,8 @@ export async function createQuestion(
   content: string,
   isAnonymous: boolean = false,
   urgency: Urgency = 'low',
-  vertical: string = CURRENT_VERTICAL_KEY
+  vertical: string = CURRENT_VERTICAL_KEY,
+  preferredMentorId?: string
 ): Promise<ServiceResponse<Question>> {
   try {
     console.log('[createQuestion] Creating question:', { studentId, categoryId, title, urgency, vertical })
@@ -761,6 +798,7 @@ export async function createQuestion(
         urgency,
         status: 'pending',
         vertical,
+        preferred_mentor_id: preferredMentorId,
       })
       .select()
       .single()
@@ -1732,7 +1770,7 @@ export async function getFeedComments(questionId: string): Promise<ServiceRespon
       .from('feed_comments')
       .select(`
         *,
-        user:users(id, full_name, username, avatar_url)
+        user:users(id, full_name, username, avatar_url, role)
       `)
       .eq('question_id', questionId)
       .order('created_at', { ascending: false })
@@ -1791,16 +1829,56 @@ export async function updateMentorHelpfulVotes(mentorId: string): Promise<Servic
 }
 
 /**
- * Mark a comment as helpful (increment helpful_votes)
+ * Check if a user has voted helpful on a comment by checking for existing vote record
  * @param commentId - Comment UUID
- * @param userId - User UUID (for tracking who voted)
- * @returns Updated comment
+ * @param userId - User UUID
+ * @returns Boolean indicating if user has voted
  */
-export async function markCommentHelpful(commentId: string, userId: string): Promise<ServiceResponse<FeedComment>> {
+export async function hasUserVotedHelpful(commentId: string, userId: string): Promise<ServiceResponse<boolean>> {
   try {
-    console.log('[markCommentHelpful] Marking comment helpful:', commentId)
+    // Try to find an existing vote record in comment_helpful_votes table
+    const { data, error } = await supabase
+      .from('comment_helpful_votes') 
+      .select('id')
+      .eq('comment_id', commentId)
+      .eq('user_id', userId)
+      .single()
 
-    // First get the current comment with user_id
+    // If table doesn't exist or no record found, return false
+    if (error) {
+      if (error.code === 'PGRST116' || error.code === '42P01') {
+        // No record found or table doesn't exist - user hasn't voted
+        return { data: false, error: null }
+      }
+      throw error
+    }
+
+    return { data: !!data, error: null }
+  } catch (error) {
+    // If table doesn't exist, gracefully return false
+    if ((error as any)?.code === '42P01') {
+      console.log('[hasUserVotedHelpful] comment_helpful_votes table does not exist, treating as no votes')
+      return { data: false, error: null }
+    }
+    console.error('[hasUserVotedHelpful] Error:', error)
+    return { data: false, error: null } // Default to false on error
+  }
+}
+
+/**
+ * Toggle helpful vote on a comment (vote/unvote with proper tracking)
+ * @param commentId - Comment UUID
+ * @param userId - User UUID
+ * @returns Updated comment with new vote status and isHelpful state
+ */
+export async function toggleCommentHelpful(commentId: string, userId: string): Promise<ServiceResponse<{comment: FeedComment, isHelpful: boolean}>> {
+  try {
+    console.log('[toggleCommentHelpful] Toggling helpful vote for comment:', commentId, 'user:', userId)
+    
+    // Check if user has already voted
+    const { data: hasVoted } = await hasUserVotedHelpful(commentId, userId)
+    
+    // Get current comment
     const { data: comment, error: fetchError } = await supabase
       .from('feed_comments')
       .select('helpful_votes, user_id')
@@ -1808,15 +1886,59 @@ export async function markCommentHelpful(commentId: string, userId: string): Pro
       .single()
 
     if (fetchError) {
-      console.error('[markCommentHelpful] Comment not found:', fetchError)
-      // Return gracefully for missing comments instead of throwing
+      console.error('[toggleCommentHelpful] Comment not found:', fetchError)
       return { data: null, error: new Error('Comment not found') }
     }
 
-    // Update with incremented helpful votes
+    let newVoteCount: number
+    let isHelpful: boolean
+
+    if (hasVoted) {
+      // User already voted, remove vote
+      console.log('[toggleCommentHelpful] Removing helpful vote')
+      
+      try {
+        // Try to remove vote record
+        await supabase
+          .from('comment_helpful_votes')
+          .delete()
+          .eq('comment_id', commentId)
+          .eq('user_id', userId)
+      } catch (error) {
+        // If table doesn't exist, that's okay - just log it
+        console.log('[toggleCommentHelpful] Could not remove vote record (table may not exist):', error)
+      }
+
+      // Decrement count
+      newVoteCount = Math.max(0, (comment.helpful_votes || 0) - 1)
+      isHelpful = false
+    } else {
+      // User hasn't voted, add vote
+      console.log('[toggleCommentHelpful] Adding helpful vote')
+      
+      try {
+        // Try to add vote record
+        await supabase
+          .from('comment_helpful_votes')
+          .insert({
+            comment_id: commentId,
+            user_id: userId,
+            created_at: new Date().toISOString()
+          })
+      } catch (error) {
+        // If table doesn't exist, that's okay for now - just log it
+        console.log('[toggleCommentHelpful] Could not add vote record (table may not exist):', error)
+      }
+
+      // Increment count
+      newVoteCount = (comment.helpful_votes || 0) + 1
+      isHelpful = true
+    }
+
+    // Update comment with new count
     const { data: updated, error: updateError } = await supabase
       .from('feed_comments')
-      .update({ helpful_votes: (comment?.helpful_votes || 0) + 1 })
+      .update({ helpful_votes: newVoteCount })
       .eq('id', commentId)
       .select()
       .single()
@@ -1828,10 +1950,80 @@ export async function markCommentHelpful(commentId: string, userId: string): Pro
       await updateMentorHelpfulVotes(comment.user_id)
     }
 
-    console.log('[markCommentHelpful] Comment marked helpful, new count:', updated.helpful_votes)
-    return { data: updated, error: null }
+    console.log('[toggleCommentHelpful] Vote toggled successfully. New count:', newVoteCount, 'isHelpful:', isHelpful)
+    return { data: { comment: updated, isHelpful }, error: null }
   } catch (error) {
-    console.error('[markCommentHelpful] Error:', error)
+    console.error('[toggleCommentHelpful] Error:', error)
+    return { data: null, error: error as Error }
+  }
+}
+
+/**
+ * Mark a comment as helpful (increment helpful_votes) - DEPRECATED: Use toggleCommentHelpful instead
+ * @param commentId - Comment UUID
+ * @param userId - User UUID (for tracking who voted)
+ * @returns Updated comment
+ */
+export async function markCommentHelpful(commentId: string, userId: string): Promise<ServiceResponse<FeedComment>> {
+  console.log('[markCommentHelpful] Using legacy function - consider switching to toggleCommentHelpful')
+  
+  // For now, just call the toggle function and return the comment part
+  const result = await toggleCommentHelpful(commentId, userId)
+  if (result.error || !result.data) {
+    return { data: null, error: result.error || new Error('Unknown error') }
+  }
+  
+  return { data: result.data.comment, error: null }
+}
+
+/**
+ * Get user's helpful votes for a list of comments
+ * @param commentIds - Array of comment UUIDs
+ * @param userId - User UUID
+ * @returns Map of commentId -> boolean indicating if user voted helpful
+ */
+export async function getUserHelpfulVotes(commentIds: string[], userId: string): Promise<ServiceResponse<Map<string, boolean>>> {
+  try {
+    if (commentIds.length === 0) {
+      return { data: new Map(), error: null }
+    }
+
+    const voteMap = new Map<string, boolean>()
+    
+    try {
+      // Try to get votes from comment_helpful_votes table
+      const { data: votes, error } = await supabase
+        .from('comment_helpful_votes')
+        .select('comment_id')
+        .in('comment_id', commentIds)
+        .eq('user_id', userId)
+
+      if (error) throw error
+
+      // Mark voted comments as true
+      if (votes) {
+        votes.forEach(vote => {
+          voteMap.set(vote.comment_id, true)
+        })
+      }
+
+      // Set remaining comments to false
+      commentIds.forEach(id => {
+        if (!voteMap.has(id)) {
+          voteMap.set(id, false)
+        }
+      })
+
+      console.log('[getUserHelpfulVotes] Found votes for', voteMap.size, 'comments')
+      return { data: voteMap, error: null }
+    } catch (error) {
+      // If table doesn't exist, return all false
+      console.log('[getUserHelpfulVotes] Could not fetch votes (table may not exist), defaulting to false')
+      commentIds.forEach(id => voteMap.set(id, false))
+      return { data: voteMap, error: null }
+    }
+  } catch (error) {
+    console.error('[getUserHelpfulVotes] Error:', error)
     return { data: null, error: error as Error }
   }
 }

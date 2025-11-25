@@ -11,6 +11,7 @@ import CustomHeader from '@/components/CustomHeader';
 import Avatar from '@/components/Avatar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserMode } from '@/contexts/UserModeContext';
 import * as supabaseService from '@/lib/supabaseService';
 import { supabase } from '@/lib/supabase';
 import * as Haptics from 'expo-haptics';
@@ -30,6 +31,7 @@ export default function WizzmoProfileScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { user: authUser } = useAuth();
+  const { currentMode, availableModes } = useUserMode();
   const [isFollowing, setIsFollowing] = useState(false);
   const [mentorProfile, setMentorProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -99,10 +101,10 @@ export default function WizzmoProfileScreen() {
           const { data: following } = await supabaseService.isFollowing(authUser.id, profileUserId);
           setIsFollowing(following || false);
 
-          // Check if favorited - only for users who can act as students
-          if (currentProfile?.role === 'student' || currentProfile?.role === 'both') {
+          // Check if favorited - only for users in student mode
+          if (currentMode === 'student' || currentProfile?.role === 'student') {
             const { data: favorite } = await supabase
-              .from('favorite_mentors')
+              .from('favorite_wizzmos')
               .select('id')
               .eq('student_id', authUser.id)
               .eq('mentor_id', profileUserId)
@@ -232,7 +234,7 @@ export default function WizzmoProfileScreen() {
       if (isFavorited) {
         // Remove from favorites
         const { error } = await supabase
-          .from('favorite_mentors')
+          .from('favorite_wizzmos')
           .delete()
           .eq('student_id', authUser.id)
           .eq('mentor_id', profileUserId);
@@ -243,7 +245,7 @@ export default function WizzmoProfileScreen() {
       } else {
         // Add to favorites
         const { error } = await supabase
-          .from('favorite_mentors')
+          .from('favorite_wizzmos')
           .insert({
             student_id: authUser.id,
             mentor_id: profileUserId,
@@ -371,8 +373,8 @@ export default function WizzmoProfileScreen() {
               )}
             </View>
 
-            {/* Action Buttons - Only show for users who can act as students viewing mentors */}
-            {!isViewingSelf && (currentUserProfile?.role === 'student' || currentUserProfile?.role === 'both') && (
+            {/* Action Buttons - Only show for users in student mode viewing mentors */}
+            {!isViewingSelf && (currentMode === 'student' || (currentUserProfile?.role === 'student')) && (
               <View style={styles.actionButtons}>
                 <TouchableOpacity
                   style={styles.primaryButton}

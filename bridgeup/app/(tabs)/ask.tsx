@@ -504,6 +504,20 @@ export default function AskScreen() {
         }
       }
 
+      // If multiple mentors were pre-selected, create advice sessions for each
+      if (preSelectedMentors.length > 0 && newQuestion?.id) {
+        console.log('[AskScreen] Creating advice sessions for', preSelectedMentors.length, 'pre-selected mentors');
+        
+        for (const mentor of preSelectedMentors) {
+          try {
+            await supabaseService.createAdviceSession(newQuestion.id, mentor.id);
+            console.log('[AskScreen] Created advice session for mentor:', mentor.name);
+          } catch (error) {
+            console.error('[AskScreen] Failed to create advice session for mentor:', mentor.name, error);
+          }
+        }
+      }
+
       // Increment question count for free users - critical for subscription tracking
       try {
         console.log('[Ask] Attempting to increment question count...');

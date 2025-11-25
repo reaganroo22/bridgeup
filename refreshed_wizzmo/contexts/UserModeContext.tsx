@@ -33,7 +33,9 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
         const { data: userProfile } = await supabaseService.getUserProfile(user.id);
         if (userProfile?.role) {
           setUserRole(userProfile.role);
-          console.log(`🔧 [UserMode] User role fetched: ${userProfile.role}`);
+          console.log(`🔧 [UserMode] User role fetched: ${userProfile.role} for ${userProfile.email}`);
+        } else {
+          console.log(`🔧 [UserMode] No user profile or role found for user: ${user.id}`);
         }
       } catch (error) {
         console.error('Error fetching user role:', error);
@@ -63,7 +65,16 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
 
     const newAvailableModes = getAvailableModes(userRole);
     setAvailableModes(newAvailableModes);
-  }, [userRole]);
+    
+    // If current mode is not in available modes, switch to appropriate default
+    if (!newAvailableModes.includes(currentMode)) {
+      const defaultMode = userRole === 'mentor' ? 'mentor' : userRole === 'both' ? 'mentor' : 'student';
+      if (newAvailableModes.includes(defaultMode)) {
+        setCurrentMode(defaultMode);
+        console.log(`🔧 [UserMode] Switched to ${defaultMode} because current mode ${currentMode} not available for role ${userRole}`);
+      }
+    }
+  }, [userRole, currentMode]);
 
   const canSwitch = availableModes.length > 1;
 
@@ -90,11 +101,19 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
           setCurrentMode(savedMode as UserMode);
           console.log(`🔧 [UserMode] Loaded saved mode: ${savedMode}`);
         } else {
-          // Default to mentor mode if user is mentor or both
-          const defaultMode = userRole === 'mentor' || userRole === 'both' ? 'mentor' : 'student';
+          // Default to mentor mode if user is mentor or both, otherwise student
+          let defaultMode: UserMode = 'student';
+          if (userRole === 'mentor') {
+            defaultMode = 'mentor';
+          } else if (userRole === 'both') {
+            defaultMode = 'mentor'; // Prefer mentor mode for dual-role users
+          }
+          
           if (availableModes.includes(defaultMode)) {
             setCurrentMode(defaultMode);
-            console.log(`🔧 [UserMode] Set default mode: ${defaultMode}`);
+            console.log(`🔧 [UserMode] Set default mode: ${defaultMode} for role: ${userRole}`);
+            // Save this default mode to storage
+            await AsyncStorage.setItem(`user_mode_${user.id}`, defaultMode);
           }
         }
       } catch (error) {

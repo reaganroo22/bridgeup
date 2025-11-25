@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, ScrollView, TouchableOpacity, Platform, RefreshControl, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Text, View } from '@/components/Themed';
@@ -42,6 +42,7 @@ export default function FeedScreen() {
   const isWizzmo = currentMode === 'mentor';
   const { user: authUser } = useAuth();
   const { isProUser } = useSubscription();
+  const params = useLocalSearchParams();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,7 +58,9 @@ export default function FeedScreen() {
   const fetchPublicQuestions = async (sortBy: 'recent' | 'trending' = 'trending') => {
     try {
       console.log('[Feed] Fetching public questions');
-      const { data, error } = await supabaseService.getPublicQuestions(12, sortBy);
+      // If we have a questionId parameter, fetch more questions to ensure we find it
+      const limit = params.questionId ? 50 : 12;
+      const { data, error } = await supabaseService.getPublicQuestions(limit, sortBy);
 
       if (error) {
         console.error('[Feed] Error fetching questions:', error);
@@ -73,7 +76,6 @@ export default function FeedScreen() {
           data.map(async (q: any) => {
             // Fetch comments for this question
             const { data: commentsData } = await supabaseService.getFeedComments(q.id);
-
             // Calculate votes
             const upvotes = q.feed_votes?.filter((v: any) => v.vote_type === 'upvote').length || 0;
             const downvotes = q.feed_votes?.filter((v: any) => v.vote_type === 'downvote').length || 0;
@@ -83,16 +85,17 @@ export default function FeedScreen() {
               ? q.feed_votes?.find((v: any) => v.user_id === authUser.id)
               : null;
 
-            // Transform comments
+            // Transform comments - simplified approach for now
             const comments: Comment[] = (commentsData || []).map((c: any) => ({
               id: c.id,
               mentorName: c.user?.full_name || c.user?.username || 'anonymous user',
               mentorAvatar: c.user?.avatar_url,
               mentorId: c.user?.id,
+              mentorRole: (c.user?.role === 'both' || c.user?.role === 'mentor') ? 'mentor' : 'student',
               text: c.content,
               timestamp: getTimeAgo(c.created_at),
               helpfulCount: c.helpful_votes || 0,
-              isHelpful: false, // TODO: Track user helpful votes
+              isHelpful: false, // Simple approach - always start as false
             }));
 
             return {
@@ -130,6 +133,32 @@ export default function FeedScreen() {
   useEffect(() => {
     fetchPublicQuestions(activeFilter);
   }, [activeFilter]);
+
+  // Handle questionId parameter from Active Now navigation
+  useEffect(() => {
+    if (params.questionId && publicQuestions.length > 0) {
+      console.log('[Feed] Auto-expanding question:', params.questionId);
+      const questionIndex = publicQuestions.findIndex(q => q.id === params.questionId);
+      if (questionIndex !== -1) {
+        console.log('[Feed] Found question at index:', questionIndex, 'expanding comments and highlighting');
+        // Auto-expand the target question and collapse others for clarity
+        setPublicQuestions(prev => prev.map((q, index) => 
+          index === questionIndex 
+            ? { ...q, showComments: true, showFullContent: true }
+            : { ...q, showComments: false }
+        ));
+        
+        // Clear the questionId parameter after handling it
+        setTimeout(() => {
+          if (params.questionId) {
+            router.replace('/(tabs)/feed'); // Remove questionId from URL
+          }
+        }, 1000);
+      } else {
+        console.log('[Feed] Question not found in current questions list. Available IDs:', publicQuestions.map(q => q.id).slice(0, 5));
+      }
+    }
+  }, [params.questionId, publicQuestions.length]); // Watch length instead of whole array
 
   const getTimeAgo = (timestamp: string): string => {
     const now = new Date();
@@ -232,7 +261,7 @@ export default function FeedScreen() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Optimistic update
+    // Optimistic update - just increment count and mark as helpful
     setPublicQuestions(prev => prev.map(q =>
       q.id === questionId
         ? {
@@ -241,8 +270,8 @@ export default function FeedScreen() {
               c.id === commentId
                 ? {
                     ...c,
-                    isHelpful: !c.isHelpful,
-                    helpfulCount: c.isHelpful ? c.helpfulCount - 1 : c.helpfulCount + 1
+                    isHelpful: true,
+                    helpfulCount: c.helpfulCount + 1
                   }
                 : c
             )
@@ -250,11 +279,12 @@ export default function FeedScreen() {
         : q
     ));
 
-    // Update in database
+    // Update in database - simple increment for now
     try {
       await supabaseService.markCommentHelpful(commentId, authUser.id);
+      console.log('[Feed] Comment marked helpful successfully');
     } catch (error) {
-      console.error('[Feed] Error marking helpful:', error);
+      console.error('[Feed] Error toggling helpful vote:', error);
       // Revert on error
       fetchPublicQuestions();
     }
@@ -307,6 +337,7 @@ export default function FeedScreen() {
         mentorName: userProfile?.full_name || userProfile?.username || 'you',
         mentorAvatar: userProfile?.avatar_url || undefined,
         mentorId: authUser.id,
+        mentorRole: userProfile?.role || 'student',
         text: commentText,
         timestamp: 'just now',
         helpfulCount: 0,

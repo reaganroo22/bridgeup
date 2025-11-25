@@ -49,13 +49,20 @@ export default function Avatar({
 
   // Update currentImageUrl when imageUrl prop changes
   useEffect(() => {
-    if (imageUrl !== currentImageUrl) {
-      // Add cache busting for updated images
+    const stripTimestamp = (url: string | undefined) => {
+      if (!url) return url;
+      return url.split('?t=')[0];
+    };
+    
+    const baseImageUrl = stripTimestamp(imageUrl);
+    const baseCurrentUrl = stripTimestamp(currentImageUrl);
+    
+    if (baseImageUrl !== baseCurrentUrl) {
       const cacheBustedUrl = imageUrl ? `${imageUrl}?t=${Date.now()}` : imageUrl;
       setCurrentImageUrl(cacheBustedUrl);
       console.log('🔄 [Avatar] Image URL updated:', { old: currentImageUrl, new: cacheBustedUrl });
     }
-  }, [imageUrl, currentImageUrl]);
+  }, [imageUrl]); // Only depend on imageUrl prop, not currentImageUrl state
 
   const getInitials = (fullName: string) => {
     if (!fullName || typeof fullName !== 'string') {

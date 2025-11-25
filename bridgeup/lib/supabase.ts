@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { Database } from './database.types'
 import { Platform } from 'react-native'
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://miygmdboiesbxwlqgnsx.supabase.co'
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1peWdtZGJvaWVzYnh3bHFnbnN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5MDY2NTMsImV4cCI6MjA3NTQ4MjY1M30.ALWPCOBp_4JpdGcVwQXVsax6BD3u__qCr1Dg2zC7zj4'
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://qpttxbcglzocxbzzevmg.supabase.co'
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwdHR4YmNnbHpvY3hienpldm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwMTA4NzAsImV4cCI6MjA3OTU4Njg3MH0.RY9LeGG0RAwluLXKWzDYGGQadjx5uVo259BhOI_0faI'
 
 console.log('[Supabase] Initializing with URL:', supabaseUrl ? 'configured' : 'missing')
 

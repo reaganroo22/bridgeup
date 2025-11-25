@@ -177,9 +177,9 @@ function RootLayoutNav() {
       }}>
         <SafeAreaProvider>
           <SubscriptionProvider>
-            <AppProvider>
-              <UserProfileProvider>
-                <UserModeProvider>
+            <UserModeProvider>
+              <AppProvider>
+                <UserProfileProvider>
                   <RealTimeProfileProvider>
                     <NotificationProvider>
                       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -205,9 +205,9 @@ function RootLayoutNav() {
                 </ThemeProvider>
                     </NotificationProvider>
                   </RealTimeProfileProvider>
-                </UserModeProvider>
-              </UserProfileProvider>
-            </AppProvider>
+                </UserProfileProvider>
+              </AppProvider>
+            </UserModeProvider>
           </SubscriptionProvider>
         </SafeAreaProvider>
       </View>

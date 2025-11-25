@@ -137,11 +137,14 @@ export default function ChatScreen() {
   // Helper functions for status display
   const getStatusText = () => {
     if (!session) return 'loading...';
+    
     switch (session.status) {
       case 'active':
         return 'active chat';
       case 'pending':
         return 'waiting for mentor';
+      case 'accepted':
+        return 'chat accepted';
       case 'resolved':
         return 'chat ended';
       default:
@@ -151,11 +154,14 @@ export default function ChatScreen() {
 
   const getStatusColor = () => {
     if (!session) return colors.textSecondary;
+    
     switch (session.status) {
       case 'active':
         return colors.primary;
       case 'pending':
         return colors.warning;
+      case 'accepted':
+        return colors.success;
       case 'resolved':
         return colors.textSecondary;
       default:
@@ -285,9 +291,21 @@ export default function ChatScreen() {
 
     console.log('[Chat] 🔄 Setting up message polling for chat:', chatId);
     
-    // Poll for new messages every 1.5 seconds
+    // Poll for new messages and session status every 1.5 seconds
     const pollForMessages = async () => {
       try {
+        // Check for session status changes
+        const { data: sessionData } = await supabase
+          .from('advice_sessions')
+          .select('status')
+          .eq('id', chatId)
+          .single();
+
+        if (sessionData && session && sessionData.status !== session.status) {
+          console.log('[Chat] 🔄 Session status changed from', session.status, 'to', sessionData.status);
+          setSession(prev => prev ? { ...prev, status: sessionData.status } : prev);
+        }
+
         const { data: latestMessages } = await supabase
           .from('messages')
           .select(`
@@ -858,7 +876,7 @@ export default function ChatScreen() {
         console.log('[Chat] Adding mentor to favorites:', session.mentor_id);
         // Add to favorites
         const { error: favoriteError } = await supabase
-          .from('favorite_mentors')
+          .from('favorite_wizzmos')
           .insert({
             student_id: user.id,
             mentor_id: session.mentor_id,

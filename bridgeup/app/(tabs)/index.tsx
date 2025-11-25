@@ -477,7 +477,7 @@ export default function HomeScreen() {
                     { borderBottomColor: colors.separator },
                     index === liveTopics.length - 1 && { borderBottomWidth: 0 },
                   ]}
-                  onPress={() => handlePress('/(tabs)/feed')}
+                  onPress={() => handlePress(`/(tabs)/feed?questionId=${topic.id}`)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.topicContent}>

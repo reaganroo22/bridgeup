@@ -354,6 +354,17 @@ export default function MentorsScreen() {
 
   const applyFilters = () => {
     let filtered = [...mentors];
+    console.log('[MentorsScreen] Applying filters to', mentors.length, 'mentors. Active filters:', {
+      searchTerm: searchTerm.trim(),
+      availability: activeFilters.availability,
+      topicsCount: activeFilters.topics.length,
+      vibesCount: activeFilters.vibes.length,
+      sessionFormatsCount: activeFilters.sessionFormats.length,
+      university: activeFilters.university.trim(),
+      graduationYearRange: [activeFilters.graduationYearMin, activeFilters.graduationYearMax],
+      minRating: activeFilters.minRating,
+      minQuestions: activeFilters.minQuestionsAnswered
+    });
 
     // Apply search term
     if (searchTerm.trim()) {
@@ -362,8 +373,8 @@ export default function MentorsScreen() {
         mentor.full_name?.toLowerCase().includes(searchLower) ||
         mentor.university?.toLowerCase().includes(searchLower) ||
         mentor.experience_description?.toLowerCase().includes(searchLower) ||
-        mentor.specialties.some(specialty => specialty.toLowerCase().includes(searchLower)) ||
-        mentor.has_experience_with.some(exp => exp.toLowerCase().includes(searchLower))
+        (mentor.specialties || []).some(specialty => specialty && specialty.toLowerCase().includes(searchLower)) ||
+        (mentor.has_experience_with || []).some(exp => exp && exp.toLowerCase().includes(searchLower))
       );
     }
 
@@ -376,8 +387,11 @@ export default function MentorsScreen() {
     if (activeFilters.topics.length > 0) {
       filtered = filtered.filter(mentor => 
         activeFilters.topics.some(topic => 
-          mentor.specialties.some(specialty => 
-            specialty.toLowerCase().includes(topic.toLowerCase())
+          (mentor.specialties || []).some(specialty => 
+            specialty && specialty.toLowerCase().includes(topic.toLowerCase())
+          ) ||
+          (mentor.has_experience_with || []).some(exp => 
+            exp && exp.toLowerCase().includes(topic.toLowerCase())
           )
         )
       );
@@ -386,7 +400,7 @@ export default function MentorsScreen() {
     // Apply vibe filters
     if (activeFilters.vibes.length > 0) {
       filtered = filtered.filter(mentor => 
-        activeFilters.vibes.includes(mentor.vibe)
+        mentor.vibe && activeFilters.vibes.includes(mentor.vibe)
       );
     }
 
@@ -434,7 +448,18 @@ export default function MentorsScreen() {
       );
     }
 
+    console.log('[MentorsScreen] Filtering complete. Results:', filtered.length, 'mentors');
     setFilteredMentors(filtered);
+
+    // Clear selected mentors that are no longer in filtered results
+    if (selectedMentors.length > 0) {
+      const filteredUserIds = filtered.map(mentor => mentor.user_id);
+      const validSelections = selectedMentors.filter(mentorId => filteredUserIds.includes(mentorId));
+      if (validSelections.length !== selectedMentors.length) {
+        console.log('[MentorsScreen] Clearing', selectedMentors.length - validSelections.length, 'selected mentors that are no longer visible');
+        setSelectedMentors(validSelections);
+      }
+    }
   };
 
   const handleSearch = (text: string) => {
@@ -809,6 +834,7 @@ export default function MentorsScreen() {
             <Text style={[styles.modalTitle, { color: colors.text }]}>filters</Text>
             <TouchableOpacity onPress={() => {
               // Apply filters and close
+              applyFilters();
               setShowFilterModal(false);
             }}>
               <Text style={[styles.modalDone, { color: colors.primary }]}>done</Text>

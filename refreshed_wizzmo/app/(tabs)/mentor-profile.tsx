@@ -93,8 +93,9 @@ export default function MentorProfileScreen() {
           )
         `)
         .eq('mentor_id', authUser.id)
+        .in('status', ['active', 'resolved'])
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(10);
 
       if (data) {
         setRecentSessions(data);

@@ -134,11 +134,11 @@ export default function ProfileScreen() {
 
     const fetchFavorites = async () => {
       const { data, error } = await supabase
-        .from('favorite_mentors')
+        .from('favorite_wizzmos')
         .select(`
           id,
           mentor_id,
-          mentors:users!favorite_mentors_mentor_id_fkey (
+          mentors:users!favorite_wizzmos_mentor_id_fkey (
             full_name,
             avatar_url
           )
@@ -147,38 +147,61 @@ export default function ProfileScreen() {
 
       if (data) {
         setFavoriteMentors(data);
+        console.log('[Profile] Loaded', data.length, 'favorite wizzmos');
+      } else if (error) {
+        console.error('[Profile] Error loading favorites:', error);
+        setFavoriteMentors([]);
       }
     };
 
     fetchFavorites();
   }, [authUser]);
 
-  // Fetch recent sessions from database
+  // Fetch recent questions from database (including pending ones)
   useEffect(() => {
     if (!authUser) return;
 
-    const fetchSessions = async () => {
-      const { data, error } = await supabase
-        .from('advice_sessions')
+    const fetchQuestions = async () => {
+      // First get questions created by this student
+      const { data: questions, error: questionsError } = await supabase
+        .from('questions')
         .select(`
-          *,
-          questions (
-            title,
-            content,
-            category_id,
-            categories (name)
-          )
+          id,
+          title,
+          content,
+          status,
+          created_at,
+          category_id,
+          categories (name)
         `)
         .eq('student_id', authUser.id)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(10);
 
-      if (data) {
-        setRecentSessions(data);
+      if (questionsError) {
+        console.error('[Profile] Error fetching questions:', questionsError);
+        return;
+      }
+
+      if (questions) {
+        // Transform questions to match the session format for UI compatibility
+        const transformedQuestions = questions.map(q => ({
+          id: q.id,
+          status: q.status,
+          created_at: q.created_at,
+          questions: {
+            title: q.title,
+            content: q.content,
+            category_id: q.category_id,
+            categories: q.categories
+          }
+        }));
+        setRecentSessions(transformedQuestions);
+        console.log('[Profile] Loaded', transformedQuestions.length, 'questions');
       }
     };
 
-    fetchSessions();
+    fetchQuestions();
   }, [authUser]);
 
   // Refresh function for pull-to-refresh
@@ -196,24 +219,36 @@ export default function ProfileScreen() {
         setBioText(profile.bio || '');
       }
       
-      // Refresh recent sessions
-      const { data: sessions } = await supabase
-        .from('advice_sessions')
+      // Refresh recent questions
+      const { data: questions } = await supabase
+        .from('questions')
         .select(`
-          *,
-          questions (
-            title,
-            content,
-            category_id,
-            categories (name)
-          )
+          id,
+          title,
+          content,
+          status,
+          created_at,
+          category_id,
+          categories (name)
         `)
         .eq('student_id', authUser.id)
         .order('created_at', { ascending: false })
         .limit(10);
       
-      if (sessions) {
-        setRecentSessions(sessions);
+      if (questions) {
+        // Transform questions to match the session format for UI compatibility
+        const transformedQuestions = questions.map(q => ({
+          id: q.id,
+          status: q.status,
+          created_at: q.created_at,
+          questions: {
+            title: q.title,
+            content: q.content,
+            category_id: q.category_id,
+            categories: q.categories
+          }
+        }));
+        setRecentSessions(transformedQuestions);
       }
       
       // Refresh subscription status
@@ -272,9 +307,9 @@ export default function ProfileScreen() {
 
   // Stats from real data
   const stats = {
-    questionsAsked: recentSessions.length,
-    activeChats: recentSessions.filter(s => s.status === 'active').length,
-    favoriteWizzmos: favoriteMentors.length,
+    questionsAsked: recentSessions?.length || 0,
+    activeChats: recentSessions?.filter(s => s.status === 'active').length || 0,
+    favoriteWizzmos: favoriteMentors?.length || 0,
   };
 
   // Loading state
@@ -896,6 +931,9 @@ export default function ProfileScreen() {
                         : 'you can provide advice and help other students'
                       }
                     </Text>
+                    <Text style={[styles.modeDescription, { color: colors.textTertiary, fontSize: 12 }]}>
+                      role: {userProfile?.role} | can switch: {canSwitch ? 'yes' : 'no'}
+                    </Text>
                   </View>
                   <ModeToggle showText={true} />
                 </View>
@@ -964,7 +1002,7 @@ export default function ProfileScreen() {
 
               <View style={[styles.statCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
                 <Text style={[styles.statValue, { color: colors.primary }]}>
-                  {stats.favoriteMentors}
+                  {stats.favoriteWizzmos}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
                   favorite wizzmos
@@ -1127,17 +1165,18 @@ export default function ProfileScreen() {
           </View>
 
           {/* Favorite Advisors Section */}
-          {favoriteMentors.length > 0 && (
+          {currentMode === 'student' && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                favorite wizzmos
+                favorite wizzmos ({favoriteMentors.length})
               </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.favoritesScrollContent}
-              >
-                {favoriteMentors.map((favorite) => (
+              {favoriteMentors.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.favoritesScrollContent}
+                >
+                  {favoriteMentors.map((favorite) => (
                   <TouchableOpacity
                     key={favorite.id}
                     style={[styles.favoriteCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -1157,7 +1196,14 @@ export default function ProfileScreen() {
                     <Ionicons name="heart" size={16} color="#FF4DB8" />
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+                </ScrollView>
+              ) : (
+                <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+                    no favorite wizzmos yet. visit mentor profiles to add some!
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -1244,25 +1290,27 @@ export default function ProfileScreen() {
                 />
               </View>
 
-              {/* Privacy Settings */}
-              <View style={[styles.settingItem, { borderBottomColor: colors.separator }]}>
-                <Ionicons name="shield-outline" size={20} color={colors.textSecondary} />
-                <View style={styles.settingContent}>
-                  <Text style={[styles.settingTitle, { color: colors.text }]}>privacy mode</Text>
-                  <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>
-                    hide profile from search
-                  </Text>
-                </View>
-                <Switch
-                  value={privacyMode}
-                  onValueChange={(value) => {
-                    setPrivacyMode(value);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor="#FFFFFF"
+              {/* Privacy Settings - Only for mentors */}
+              {(userProfile?.role === 'mentor' || userProfile?.role === 'both') && (
+                <View style={[styles.settingItem, { borderBottomColor: colors.separator }]}>
+                  <Ionicons name="shield-outline" size={20} color={colors.textSecondary} />
+                  <View style={styles.settingContent}>
+                    <Text style={[styles.settingTitle, { color: colors.text }]}>privacy mode</Text>
+                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>
+                      hide profile from search
+                    </Text>
+                  </View>
+                  <Switch
+                    value={privacyMode}
+                    onValueChange={(value) => {
+                      setPrivacyMode(value);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    trackColor={{ false: colors.border, true: colors.primary }}
+                    thumbColor="#FFFFFF"
                 />
               </View>
+              )}
 
               {/* Subscription Management */}
               <TouchableOpacity

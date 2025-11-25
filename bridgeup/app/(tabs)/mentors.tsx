@@ -435,6 +435,15 @@ export default function MentorsScreen() {
     }
 
     setFilteredMentors(filtered);
+
+    // Clear selected mentors that are no longer in filtered results
+    if (selectedMentors.length > 0) {
+      const filteredUserIds = filtered.map(mentor => mentor.user_id);
+      const validSelections = selectedMentors.filter(mentorId => filteredUserIds.includes(mentorId));
+      if (validSelections.length !== selectedMentors.length) {
+        setSelectedMentors(validSelections);
+      }
+    }
   };
 
   const handleSearch = (text: string) => {

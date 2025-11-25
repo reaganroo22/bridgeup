@@ -9,7 +9,7 @@
 
 import { supabase } from './supabase'
 import { RealtimeChannel } from '@supabase/supabase-js'
-import { CURRENT_VERTICAL_KEY } from '../config/current-vertical'
+// Vertical filtering removed - BridgeUp uses separate database
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -245,7 +245,7 @@ export async function updateUserProfile(
     gender?: string
     interests?: string[]
     onboarding_completed?: boolean
-    vertical?: string
+    // vertical field removed
   }
 ): Promise<ServiceResponse<User>> {
   try {
@@ -420,13 +420,13 @@ export async function getSessionByQuestionId(questionId: string): Promise<Servic
  * Create advice session when mentor accepts a question (no automatic welcome message)
  * @param questionId - Question UUID
  * @param mentorId - Mentor UUID
- * @param vertical - Vertical to create session in (defaults to current vertical)
+ * Database now uses separate BridgeUp instance
  * @returns Created advice session
  */
 export async function createAdviceSession(
   questionId: string,
   mentorId: string,
-  vertical: string = CURRENT_VERTICAL_KEY
+  // vertical parameter removed
 ): Promise<ServiceResponse<any>> {
   try {
     console.log('[createAdviceSession] Creating session for question:', questionId, 'mentor:', mentorId)
@@ -460,7 +460,7 @@ export async function createAdviceSession(
         student_id: question.student_id,
         mentor_id: mentorId,
         status: 'pending',
-        vertical: vertical
+        // vertical field removed
       })
       .select()
       .single()
@@ -746,10 +746,10 @@ export async function createQuestion(
   content: string,
   isAnonymous: boolean = false,
   urgency: Urgency = 'low',
-  vertical: string = CURRENT_VERTICAL_KEY
+  // vertical parameter removed
 ): Promise<ServiceResponse<Question>> {
   try {
-    console.log('[createQuestion] Creating question:', { studentId, categoryId, title, urgency, vertical })
+    console.log('[createQuestion] Creating question:', { studentId, categoryId, title, urgency })
 
     // SQL: INSERT INTO questions (...) VALUES (...) RETURNING *
     const { data, error } = await supabase
@@ -761,7 +761,7 @@ export async function createQuestion(
         content,
         is_anonymous: isAnonymous,
         urgency,
-        vertical,
+        // vertical field removed
         status: 'pending',
       })
       .select()
@@ -780,19 +780,18 @@ export async function createQuestion(
 /**
  * Get all questions for a student
  * @param studentId - Student UUID
- * @param vertical - Vertical to filter by (defaults to current vertical)
+ * Database now uses separate BridgeUp instance
  * @returns Array of questions
  */
-export async function getQuestionsByStudent(studentId: string, vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<Question[]>> {
+export async function getQuestionsByStudent(studentId: string): Promise<ServiceResponse<Question[]>> {
   try {
-    console.log(`[getQuestionsByStudent] Fetching questions for student: ${studentId}, vertical: ${vertical}`)
+    console.log(`[getQuestionsByStudent] Fetching questions for student: ${studentId}`)
 
-    // SQL: SELECT * FROM questions WHERE student_id = $1 AND vertical = $2 ORDER BY created_at DESC
+    // SQL: SELECT * FROM questions WHERE student_id = $1 ORDER BY created_at DESC
     const { data, error } = await supabase
       .from('questions')
       .select('*')
       .eq('student_id', studentId)
-      .eq('vertical', vertical)
       .order('created_at', { ascending: false })
 
     if (error) throw error
@@ -810,9 +809,9 @@ export async function getQuestionsByStudent(studentId: string, vertical: string 
  * @param mentorId - Mentor UUID
  * @returns Array of pending questions
  */
-export async function getPendingQuestions(mentorId: string, vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<(Question & { category: Category })[]>> {
+export async function getPendingQuestions(mentorId: string): Promise<ServiceResponse<(Question & { category: Category })[]>> {
   try {
-    console.log('[getPendingQuestions] Fetching ALL pending questions for mentor:', mentorId, 'vertical:', vertical)
+    console.log('[getPendingQuestions] Fetching ALL pending questions for mentor:', mentorId)
 
     // Check if user is a mentor
     const { data: profileData, error: profileError } = await supabase
@@ -838,7 +837,7 @@ export async function getPendingQuestions(mentorId: string, vertical: string = C
       .from('questions')
       .select('*, category:categories(*)')
       .eq('status', 'pending')
-      .eq('vertical', vertical)
+      // Vertical filtering removed - BridgeUp uses separate database
       .or(`preferred_mentor_id.is.null,preferred_mentor_id.eq.${mentorId}`)
       .order('created_at', { ascending: false })
 
@@ -861,9 +860,9 @@ export async function getPendingQuestions(mentorId: string, vertical: string = C
  * @param mentorId - Mentor UUID
  * @returns Array of questions specifically requested for this mentor
  */
-export async function getRequestedQuestions(mentorId: string, vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<(Question & { category: Category })[]>> {
+export async function getRequestedQuestions(mentorId: string): Promise<ServiceResponse<(Question & { category: Category })[]>> {
   try {
-    console.log('[getRequestedQuestions] Fetching questions specifically requested for mentor:', mentorId, 'vertical:', vertical)
+    console.log('[getRequestedQuestions] Fetching questions specifically requested for mentor:', mentorId)
 
     // Check if user is a mentor
     const { data: profileData, error: profileError } = await supabase
@@ -887,7 +886,7 @@ export async function getRequestedQuestions(mentorId: string, vertical: string =
       .from('questions')
       .select('*, category:categories(*)')
       .eq('status', 'pending')
-      .eq('vertical', vertical)
+      // Vertical filtering removed - BridgeUp uses separate database
       .eq('preferred_mentor_id', mentorId)
       .order('created_at', { ascending: false })
 
@@ -947,16 +946,16 @@ export async function updateQuestionStatus(
  * Get active sessions for a user (student or mentor)
  * @param userId - User UUID
  * @param role - User role (student/mentor)
- * @param vertical - Vertical to filter by (defaults to current vertical)
+ * Database now uses separate BridgeUp instance
  * @returns Array of active sessions with related data
  */
 export async function getActiveSessions(
   userId: string,
   role: 'student' | 'mentor',
-  vertical: string = CURRENT_VERTICAL_KEY
+  // vertical parameter removed
 ): Promise<ServiceResponse<(AdviceSession & { question: Question; messages: Message[] })[]>> {
   try {
-    console.log(`[getActiveSessions] Fetching active sessions for: ${userId}, role: ${role}, vertical: ${vertical}`)
+    console.log(`[getActiveSessions] Fetching active sessions for: ${userId}, role: ${role}`)
 
     let query = supabase
       .from('advice_sessions')
@@ -966,7 +965,7 @@ export async function getActiveSessions(
         messages(*)
       `)
       .in('status', ['accepted', 'active'])
-      .eq('vertical', vertical)
+      // Vertical filtering removed - BridgeUp uses separate database
       .order('updated_at', { ascending: false })
 
     // Filter by role
@@ -994,16 +993,16 @@ export async function getActiveSessions(
  * Get resolved sessions for a user (student or mentor)
  * @param userId - User UUID
  * @param role - User role (student/mentor)
- * @param vertical - Vertical to filter by (defaults to current vertical)
+ * Database now uses separate BridgeUp instance
  * @returns Array of resolved sessions
  */
 export async function getResolvedSessions(
   userId: string,
   role: 'student' | 'mentor',
-  vertical: string = CURRENT_VERTICAL_KEY
+  // vertical parameter removed
 ): Promise<ServiceResponse<(AdviceSession & { question: Question; rating?: Rating })[]>> {
   try {
-    console.log(`[getResolvedSessions] Fetching resolved sessions for: ${userId}, role: ${role}, vertical: ${vertical}`)
+    console.log(`[getResolvedSessions] Fetching resolved sessions for: ${userId}, role: ${role}`)
 
     let query = supabase
       .from('advice_sessions')
@@ -1013,7 +1012,7 @@ export async function getResolvedSessions(
         ratings(*)
       `)
       .eq('status', 'resolved')
-      .eq('vertical', vertical)
+      // Vertical filtering removed - BridgeUp uses separate database
       .order('resolved_at', { ascending: false })
 
     if (role === 'student') {
@@ -1516,9 +1515,9 @@ export async function updateMentorStats(mentorId: string): Promise<ServiceRespon
  * @param limit - Maximum number of questions to return
  * @returns Array of questions with engagement data
  */
-export async function getPublicQuestions(limit: number = 20, sortBy: 'recent' | 'trending' = 'recent', vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<any[]>> {
+export async function getPublicQuestions(limit: number = 20, sortBy: 'recent' | 'trending' = 'recent'): Promise<ServiceResponse<any[]>> {
   try {
-    console.log('[getPublicQuestions] Fetching public questions, limit:', limit, 'sortBy:', sortBy, 'vertical:', vertical)
+    console.log('[getPublicQuestions] Fetching public questions, limit:', limit, 'sortBy:', sortBy)
 
     // Simplified query - get questions with basic category info
     const { data: questions, error: questionsError } = await supabase
@@ -1528,7 +1527,7 @@ export async function getPublicQuestions(limit: number = 20, sortBy: 'recent' | 
         category:categories(id, name, slug, icon)
       `)
       .eq('is_anonymous', false)
-      .eq('vertical', vertical)
+      // Vertical filtering removed - BridgeUp uses separate database
       .order('created_at', { ascending: false })
       .limit(limit)
 
@@ -2391,18 +2390,18 @@ export async function syncAllMentorStats(): Promise<ServiceResponse<boolean>> {
 
 /**
  * Get all categories
- * @param vertical - Vertical to filter by (defaults to current vertical)
+ * Database now uses separate BridgeUp instance
  * @returns Array of categories
  */
-export async function getCategories(vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<Category[]>> {
+export async function getCategories(): Promise<ServiceResponse<Category[]>> {
   try {
-    console.log(`[getCategories] Fetching categories for vertical: ${vertical}`)
+    console.log(`[getCategories] Fetching categories`)
 
-    // SQL: SELECT * FROM categories WHERE vertical = $1 ORDER BY name ASC
+    // SQL: SELECT * FROM categories ORDER BY name ASC
     const { data, error } = await supabase
       .from('categories')
       .select('*')
-      .eq('vertical', vertical)
+      // Vertical filtering removed - BridgeUp uses separate database
       .order('name', { ascending: true })
 
     if (error) throw error
@@ -2951,16 +2950,16 @@ export async function deleteMentorVideo(videoId: string): Promise<ServiceRespons
  * Get all mentors for the mentor discovery tab
  * @returns Array of all available mentors
  */
-export async function getAllMentors(page: number = 0, limit: number = 20, excludeUserId?: string, vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<{mentors: any[], hasMore: boolean, totalCount: number}>> {
+export async function getAllMentors(page: number = 0, limit: number = 20, excludeUserId?: string): Promise<ServiceResponse<{mentors: any[], hasMore: boolean, totalCount: number}>> {
   try {
-    console.log(`[getAllMentors] Fetching mentors page ${page}, limit ${limit} for vertical: ${vertical}`)
+    console.log(`[getAllMentors] Fetching mentors page ${page}, limit ${limit}`)
 
     // First get total count for pagination info
     const { count } = await supabase
       .from('users')
       .select('id', { count: 'exact', head: true })
       .not('mentor_profile', 'is', null)
-      // Note: For count query, we need to join mentor_profiles to filter by vertical
+      // Note: Count query for all mentors
       // This is a simplified approach - you may need to adjust based on your exact schema
 
     const totalCount = count || 0
@@ -2994,8 +2993,7 @@ export async function getAllMentors(page: number = 0, limit: number = 20, exclud
       query = query.neq('id', excludeUserId)
     }
 
-    // Filter by vertical
-    query = query.eq('mentor_profile.vertical', vertical)
+    // Vertical filtering removed - separate BridgeUp database
 
     // Get paginated users with mentor profiles
     const { data, error } = await query

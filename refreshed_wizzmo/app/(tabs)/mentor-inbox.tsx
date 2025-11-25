@@ -157,12 +157,26 @@ export default function MentorInboxScreen() {
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
     try {
-      console.log('[MentorInbox] Accepting question:', questionId);
+      console.log('[MentorInbox] Accepting question:', questionId, 'by user:', authUser.id);
+
+      // First check if this is a dual role user trying to accept their own question
+      const { data: questionData } = await supabaseService.supabase
+        .from('questions')
+        .select('student_id')
+        .eq('id', questionId)
+        .single();
+
+      if (questionData?.student_id === authUser.id) {
+        console.log('[MentorInbox] Dual role user trying to accept own question');
+        Alert.alert('Cannot Accept', 'You cannot accept chats you yourself have sent.');
+        return;
+      }
+
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       // Create advice session
+      console.log('[MentorInbox] Creating advice session...');
       const { data: session, error } = await supabaseService.createAdviceSession(
         questionId,
         authUser.id
@@ -170,20 +184,46 @@ export default function MentorInboxScreen() {
 
       if (error) {
         console.error('[MentorInbox] Error creating session:', error);
-        Alert.alert('error', 'Failed to accept question. Please try again.');
+        
+        // Handle specific error for self-mentoring attempts
+        if (error.message === 'Students cannot ask questions to themselves') {
+          Alert.alert(
+            'Cannot Accept Own Question', 
+            "As a mentor, you can't accept questions you asked as a student. This helps maintain objective advice.",
+            [{ text: 'OK', style: 'default' }]
+          );
+        } else {
+          Alert.alert('Error', 'Failed to accept question. Please try again.');
+        }
         return;
       }
 
-      // Remove from both pending and requested lists
-      setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
-      setRequestedQuestions(prev => prev.filter(q => q.id !== questionId));
+      console.log('[MentorInbox] Session created:', session?.id, 'with status:', session?.status);
 
-      // Navigate to chat
-      setTimeout(() => {
-        if (session?.id) {
-          router.push(`/chat?chatId=${session.id}`);
+      // Accept the session to make it active
+      if (session?.id) {
+        console.log('[MentorInbox] Accepting session to make it active...');
+        const { data: acceptedSession, error: acceptError } = await supabaseService.acceptAdviceSession(
+          session.id,
+          authUser.id
+        );
+
+        if (acceptError) {
+          console.error('[MentorInbox] Error accepting session:', acceptError);
+          Alert.alert('error', 'Failed to activate chat. Please try again.');
+          return;
         }
-      }, 300);
+
+        console.log('[MentorInbox] ✅ Session accepted successfully, new status:', acceptedSession?.status);
+
+        // Remove from both pending and requested lists
+        setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
+        setRequestedQuestions(prev => prev.filter(q => q.id !== questionId));
+
+        // Navigate to chat immediately - the chat screen will poll for status updates
+        console.log('[MentorInbox] 🚀 Navigating to chat with session:', session.id);
+        router.push(`/chat?chatId=${session.id}`);
+      }
     } catch (error) {
       console.error('[MentorInbox] Error:', error);
       Alert.alert('error', 'Something went wrong');

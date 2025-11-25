@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from './AuthContext';
+import { useUserMode } from './UserModeContext';
 import * as supabaseService from '../lib/supabaseService';
 
 // ============================================================================
@@ -78,7 +79,7 @@ interface AppContextType {
   availableWizzmos: Wizzmo[];
   trendingTopics: TrendingTopic[];
   loading: boolean;
-  submitQuestion: (title: string, content: string, category: string, isAnonymous: boolean) => Promise<string>;
+  submitQuestion: (title: string, content: string, category: string, isAnonymous: boolean, preferredMentorId?: string) => Promise<string>;
   sendMessage: (chatId: string, text: string) => void;
   markChatAsRead: (chatId: string) => void;
   resolvChat: (chatId: string) => void;
@@ -102,6 +103,8 @@ export const useApp = () => {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Get authenticated user from AuthContext
   const { user: authUser } = useAuth();
+  // Get current user mode
+  const { currentMode, availableModes } = useUserMode();
 
   // State
   const [user, setUser] = useState<AppContextType['user']>(null);
@@ -133,7 +136,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // User logged in, fetch all data
     initializeAppData();
-  }, [authUser]);
+  }, [authUser, availableModes]);
 
   const initializeAppData = async () => {
     // Sync all mentor stats on startup to ensure fresh helpful vote data
@@ -269,30 +272,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!authUser) return;
 
     try {
-      console.log('[AppContext] Fetching user chats');
+      console.log('[AppContext] Fetching user chats for mode:', currentMode, 'available modes:', availableModes);
 
-      // Fetch both active and resolved sessions in parallel
-      const [activeSessions, resolvedSessions] = await Promise.all([
-        supabaseService.getActiveSessions(authUser.id, 'student'),
-        supabaseService.getResolvedSessions(authUser.id, 'student'),
-      ]);
+      let allActiveSessions: any[] = [];
+      let allResolvedSessions: any[] = [];
 
-      if (activeSessions.error) throw activeSessions.error;
-      if (resolvedSessions.error) throw resolvedSessions.error;
+      // For dual role users or when available modes include both, fetch sessions for both roles
+      if (availableModes.includes('student')) {
+        const [studentActiveSessions, studentResolvedSessions] = await Promise.all([
+          supabaseService.getActiveSessions(authUser.id, 'student'),
+          supabaseService.getResolvedSessions(authUser.id, 'student'),
+        ]);
+
+        if (studentActiveSessions.error) throw studentActiveSessions.error;
+        if (studentResolvedSessions.error) throw studentResolvedSessions.error;
+
+        allActiveSessions.push(...(studentActiveSessions.data || []));
+        allResolvedSessions.push(...(studentResolvedSessions.data || []));
+        console.log('[AppContext] Fetched student sessions - active:', studentActiveSessions.data?.length, 'resolved:', studentResolvedSessions.data?.length);
+      }
+
+      if (availableModes.includes('mentor')) {
+        const [mentorActiveSessions, mentorResolvedSessions] = await Promise.all([
+          supabaseService.getActiveSessions(authUser.id, 'mentor'),
+          supabaseService.getResolvedSessions(authUser.id, 'mentor'),
+        ]);
+
+        if (mentorActiveSessions.error) throw mentorActiveSessions.error;
+        if (mentorResolvedSessions.error) throw mentorResolvedSessions.error;
+
+        allActiveSessions.push(...(mentorActiveSessions.data || []));
+        allResolvedSessions.push(...(mentorResolvedSessions.data || []));
+        console.log('[AppContext] Fetched mentor sessions - active:', mentorActiveSessions.data?.length, 'resolved:', mentorResolvedSessions.data?.length);
+      }
+
+      // Remove duplicates (in case user has both roles and appears in both lists)
+      const uniqueActiveSessions = Array.from(new Map(allActiveSessions.map(s => [s.id, s])).values());
+      const uniqueResolvedSessions = Array.from(new Map(allResolvedSessions.map(s => [s.id, s])).values());
+
+      console.log('[AppContext] Unique sessions after deduplication - active:', uniqueActiveSessions.length, 'resolved:', uniqueResolvedSessions.length);
 
       const allSessions = [
-        ...(activeSessions.data || []),
-        ...(resolvedSessions.data || []),
+        ...uniqueActiveSessions,
+        ...uniqueResolvedSessions,
       ];
 
       // Transform sessions to chat format
       const transformedChats: Chat[] = [];
 
       for (const session of allSessions) {
-        // Get mentor profile
-        const { data: mentorProfile } = await supabaseService.getUserProfile(session.mentor_id);
+        // Determine if user is student or mentor in this session
+        const isUserMentor = session.mentor_id === authUser.id;
+        const isUserStudent = session.student_id === authUser.id;
+        
+        // Get the other person's profile
+        const otherPersonId = isUserMentor ? session.student_id : session.mentor_id;
+        const { data: otherPersonProfile } = await supabaseService.getUserProfile(otherPersonId);
 
-        if (!mentorProfile) continue;
+        if (!otherPersonProfile) continue;
 
         // Transform messages
         const transformedMessages: Message[] = (session.messages || []).map(m => ({
@@ -300,21 +337,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           chatId: session.id,
           text: m.content,
           senderId: m.sender_id,
-          senderName: m.sender_id === authUser.id ? (user?.name || 'you') : (mentorProfile.username || mentorProfile.full_name || 'wizzmo'),
-          senderAvatar: m.sender_id === authUser.id ? (user?.avatar || '🥺') : (mentorProfile.avatar_url || '💕'),
-          isWizzmo: m.sender_id !== authUser.id,
+          senderName: m.sender_id === authUser.id ? (user?.name || 'you') : (otherPersonProfile.username || otherPersonProfile.full_name || 'user'),
+          senderAvatar: m.sender_id === authUser.id ? (user?.avatar || '🥺') : (otherPersonProfile.avatar_url || '💕'),
+          isWizzmo: isUserMentor ? m.sender_id === session.student_id : m.sender_id === session.mentor_id,
           timestamp: new Date(m.created_at),
           isMe: m.sender_id === authUser.id,
         }));
 
-        // Count unread messages (messages from mentor that are unread)
-        const unreadCount = transformedMessages.filter(m => m.isWizzmo && !m.isMe).length;
+        // Count unread messages (messages from the other person that are unread)
+        const unreadCount = transformedMessages.filter(m => !m.isMe).length;
 
-        // Get rating if exists
+        // Get rating if exists (only for resolved sessions)
         let rating: number | undefined;
         let ratingFeedback: string | undefined;
-        if (session.status === 'resolved' && resolvedSessions.data) {
-          const sessionWithRating = resolvedSessions.data.find(s => s.id === session.id);
+        if (session.status === 'resolved') {
+          // Find rating in any of the resolved sessions arrays
+          const allResolvedSessions = [...uniqueResolvedSessions];
+          const sessionWithRating = allResolvedSessions.find(s => s.id === session.id);
           if (sessionWithRating?.ratings && Array.isArray(sessionWithRating.ratings) && sessionWithRating.ratings.length > 0) {
             const ratingData = sessionWithRating.ratings[0];
             rating = ratingData.rating;
@@ -328,10 +367,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           question: session.question?.content || 'No question content',
           category: categoryMap.get(session.question?.category_id)?.name || session.question?.category_id || 'General',
           participants: [{
-            id: mentorProfile.id,
-            name: mentorProfile.username || mentorProfile.full_name || 'wizzmo',
-            avatar: mentorProfile.avatar_url || '💕',
-            school: mentorProfile.university || 'Unknown',
+            id: otherPersonProfile.id,
+            name: otherPersonProfile.username || otherPersonProfile.full_name || 'user',
+            avatar: otherPersonProfile.avatar_url || (isUserMentor ? '🥺' : '💕'),
+            school: otherPersonProfile.university || 'Unknown',
             year: 'junior', // TODO: Add year to user profile
             specialties: [], // TODO: Fetch from mentor expertise
             isOnline: true, // TODO: Add presence tracking
@@ -608,7 +647,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
    * Submit a new question
    * Creates question in Supabase and returns question ID
    */
-  const submitQuestion = async (title: string, content: string, category: string, isAnonymous: boolean): Promise<string> => {
+  const submitQuestion = async (title: string, content: string, category: string, isAnonymous: boolean, preferredMentorId?: string): Promise<string> => {
     if (!authUser) {
       throw new Error('User not authenticated');
     }
@@ -649,7 +688,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         title, // title
         content, // content
         isAnonymous,
-        'medium' // default urgency
+        'medium', // default urgency
+        'wizzmo', // vertical
+        preferredMentorId // preferred mentor ID
       );
 
       if (error) throw error;

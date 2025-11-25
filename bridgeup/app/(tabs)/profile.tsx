@@ -1244,25 +1244,27 @@ export default function ProfileScreen() {
                 />
               </View>
 
-              {/* Privacy Settings */}
-              <View style={[styles.settingItem, { borderBottomColor: colors.separator }]}>
-                <Ionicons name="shield-outline" size={20} color={colors.textSecondary} />
-                <View style={styles.settingContent}>
-                  <Text style={[styles.settingTitle, { color: colors.text }]}>privacy mode</Text>
-                  <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>
-                    hide profile from search
-                  </Text>
+              {/* Privacy Settings - Only show for mentors */}
+              {(userProfile?.role === 'mentor' || userProfile?.role === 'both') && (
+                <View style={[styles.settingItem, { borderBottomColor: colors.separator }]}>
+                  <Ionicons name="shield-outline" size={20} color={colors.textSecondary} />
+                  <View style={styles.settingContent}>
+                    <Text style={[styles.settingTitle, { color: colors.text }]}>privacy mode</Text>
+                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>
+                      hide profile from search
+                    </Text>
+                  </View>
+                  <Switch
+                    value={privacyMode}
+                    onValueChange={(value) => {
+                      setPrivacyMode(value);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    trackColor={{ false: colors.border, true: colors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
                 </View>
-                <Switch
-                  value={privacyMode}
-                  onValueChange={(value) => {
-                    setPrivacyMode(value);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
+              )}
 
               {/* Subscription Management */}
               <TouchableOpacity

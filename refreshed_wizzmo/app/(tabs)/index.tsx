@@ -181,20 +181,60 @@ export default function HomeScreen() {
       
       if (existingSession) {
         console.log('[HomeScreen] Session already exists for question:', questionId);
-        setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
-        router.push(`/chat?chatId=${existingSession.id}`);
-        return;
+        
+        // For students: redirect to existing chat
+        // For mentors: only redirect if they are the assigned mentor
+        if (!isMentor || existingSession.mentor_id === user.id) {
+          setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
+          router.push(`/chat?chatId=${existingSession.id}`);
+          return;
+        } else {
+          // Mentor trying to accept a question that's already assigned to another mentor
+          Alert.alert('Question Already Assigned', 'This question has already been assigned to another mentor.');
+          setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
+          return;
+        }
       }
 
       const { data: session, error } = await supabaseService.createAdviceSession(questionId, user.id);
       if (error) {
         console.error('[HomeScreen] Error creating session:', error);
+        
+        // Handle specific error for self-mentoring attempts
+        if (error.message === 'Students cannot ask questions to themselves') {
+          Alert.alert(
+            'Cannot Accept Own Question', 
+            "You can't accept questions you asked yourself. This helps maintain objective advice.",
+            [{ text: 'OK', style: 'default' }]
+          );
+        } else {
+          Alert.alert('Error', 'Failed to accept question. Please try again.');
+        }
         return;
       }
 
-      setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
-      
+      console.log('[HomeScreen] Session created:', session?.id, 'with status:', session?.status);
+
+      // Accept the session to make it active
       if (session?.id) {
+        console.log('[HomeScreen] Accepting session to make it active...');
+        const { data: acceptedSession, error: acceptError } = await supabaseService.acceptAdviceSession(
+          session.id,
+          user.id
+        );
+
+        if (acceptError) {
+          console.error('[HomeScreen] Error accepting session:', acceptError);
+          Alert.alert('Error', 'Failed to activate chat. Please try again.');
+          return;
+        }
+
+        console.log('[HomeScreen] ✅ Session accepted successfully, new status:', acceptedSession?.status);
+
+        setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
+        
+        // Navigate to chat
+        console.log('[HomeScreen] 🚀 Navigating to chat with session:', session.id);
         router.push(`/chat?chatId=${session.id}`);
       }
     } catch (error) {
@@ -476,7 +516,7 @@ export default function HomeScreen() {
                     { borderBottomColor: colors.separator },
                     index === liveTopics.length - 1 && { borderBottomWidth: 0 },
                   ]}
-                  onPress={() => handlePress('/(tabs)/feed')}
+                  onPress={() => handlePress(`/(tabs)/feed?questionId=${topic.id}`)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.topicContent}>

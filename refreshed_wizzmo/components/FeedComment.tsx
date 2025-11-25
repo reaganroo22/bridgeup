@@ -12,6 +12,7 @@ export interface Comment {
   mentorName: string;
   mentorAvatar?: string;
   mentorId?: string;
+  mentorRole?: string;
   text: string;
   timestamp: string;
   helpfulCount: number;
@@ -58,12 +59,20 @@ export default function FeedComment({ comment, onHelpfulPress }: FeedCommentProp
             <Text style={[styles.mentorName, { color: colors.text }]}>
               {comment.mentorName}
             </Text>
-            <Ionicons
-              name="checkmark-circle"
-              size={14}
-              color={colors.primary}
-              style={styles.verifiedBadge}
-            />
+            {comment.mentorRole === 'student' ? (
+              <View style={[styles.roleBadge, { backgroundColor: colors.warning + '20', borderColor: colors.warning }]}>
+                <Text style={[styles.roleBadgeText, { color: colors.warning }]}>
+                  student
+                </Text>
+              </View>
+            ) : (
+              <Ionicons
+                name="checkmark-circle"
+                size={14}
+                color={colors.primary}
+                style={styles.verifiedBadge}
+              />
+            )}
           </TouchableOpacity>
           <Text style={[styles.timestamp, { color: colors.textTertiary }]}>
             {comment.timestamp}
@@ -155,5 +164,18 @@ const styles = StyleSheet.create({
   helpfulText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  roleBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginLeft: 4,
+  },
+  roleBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

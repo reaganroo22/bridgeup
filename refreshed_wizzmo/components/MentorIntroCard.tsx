@@ -88,7 +88,7 @@ export default function MentorIntroCard({ visible, onClose, mentor }: MentorIntr
               
               <View style={[styles.profileInfo, { backgroundColor: 'transparent' }]}>
                 <View style={[styles.nameContainer, { backgroundColor: 'transparent' }]}>
-                  <Text style={[styles.mentorName, { color: colors.text }]>
+                  <Text style={[styles.mentorName, { color: colors.text }]}>
                     {mentor.full_name}
                   </Text>
                   <View style={[styles.verifiedBadge, { backgroundColor: colors.primary }]}>
