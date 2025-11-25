@@ -563,6 +563,72 @@ export async function acceptAdviceSession(
  * @param isVerified - Whether the mentor is verified (default: true for approved mentors)
  * @returns Created mentor profile
  */
+/**
+ * Get user's favorite mentors
+ */
+export async function getFavoriteMentors(studentId: string): Promise<ServiceResponse<any[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('favorite_wizzmos')
+      .select(`
+        *,
+        mentor:users!favorite_wizzmos_mentor_id_fkey(
+          id,
+          full_name,
+          avatar_url,
+          email
+        )
+      `)
+      .eq('student_id', studentId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return { data: data || [], error: null }
+  } catch (error) {
+    console.error('[getFavoriteMentors] Error:', error)
+    return { data: null, error: error as Error }
+  }
+}
+
+/**
+ * Add mentor to favorites
+ */
+export async function addFavoriteMentor(studentId: string, mentorId: string): Promise<ServiceResponse<any>> {
+  try {
+    const { data, error } = await supabase
+      .from('favorite_wizzmos')
+      .insert({ student_id: studentId, mentor_id: mentorId })
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error) {
+    console.error('[addFavoriteMentor] Error:', error)
+    return { data: null, error: error as Error }
+  }
+}
+
+/**
+ * Remove mentor from favorites
+ */
+export async function removeFavoriteMentor(studentId: string, mentorId: string): Promise<ServiceResponse<any>> {
+  try {
+    const { data, error } = await supabase
+      .from('favorite_wizzmos')
+      .delete()
+      .eq('student_id', studentId)
+      .eq('mentor_id', mentorId)
+      .select()
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error) {
+    console.error('[removeFavoriteMentor] Error:', error)
+    return { data: null, error: error as Error }
+  }
+}
+
 export async function createMentorProfile(
   userId: string,
   isVerified: boolean = true

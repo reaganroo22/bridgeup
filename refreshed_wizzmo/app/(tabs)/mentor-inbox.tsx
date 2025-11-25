@@ -203,6 +203,15 @@ export default function MentorInboxScreen() {
       // Accept the session to make it active
       if (session?.id) {
         console.log('[MentorInbox] Accepting session to make it active...');
+        
+        // Debug: Check current auth state
+        const { data: authData } = await supabaseService.supabase.auth.getUser();
+        console.log('[MentorInbox] Current auth state:', {
+          authUserId: authUser.id,
+          supabaseUserId: authData?.user?.id,
+          match: authUser.id === authData?.user?.id
+        });
+        
         const { data: acceptedSession, error: acceptError } = await supabaseService.acceptAdviceSession(
           session.id,
           authUser.id

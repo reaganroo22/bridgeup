@@ -1352,11 +1352,11 @@ export default function ChatScreen() {
 
     if (session) {
       if (item.sender_id === session.mentor_id) {
-        senderName = session.mentors?.full_name || 'Wizzmo';
+        senderName = session.mentors?.full_name || 'Mentor';
         senderAvatar = session.mentors?.avatar_url || '🎓';
         isWizzmo = true;
       } else if (item.sender_id === session.student_id) {
-        senderName = session.students?.full_name || 'User';
+        senderName = session.students?.full_name || 'Student';
         senderAvatar = session.students?.avatar_url || '👤';
       }
     }
@@ -1812,8 +1812,8 @@ export default function ChatScreen() {
 
   const categoryName = session.questions?.categories?.name || 'chat';
   const otherPersonName = user?.id === session.student_id
-    ? session.mentors?.full_name
-    : session.students?.full_name;
+    ? session.mentors?.full_name || 'Mentor'
+    : session.students?.full_name || 'Student';
 
   return (
     <KeyboardAvoidingView
