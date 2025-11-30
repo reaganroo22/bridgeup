@@ -12,6 +12,13 @@ export const metadata: Metadata = {
     shortcut: '/wizzmo.svg',
     apple: '/wizzmo.svg',
   },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: 'cover',
+  },
 };
 
 export default function RootLayout({
