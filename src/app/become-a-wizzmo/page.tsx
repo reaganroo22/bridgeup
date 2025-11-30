@@ -15,10 +15,19 @@ export default function BecomeAWizzmoPage() {
     confirmWoman: false
   });
 
+  const universities = [
+    'Georgetown University',
+    'George Washington University', 
+    'American University',
+    'Catholic University of America',
+    'Howard University',
+    'Other'
+  ];
+
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     
@@ -48,9 +57,9 @@ export default function BecomeAWizzmoPage() {
           whyJoin: formData.whyMentor,
           university: formData.university,
           year: formData.classYear,
-          major: 'To be provided',
+          major: 'To be determined during onboarding',
           experience: formData.whyMentor,
-          topics: ['General Mentoring'],
+          topics: ['General College Advice'],
           instagram: '',
           referral: ''
         }),
@@ -59,11 +68,13 @@ export default function BecomeAWizzmoPage() {
       if (response.ok) {
         setSubmitted(true);
       } else {
-        throw new Error('Submission failed');
+        const errorData = await response.json();
+        console.error('API Error:', errorData);
+        throw new Error(errorData.error || 'Submission failed');
       }
     } catch (error) {
       console.error('Error submitting application:', error);
-      alert('Something went wrong. Please try again.');
+      alert(`Something went wrong: ${error.message}. Please try again.`);
     } finally {
       setSubmitting(false);
     }
@@ -96,7 +107,7 @@ export default function BecomeAWizzmoPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-white lg:bg-gray-50 overflow-hidden">
+    <div className="fixed inset-0 bg-white lg:bg-gray-50">
       <div className="lg:grid lg:grid-cols-2 h-full">
         
         {/* Left Side - Info (hidden on mobile, shown on desktop) */}
@@ -123,8 +134,8 @@ export default function BecomeAWizzmoPage() {
         </div>
 
         {/* Right Side - Form */}
-        <div className="h-full overflow-y-auto px-6 py-4 lg:py-12 lg:px-8 flex flex-col">
-          <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="h-full overflow-y-auto px-6 py-safe-top lg:py-12 lg:px-8 flex flex-col pb-safe-bottom">
+          <div className="sm:mx-auto sm:w-full sm:max-w-md flex-1">
             
             {/* Mobile header */}
             <div className="lg:hidden text-center mb-6">
@@ -180,15 +191,18 @@ export default function BecomeAWizzmoPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">University</label>
-                  <input
-                    type="text"
+                  <select
                     name="university"
                     value={formData.university}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white"
-                    placeholder="Georgetown University"
+                    className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white appearance-none select-arrow"
                     required
-                  />
+                  >
+                    <option value="">Select University</option>
+                    {universities.map(uni => (
+                      <option key={uni} value={uni}>{uni}</option>
+                    ))}
+                  </select>
                 </div>
                 
                 <div>
