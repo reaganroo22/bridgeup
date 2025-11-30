@@ -8,8 +8,10 @@ export default function BecomeAWizzmoPage() {
     firstName: '',
     lastName: '',
     email: '',
+    college: '',
     whyMentor: '',
-    confirmAdvice: false
+    confirmAdvice: false,
+    confirmWoman: false
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -26,7 +28,7 @@ export default function BecomeAWizzmoPage() {
   };
 
   const canSubmit = formData.firstName && formData.lastName && formData.email && 
-                   formData.whyMentor && formData.confirmAdvice;
+                   formData.college && formData.whyMentor && formData.confirmAdvice && formData.confirmWoman;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +45,7 @@ export default function BecomeAWizzmoPage() {
           lastName: formData.lastName,
           email: formData.email,
           whyJoin: formData.whyMentor,
-          university: 'To be provided during onboarding',
+          university: formData.college,
           year: 'To be provided',
           major: 'To be provided',
           experience: formData.whyMentor,
@@ -94,7 +96,7 @@ export default function BecomeAWizzmoPage() {
 
   return (
     <div className="min-h-screen bg-white lg:bg-gray-50">
-      <div className="lg:grid lg:grid-cols-2 lg:min-h-screen">
+      <div className="lg:grid lg:grid-cols-2 min-h-screen">
         
         {/* Left Side - Info (hidden on mobile, shown on desktop) */}
         <div className="hidden lg:flex lg:flex-col lg:justify-center lg:px-12 lg:bg-gradient-to-br lg:from-[#FF4DB8] lg:to-[#8B5CF6]">
@@ -133,7 +135,7 @@ export default function BecomeAWizzmoPage() {
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base"
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white"
                     placeholder="First name"
                     required
                   />
@@ -146,7 +148,7 @@ export default function BecomeAWizzmoPage() {
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base"
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white"
                     placeholder="Last name"
                     required
                   />
@@ -154,14 +156,27 @@ export default function BecomeAWizzmoPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">College Email</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email (for Google login)</label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base"
-                  placeholder="you@university.edu"
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white"
+                  placeholder="your.email@gmail.com"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">College/University & Class Year</label>
+                <input
+                  type="text"
+                  name="college"
+                  value={formData.college}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white"
+                  placeholder="UCLA '25 or Stanford '24"
                   required
                 />
               </div>
@@ -175,24 +190,40 @@ export default function BecomeAWizzmoPage() {
                   value={formData.whyMentor}
                   onChange={handleInputChange}
                   rows={4}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base resize-none"
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white resize-none"
                   placeholder="I'd make a good mentor because..."
                   required
                 />
               </div>
 
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  name="confirmAdvice"
-                  checked={formData.confirmAdvice}
-                  onChange={handleInputChange}
-                  className="mt-1 w-4 h-4 text-[#FF4DB8] border-gray-300 rounded focus:ring-[#FF4DB8]"
-                  required
-                />
-                <label className="text-sm text-gray-700">
-                  I understand this is <strong>peer advice</strong>, not therapy.
-                </label>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="confirmWoman"
+                    checked={formData.confirmWoman}
+                    onChange={handleInputChange}
+                    className="mt-1 w-4 h-4 text-[#FF4DB8] border-gray-300 rounded focus:ring-[#FF4DB8]"
+                    required
+                  />
+                  <label className="text-sm text-gray-700">
+                    I am a <strong>woman</strong> currently enrolled in or recently graduated from college.
+                  </label>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="confirmAdvice"
+                    checked={formData.confirmAdvice}
+                    onChange={handleInputChange}
+                    className="mt-1 w-4 h-4 text-[#FF4DB8] border-gray-300 rounded focus:ring-[#FF4DB8]"
+                    required
+                  />
+                  <label className="text-sm text-gray-700">
+                    I understand this is <strong>peer advice</strong>, not therapy.
+                  </label>
+                </div>
               </div>
 
               <button
