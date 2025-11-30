@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 
 export default function BecomeAWizzmoPage() {
@@ -8,52 +8,26 @@ export default function BecomeAWizzmoPage() {
     firstName: '',
     lastName: '',
     email: '',
-    university: '',
-    year: '',
-    whyJoin: '',
-    topics: [] as string[],
+    whyMentor: '',
+    confirmAdvice: false,
+    confirmWoman: false
   });
-
-  const topicOptions = [
-    'Dating & Relationships',
-    'Academic Support', 
-    'Roommate Issues',
-    'Social Life',
-    'Mental Health',
-    'Career Advice',
-    'Campus Life',
-    'Greek Life'
-  ];
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleTopicChange = (topic: string) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    
     setFormData(prev => ({
       ...prev,
-      topics: prev.topics.includes(topic)
-        ? prev.topics.filter(t => t !== topic)
-        : [...prev.topics, topic]
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
-  const nextStep = () => {
-    if (currentStep < 3) setCurrentStep(currentStep + 1);
-  };
-
-  const prevStep = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1);
-  };
-
-  const canProceedFromStep1 = formData.firstName && formData.lastName && formData.email;
-  const canProceedFromStep2 = formData.university && formData.year;
-  const canSubmit = formData.whyJoin && formData.topics.length > 0;
+  const canSubmit = formData.firstName && formData.lastName && formData.email && 
+                   formData.whyMentor && formData.confirmAdvice && formData.confirmWoman;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,9 +40,15 @@ export default function BecomeAWizzmoPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...formData,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          whyJoin: formData.whyMentor,
+          university: 'To be provided during onboarding',
+          year: 'To be provided',
           major: 'To be provided',
-          experience: formData.whyJoin,
+          experience: formData.whyMentor,
+          topics: ['General Mentoring'],
           instagram: '',
           referral: ''
         }),
@@ -87,226 +67,199 @@ export default function BecomeAWizzmoPage() {
     }
   };
 
-  // Success screen
+  // Redirect to App Store after celebration
+  useEffect(() => {
+    if (submitted) {
+      const timer = setTimeout(() => {
+        window.open('https://apps.apple.com/app/wizzmo/id123456789', '_blank');
+        window.location.href = '/'; // Redirect to home page
+      }, 4000); // 4 seconds to see celebration
+
+      return () => clearTimeout(timer);
+    }
+  }, [submitted]);
+
+  // Celebration screen with App Store redirect
   if (submitted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6] flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center">
-          <div className="w-20 h-20 mx-auto mb-6 bg-white/20 rounded-full flex items-center justify-center">
-            <Image src="/icon.png" alt="Wizzmo" width={40} height={40} className="rounded-lg" />
+          <div className="w-24 h-24 mx-auto mb-6 bg-white/20 rounded-full flex items-center justify-center animate-bounce">
+            <Image src="/icon.png" alt="Wizzmo" width={48} height={48} className="rounded-lg" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-4">Application Sent! 🎉</h1>
-          <p className="text-white/90 mb-6">We'll review it and email you within 2-3 days.</p>
-          <div className="bg-white/20 rounded-lg p-4 space-y-3">
-            <div className="flex items-center gap-3 text-white/80">
-              <span>📧</span><span className="text-sm">Application under review</span>
-            </div>
-            <div className="flex items-center gap-3 text-white/80">
-              <span>✅</span><span className="text-sm">Get approval email</span>
-            </div>
-            <div className="flex items-center gap-3 text-white/80">
-              <span>🚀</span><span className="text-sm">Start mentoring!</span>
-            </div>
+          <h1 className="text-4xl font-bold text-white mb-4">🎉 You're In! 🎉</h1>
+          <p className="text-white/90 text-lg mb-6">We'll review your application and get back to you ASAP!</p>
+          <div className="bg-white/20 rounded-lg p-4 mb-6">
+            <p className="text-white text-sm">Redirecting to App Store in a moment...</p>
           </div>
+          <Image src="/app-store-badge.svg" alt="Download on App Store" width={160} height={48} className="mx-auto" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6]">
-      {/* Header */}
-      <div className="px-4 pt-8 pb-6">
-        <div className="flex items-center justify-center gap-3 mb-6">
-          <Image src="/icon.png" alt="Wizzmo" width={32} height={32} className="rounded-lg" />
-          <h1 className="text-2xl font-bold text-white">Become a Mentor</h1>
-        </div>
-        <div className="flex justify-center mb-6">
-          <div className="flex items-center gap-2">
-            {[1, 2, 3].map((step) => (
-              <div key={step} className="flex items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                  currentStep >= step ? 'bg-white text-[#FF4DB8]' : 'bg-white/20 text-white'
-                }`}>
-                  {step}
+    <div className="min-h-screen bg-white lg:bg-gray-50">
+      <div className="lg:grid lg:grid-cols-2 lg:min-h-screen">
+        
+        {/* Left Side - Info (hidden on mobile, shown on desktop) */}
+        <div className="hidden lg:flex lg:flex-col lg:justify-center lg:px-12 lg:bg-gradient-to-br lg:from-[#FF4DB8] lg:to-[#8B5CF6]">
+          <div className="max-w-md">
+            <div className="flex items-center gap-3 mb-8">
+              <Image src="/icon.png" alt="Wizzmo" width={48} height={48} className="rounded-lg" />
+              <h1 className="text-3xl font-bold text-white">Become a Wizzmo Mentor</h1>
+            </div>
+            
+            <div className="space-y-6 text-white/90">
+              <div className="flex items-start gap-4">
+                <div className="text-2xl">💕</div>
+                <div>
+                  <h3 className="font-semibold mb-2">Help Fellow Women</h3>
+                  <p className="text-sm">Support other college women through the ups and downs of university life.</p>
                 </div>
-                {step < 3 && <div className={`w-8 h-0.5 mx-1 ${currentStep > step ? 'bg-white' : 'bg-white/20'}`} />}
               </div>
-            ))}
+              
+              <div className="flex items-start gap-4">
+                <div className="text-2xl">🌟</div>
+                <div>
+                  <h3 className="font-semibold mb-2">Build Leadership Skills</h3>
+                  <p className="text-sm">Develop mentoring and communication abilities that will benefit your career.</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="text-2xl">🤝</div>
+                <div>
+                  <h3 className="font-semibold mb-2">Join a Community</h3>
+                  <p className="text-sm">Connect with like-minded women who care about helping others succeed.</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-8 p-4 bg-white/20 rounded-lg">
+              <p className="text-white/90 text-sm">
+                <strong>What we're looking for:</strong><br/>
+                College women who want to share advice and support other students through peer guidance.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Form */}
-      <div className="px-4 pb-8">
-        <form onSubmit={handleSubmit} className="max-w-md mx-auto bg-white rounded-2xl p-6 shadow-2xl">
-          
-          {/* Step 1: Personal Info */}
-          {currentStep === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-800 mb-6">Let's start with the basics</h2>
-              
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">First Name</label>
-                <input
-                  type="text"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-transparent text-lg"
-                  placeholder="Your first name"
-                  autoFocus
-                />
+        {/* Right Side - Form */}
+        <div className="flex flex-col justify-center px-6 py-12 lg:px-8">
+          <div className="sm:mx-auto sm:w-full sm:max-w-md">
+            
+            {/* Mobile header */}
+            <div className="lg:hidden text-center mb-8">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <Image src="/icon.png" alt="Wizzmo" width={32} height={32} className="rounded-lg" />
+                <h1 className="text-2xl font-bold text-gray-900">Become a Mentor</h1>
+              </div>
+              <p className="text-gray-600 text-sm">Help fellow college women with peer advice</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base"
+                    placeholder="First name"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base"
+                    placeholder="Last name"
+                    required
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block text-gray-700 font-medium mb-2">Last Name</label>
-                <input
-                  type="text"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-transparent text-lg"
-                  placeholder="Your last name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">College Email</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">College Email</label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-transparent text-lg"
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base"
                   placeholder="you@university.edu"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={nextStep}
-                disabled={!canProceedFromStep1}
-                className="w-full bg-[#FF4DB8] text-white py-4 rounded-lg font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed mt-6"
-              >
-                Continue
-              </button>
-            </div>
-          )}
-
-          {/* Step 2: School Info */}
-          {currentStep === 2 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-800 mb-6">Your school details</h2>
-              
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">University</label>
-                <input
-                  type="text"
-                  name="university"
-                  value={formData.university}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-transparent text-lg"
-                  placeholder="University of Example"
-                  autoFocus
+                  required
                 />
               </div>
 
               <div>
-                <label className="block text-gray-700 font-medium mb-2">Year</label>
-                <select
-                  name="year"
-                  value={formData.year}
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Why would you make a good mentor? <span className="text-gray-500">(2-3 sentences)</span>
+                </label>
+                <textarea
+                  name="whyMentor"
+                  value={formData.whyMentor}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-transparent text-lg"
-                >
-                  <option value="">Select your year</option>
-                  <option value="freshman">Freshman</option>
-                  <option value="sophomore">Sophomore</option>
-                  <option value="junior">Junior</option>
-                  <option value="senior">Senior</option>
-                  <option value="graduate">Graduate Student</option>
-                </select>
+                  rows={4}
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base resize-none"
+                  placeholder="I'd make a good mentor because..."
+                  required
+                />
               </div>
 
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={prevStep}
-                  className="flex-1 bg-gray-300 text-gray-700 py-4 rounded-lg font-semibold text-lg"
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  onClick={nextStep}
-                  disabled={!canProceedFromStep2}
-                  className="flex-1 bg-[#FF4DB8] text-white py-4 rounded-lg font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Continue
-                </button>
-              </div>
-            </div>
-          )}
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="confirmAdvice"
+                    checked={formData.confirmAdvice}
+                    onChange={handleInputChange}
+                    className="mt-1 w-4 h-4 text-[#FF4DB8] border-gray-300 rounded focus:ring-[#FF4DB8]"
+                    required
+                  />
+                  <label className="text-sm text-gray-700">
+                    I understand this is <strong>peer advice</strong>, not therapy or professional counseling.
+                  </label>
+                </div>
 
-          {/* Step 3: Topics & Motivation */}
-          {currentStep === 3 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-800 mb-6">Almost done!</h2>
-              
-              <div>
-                <label className="block text-gray-700 font-medium mb-3">Topics you'd mentor in (select at least 1)</label>
-                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                  {topicOptions.map((topic) => (
-                    <label key={topic} className="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="checkbox"
-                        checked={formData.topics.includes(topic)}
-                        onChange={() => handleTopicChange(topic)}
-                        className="w-4 h-4 text-[#FF4DB8] border-gray-300 rounded focus:ring-[#FF4DB8]"
-                      />
-                      <span className="text-sm text-gray-700">{topic}</span>
-                    </label>
-                  ))}
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="confirmWoman"
+                    checked={formData.confirmWoman}
+                    onChange={handleInputChange}
+                    className="mt-1 w-4 h-4 text-[#FF4DB8] border-gray-300 rounded focus:ring-[#FF4DB8]"
+                    required
+                  />
+                  <label className="text-sm text-gray-700">
+                    I am a <strong>woman</strong> currently enrolled in college.
+                  </label>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">Why do you want to mentor? (2-3 sentences)</label>
-                <textarea
-                  name="whyJoin"
-                  value={formData.whyJoin}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-transparent text-lg resize-none"
-                  placeholder="I want to help because..."
-                />
-              </div>
+              <button
+                type="submit"
+                disabled={!canSubmit || submitting}
+                className="w-full bg-[#FF4DB8] text-white py-4 rounded-lg font-semibold text-lg hover:bg-[#FF6BCC] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Submitting...' : 'Submit Application'}
+              </button>
+            </form>
 
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={prevStep}
-                  className="flex-1 bg-gray-300 text-gray-700 py-4 rounded-lg font-semibold text-lg"
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  disabled={!canSubmit || submitting}
-                  className="flex-1 bg-[#FF4DB8] text-white py-4 rounded-lg font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {submitting ? 'Submitting...' : 'Submit Application'}
-                </button>
-              </div>
-            </div>
-          )}
+            <p className="text-gray-500 text-center text-xs mt-6">
+              We'll review your application and get back to you ASAP!
+            </p>
+          </div>
+        </div>
 
-        </form>
-
-        <p className="text-white/80 text-center text-sm mt-4 max-w-md mx-auto">
-          We'll review your application and email you within 2-3 business days
-        </p>
       </div>
     </div>
   );
