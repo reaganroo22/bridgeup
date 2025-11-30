@@ -1,6 +1,7 @@
 [build]
   command = "npm run build"
   publish = "out"
+  ignore = "bridgeup/**,refreshed_wizzmo/**,mobile/**,bridgeup_clean/**"
 
 [build.environment]
   NODE_VERSION = "18"
