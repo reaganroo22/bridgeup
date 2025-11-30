@@ -48,12 +48,79 @@ export default function BecomeAWizzmoPage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission here
-    console.log('Form submitted:', formData);
-    alert('Thank you for your application! We\'ll review it and get back to you soon.');
+    setSubmitting(true);
+
+    try {
+      // TODO: Integrate with Supabase
+      const response = await fetch('/api/mentor-application', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        setSubmitted(true);
+      } else {
+        throw new Error('Submission failed');
+      }
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      alert('Oops! Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  // Show success screen after submission
+  if (submitted) {
+    return (
+      <main className="min-h-screen bg-background">
+        <Navigation />
+        <section className="pt-32 pb-20 bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6]">
+          <div className="container mx-auto px-5 text-center">
+            <div className="w-32 h-32 mx-auto mb-8 bg-white/20 rounded-full flex items-center justify-center">
+              <span className="text-6xl">🐻</span>
+            </div>
+            <h1 className="font-display font-black text-white leading-none lowercase text-[3rem] md:text-[4rem] tracking-tighter mb-6">
+              bear-y excited! 🐻
+            </h1>
+            <p className="text-white/90 text-lg md:text-xl max-w-2xl mx-auto mb-8">
+              Your application has been submitted! The bear will review it and get back to you soon.
+              <br />
+              <strong>Check your email for next steps!</strong>
+            </p>
+            <div className="bg-white/20 rounded-2xl p-6 max-w-md mx-auto">
+              <p className="text-white/90 text-sm mb-4">
+                <strong>What happens next?</strong>
+              </p>
+              <div className="space-y-2 text-left">
+                <div className="flex items-center gap-3 text-white/80 text-sm">
+                  <span className="text-lg">📧</span>
+                  <span>We'll review your application</span>
+                </div>
+                <div className="flex items-center gap-3 text-white/80 text-sm">
+                  <span className="text-lg">🎉</span>
+                  <span>If approved, you'll get onboarding info</span>
+                </div>
+                <div className="flex items-center gap-3 text-white/80 text-sm">
+                  <span className="text-lg">🐻</span>
+                  <span>Start helping students!</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <Footer />
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-background">
@@ -62,12 +129,23 @@ export default function BecomeAWizzmoPage() {
       {/* Hero Section */}
       <section className="pt-32 pb-20 bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6]">
         <div className="container mx-auto px-5 text-center">
+          {/* Bear Image */}
+          <div className="mb-8">
+            <div className="w-24 h-24 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
+              <span className="text-4xl">🐻</span>
+            </div>
+          </div>
+          
           <h1 className="font-display font-black text-white leading-none lowercase text-[3rem] md:text-[5rem] tracking-tighter mb-6">
             become a wizzmo
           </h1>
-          <p className="text-white/90 text-lg md:text-xl max-w-2xl mx-auto">
-            Help fellow college students navigate their journey with your experience and wisdom.
+          <p className="text-white/90 text-lg md:text-xl max-w-2xl mx-auto mb-6">
+            Help the bear build the supportive college community you wish you had.
           </p>
+          <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-2 text-white/90 text-sm">
+            <span className="text-lg">⏱️</span>
+            <span>Application takes 3-5 minutes</span>
+          </div>
         </div>
       </section>
 
@@ -348,12 +426,20 @@ export default function BecomeAWizzmoPage() {
               <div className="text-center pt-8">
                 <button
                   type="submit"
-                  className="bg-gradient-to-r from-[#FF4DB8] to-[#8B5CF6] text-white text-lg font-bold rounded-full px-12 py-4 hover:from-[#FF6BCC] hover:to-[#9F7AEA] transition-all transform hover:scale-105"
+                  disabled={submitting}
+                  className="bg-gradient-to-r from-[#FF4DB8] to-[#8B5CF6] text-white text-lg font-bold rounded-full px-12 py-4 hover:from-[#FF6BCC] hover:to-[#9F7AEA] transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  Submit Application
+                  {submitting ? (
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin">🐻</span>
+                      Submitting...
+                    </span>
+                  ) : (
+                    'Submit Application 🐻'
+                  )}
                 </button>
                 <p className="text-white/60 text-sm mt-4">
-                  We'll review your application and get back to you within 5-7 business days.
+                  The bear will review your application and get back to you soon! 🐻💕
                 </p>
               </div>
             </form>
