@@ -330,7 +330,8 @@ export default function BecomeAWizzmoPage() {
       }
     } catch (error) {
       console.error('Error submitting application:', error);
-      alert(`Something went wrong: ${error.message}. Please try again.`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Something went wrong: ${errorMessage}. Please try again.`);
     } finally {
       setSubmitting(false);
     }
