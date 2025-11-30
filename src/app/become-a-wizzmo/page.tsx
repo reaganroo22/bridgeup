@@ -351,7 +351,7 @@ export default function BecomeAWizzmoPage() {
   // Celebration screen
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6] flex items-center justify-center px-4">
+      <div className="fixed inset-0 bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6] flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center">
           <div className="w-24 h-24 mx-auto mb-6 animate-bounce">
             <Image src="/icon.png" alt="Wizzmo" width={96} height={96} className="rounded-2xl" />
@@ -364,8 +364,8 @@ export default function BecomeAWizzmoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white lg:bg-gray-50">
-      <div className="lg:grid lg:grid-cols-2 min-h-screen">
+    <div className="fixed inset-0 bg-white lg:bg-gray-50">
+      <div className="lg:grid lg:grid-cols-2 h-full">
         
         {/* Left Side - Info (hidden on mobile, shown on desktop) */}
         <div className="hidden lg:flex lg:flex-col lg:justify-center lg:px-12 lg:bg-gradient-to-br lg:from-[#FF4DB8] lg:to-[#8B5CF6]">
@@ -391,8 +391,8 @@ export default function BecomeAWizzmoPage() {
         </div>
 
         {/* Right Side - Form */}
-        <div className="min-h-screen overflow-y-auto px-6 py-4 lg:py-12 lg:px-8 flex flex-col">
-          <div className="sm:mx-auto sm:w-full sm:max-w-md flex-1 pb-8">
+        <div className="h-full overflow-y-auto px-6 py-4 lg:py-12 lg:px-8 flex flex-col" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div className="sm:mx-auto sm:w-full sm:max-w-md flex-1 pb-safe-bottom">
             
             {/* Mobile header */}
             <div className="lg:hidden text-center mb-6">

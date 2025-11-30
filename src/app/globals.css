@@ -43,6 +43,34 @@
   background-size: 16px;
 }
 
+/* Fix iOS keyboard black screen issue */
+@supports (-webkit-touch-callout: none) {
+  .ios-form-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    background: white;
+  }
+  
+  .ios-form-scroll {
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: white;
+  }
+  
+  /* Prevent zoom on focus for iOS */
+  input[type="text"],
+  input[type="email"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 @theme {
   --color-background: #000000;
   --color-foreground: #ffffff;
