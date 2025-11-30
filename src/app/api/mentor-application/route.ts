@@ -34,22 +34,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: 'Please enter a valid email address' },
+        { status: 400 }
+      );
+    }
+
     // Prepare application data for database
     const applicationData = {
       email: email.toLowerCase().trim(),
       full_name: `${firstName.trim()} ${lastName.trim()}`,
       university: university.trim(),
-      graduation_year: year,
-      age_confirmed: 'Yes', // Assuming all applicants confirm age
+      graduation_year: parseInt(year) || new Date().getFullYear(),
+      age_confirmed: 'Yes',
       comfortable_college_girl: whyJoin.trim(),
-      topics: topics,
-      boundaries_will_not_cover: null, // Will be filled during in-app onboarding
+      topics: Array.isArray(topics) ? topics : [topics || 'General College Advice'],
+      boundaries_will_not_cover: null,
       experience: experience.trim(),
-      formats: ['Text'], // Default format, can be updated during onboarding
-      availability: 'Flexible', // Default, can be updated during onboarding
-      languages: 'English', // Default, can be updated during onboarding
+      formats: ['Text'],
+      availability: 'Flexible',
+      languages: 'English',
       social_links: instagram ? `https://instagram.com/${instagram.replace('@', '')}` : null,
-      agreement: ['Terms accepted'], // Default agreement
+      agreement: ['Terms accepted'],
       application_status: 'pending',
       submitted_at: new Date().toISOString()
     };

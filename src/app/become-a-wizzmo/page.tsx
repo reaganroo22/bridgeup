@@ -351,7 +351,7 @@ export default function BecomeAWizzmoPage() {
   // Celebration screen
   if (submitted) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6] flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center">
           <div className="w-24 h-24 mx-auto mb-6 animate-bounce">
             <Image src="/icon.png" alt="Wizzmo" width={96} height={96} className="rounded-2xl" />
@@ -364,8 +364,8 @@ export default function BecomeAWizzmoPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-white lg:bg-gray-50">
-      <div className="lg:grid lg:grid-cols-2 h-full">
+    <div className="min-h-screen bg-white lg:bg-gray-50">
+      <div className="lg:grid lg:grid-cols-2 min-h-screen">
         
         {/* Left Side - Info (hidden on mobile, shown on desktop) */}
         <div className="hidden lg:flex lg:flex-col lg:justify-center lg:px-12 lg:bg-gradient-to-br lg:from-[#FF4DB8] lg:to-[#8B5CF6]">
@@ -391,8 +391,8 @@ export default function BecomeAWizzmoPage() {
         </div>
 
         {/* Right Side - Form */}
-        <div className="h-full overflow-y-auto px-6 py-safe-top lg:py-12 lg:px-8 flex flex-col pb-safe-bottom">
-          <div className="sm:mx-auto sm:w-full sm:max-w-md flex-1">
+        <div className="min-h-screen overflow-y-auto px-6 py-4 lg:py-12 lg:px-8 flex flex-col">
+          <div className="sm:mx-auto sm:w-full sm:max-w-md flex-1 pb-8">
             
             {/* Mobile header */}
             <div className="lg:hidden text-center mb-6">
@@ -485,9 +485,10 @@ export default function BecomeAWizzmoPage() {
                   value={formData.whyMentor}
                   onChange={handleInputChange}
                   rows={4}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white resize-none"
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white resize-none min-h-[100px]"
                   placeholder="I'd make a good mentor because..."
                   required
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
