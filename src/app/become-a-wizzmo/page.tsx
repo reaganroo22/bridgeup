@@ -1,8 +1,7 @@
 "use client";
 
-import Navigation from "@/components/sections/navigation";
-import Footer from "@/components/sections/footer";
 import { useState } from "react";
+import Image from "next/image";
 
 export default function BecomeAWizzmoPage() {
   const [formData, setFormData] = useState({
@@ -11,28 +10,24 @@ export default function BecomeAWizzmoPage() {
     email: '',
     university: '',
     year: '',
-    major: '',
     whyJoin: '',
-    experience: '',
     topics: [] as string[],
-    instagram: '',
-    referral: ''
   });
 
   const topicOptions = [
     'Dating & Relationships',
-    'Academic Support',
+    'Academic Support', 
     'Roommate Issues',
     'Social Life',
     'Mental Health',
     'Career Advice',
     'Campus Life',
-    'Greek Life',
-    'Study Abroad',
-    'Internships',
-    'Graduate School',
-    'Financial Advice'
+    'Greek Life'
   ];
+
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -48,21 +43,35 @@ export default function BecomeAWizzmoPage() {
     }));
   };
 
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const nextStep = () => {
+    if (currentStep < 3) setCurrentStep(currentStep + 1);
+  };
+
+  const prevStep = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  const canProceedFromStep1 = formData.firstName && formData.lastName && formData.email;
+  const canProceedFromStep2 = formData.university && formData.year;
+  const canSubmit = formData.whyJoin && formData.topics.length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
 
     try {
-      // TODO: Integrate with Supabase
       const response = await fetch('/api/mentor-application', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          major: 'To be provided',
+          experience: formData.whyJoin,
+          instagram: '',
+          referral: ''
+        }),
       });
 
       if (response.ok) {
@@ -72,382 +81,233 @@ export default function BecomeAWizzmoPage() {
       }
     } catch (error) {
       console.error('Error submitting application:', error);
-      alert('Oops! Something went wrong. Please try again.');
+      alert('Something went wrong. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Show success screen after submission
+  // Success screen
   if (submitted) {
     return (
-      <main className="min-h-screen bg-background">
-        <Navigation />
-        <section className="pt-32 pb-20 bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6]">
-          <div className="container mx-auto px-5 text-center">
-            <div className="w-32 h-32 mx-auto mb-8 bg-white/20 rounded-full flex items-center justify-center">
-              <span className="text-6xl">🐻</span>
+      <div className="min-h-screen bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6] flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-20 h-20 mx-auto mb-6 bg-white/20 rounded-full flex items-center justify-center">
+            <Image src="/icon.png" alt="Wizzmo" width={40} height={40} className="rounded-lg" />
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-4">Application Sent! 🎉</h1>
+          <p className="text-white/90 mb-6">We'll review it and email you within 2-3 days.</p>
+          <div className="bg-white/20 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-3 text-white/80">
+              <span>📧</span><span className="text-sm">Application under review</span>
             </div>
-            <h1 className="font-display font-black text-white leading-none lowercase text-[3rem] md:text-[4rem] tracking-tighter mb-6">
-              bear-y excited! 🐻
-            </h1>
-            <p className="text-white/90 text-lg md:text-xl max-w-2xl mx-auto mb-8">
-              Your application has been submitted! The bear will review it and get back to you soon.
-              <br />
-              <strong>Check your email for next steps!</strong>
-            </p>
-            <div className="bg-white/20 rounded-2xl p-6 max-w-md mx-auto">
-              <p className="text-white/90 text-sm mb-4">
-                <strong>What happens next?</strong>
-              </p>
-              <div className="space-y-2 text-left">
-                <div className="flex items-center gap-3 text-white/80 text-sm">
-                  <span className="text-lg">📧</span>
-                  <span>We'll review your application</span>
-                </div>
-                <div className="flex items-center gap-3 text-white/80 text-sm">
-                  <span className="text-lg">🎉</span>
-                  <span>If approved, you'll get onboarding info</span>
-                </div>
-                <div className="flex items-center gap-3 text-white/80 text-sm">
-                  <span className="text-lg">🐻</span>
-                  <span>Start helping students!</span>
-                </div>
-              </div>
+            <div className="flex items-center gap-3 text-white/80">
+              <span>✅</span><span className="text-sm">Get approval email</span>
+            </div>
+            <div className="flex items-center gap-3 text-white/80">
+              <span>🚀</span><span className="text-sm">Start mentoring!</span>
             </div>
           </div>
-        </section>
-        <Footer />
-      </main>
+        </div>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <Navigation />
-
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6]">
-        <div className="container mx-auto px-5 text-center">
-          {/* Bear Image */}
-          <div className="mb-8">
-            <div className="w-24 h-24 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
-              <span className="text-4xl">🐻</span>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6]">
+      {/* Header */}
+      <div className="px-4 pt-8 pb-6">
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <Image src="/icon.png" alt="Wizzmo" width={32} height={32} className="rounded-lg" />
+          <h1 className="text-2xl font-bold text-white">Become a Mentor</h1>
+        </div>
+        <div className="flex justify-center mb-6">
+          <div className="flex items-center gap-2">
+            {[1, 2, 3].map((step) => (
+              <div key={step} className="flex items-center">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                  currentStep >= step ? 'bg-white text-[#FF4DB8]' : 'bg-white/20 text-white'
+                }`}>
+                  {step}
+                </div>
+                {step < 3 && <div className={`w-8 h-0.5 mx-1 ${currentStep > step ? 'bg-white' : 'bg-white/20'}`} />}
+              </div>
+            ))}
           </div>
+        </div>
+      </div>
+
+      {/* Form */}
+      <div className="px-4 pb-8">
+        <form onSubmit={handleSubmit} className="max-w-md mx-auto bg-white rounded-2xl p-6 shadow-2xl">
           
-          <h1 className="font-display font-black text-white leading-none lowercase text-[3rem] md:text-[5rem] tracking-tighter mb-6">
-            become a wizzmo
-          </h1>
-          <p className="text-white/90 text-lg md:text-xl max-w-2xl mx-auto mb-6">
-            Help the bear build the supportive college community you wish you had.
-          </p>
-          <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-2 text-white/90 text-sm">
-            <span className="text-lg">⏱️</span>
-            <span>Application takes 3-5 minutes</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Why Become a Mentor */}
-      <section className="py-20">
-        <div className="container mx-auto px-5">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-[3rem] md:text-[4rem] font-bold lowercase text-white text-center mb-16">why become a mentor?</h2>
-
-            <div className="grid md:grid-cols-3 gap-8 mb-16">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
-                <div className="text-4xl mb-4">💕</div>
-                <h3 className="text-xl font-bold text-white mb-4 lowercase">make a difference</h3>
-                <p className="text-white/80">
-                  Help fellow students through challenging times and celebrate their successes. Your advice could change someone's college experience.
-                </p>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
-                <div className="text-4xl mb-4">🌟</div>
-                <h3 className="text-xl font-bold text-white mb-4 lowercase">build leadership skills</h3>
-                <p className="text-white/80">
-                  Develop your communication, empathy, and mentoring abilities—skills that will benefit you in your career and personal life.
-                </p>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
-                <div className="text-4xl mb-4">🤝</div>
-                <h3 className="text-xl font-bold text-white mb-4 lowercase">join a community</h3>
-                <p className="text-white/80">
-                  Connect with like-minded students who care about helping others. Be part of building something meaningful.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Requirements */}
-      <section className="py-20 bg-white/5">
-        <div className="container mx-auto px-5">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-[3rem] md:text-[4rem] font-bold lowercase text-white text-center mb-16">what we're looking for</h2>
-
-            <div className="grid md:grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className="text-2xl">✅</div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-2 lowercase">current college student</h3>
-                    <p className="text-white/80">
-                      Must be enrolled in an accredited college or university
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="text-2xl">✅</div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-2 lowercase">good academic standing</h3>
-                    <p className="text-white/80">
-                      Maintain a 2.5+ GPA and be in good standing with your institution
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="text-2xl">✅</div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-2 lowercase">empathetic personality</h3>
-                    <p className="text-white/80">
-                      Genuine desire to help others with kindness and understanding
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className="text-2xl">✅</div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-2 lowercase">reliable availability</h3>
-                    <p className="text-white/80">
-                      Commit to responding to questions regularly (at least a few times per week)
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="text-2xl">✅</div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-2 lowercase">diverse experiences</h3>
-                    <p className="text-white/80">
-                      Have navigated various aspects of college life and can share meaningful insights
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="text-2xl">✅</div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-2 lowercase">positive attitude</h3>
-                    <p className="text-white/80">
-                      Maintain professionalism and positivity even in challenging conversations
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Application Form */}
-      <section className="py-20">
-        <div className="container mx-auto px-5">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-[3rem] md:text-[4rem] font-bold lowercase text-white text-center mb-16">apply to become a mentor</h2>
-
-            <form onSubmit={handleSubmit} className="space-y-8">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-white font-medium mb-2">First Name *</label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    required
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:border-[#FF4DB8] focus:outline-none"
-                    placeholder="Your first name"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-white font-medium mb-2">Last Name *</label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    required
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:border-[#FF4DB8] focus:outline-none"
-                    placeholder="Your last name"
-                  />
-                </div>
+          {/* Step 1: Personal Info */}
+          {currentStep === 1 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-800 mb-6">Let's start with the basics</h2>
+              
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">First Name</label>
+                <input
+                  type="text"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-transparent text-lg"
+                  placeholder="Your first name"
+                  autoFocus
+                />
               </div>
 
               <div>
-                <label className="block text-white font-medium mb-2">University Email *</label>
+                <label className="block text-gray-700 font-medium mb-2">Last Name</label>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-transparent text-lg"
+                  placeholder="Your last name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">College Email</label>
                 <input
                   type="email"
                   name="email"
-                  required
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:border-[#FF4DB8] focus:outline-none"
-                  placeholder="your.name@university.edu"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-transparent text-lg"
+                  placeholder="you@university.edu"
                 />
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-white font-medium mb-2">University *</label>
-                  <input
-                    type="text"
-                    name="university"
-                    required
-                    value={formData.university}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:border-[#FF4DB8] focus:outline-none"
-                    placeholder="University of Example"
-                  />
-                </div>
+              <button
+                type="button"
+                onClick={nextStep}
+                disabled={!canProceedFromStep1}
+                className="w-full bg-[#FF4DB8] text-white py-4 rounded-lg font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+              >
+                Continue
+              </button>
+            </div>
+          )}
 
-                <div>
-                  <label className="block text-white font-medium mb-2">Year *</label>
-                  <select
-                    name="year"
-                    required
-                    value={formData.year}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#FF4DB8] focus:outline-none"
-                  >
-                    <option value="">Select your year</option>
-                    <option value="freshman">Freshman</option>
-                    <option value="sophomore">Sophomore</option>
-                    <option value="junior">Junior</option>
-                    <option value="senior">Senior</option>
-                    <option value="graduate">Graduate Student</option>
-                  </select>
-                </div>
-              </div>
-
+          {/* Step 2: School Info */}
+          {currentStep === 2 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-800 mb-6">Your school details</h2>
+              
               <div>
-                <label className="block text-white font-medium mb-2">Major *</label>
+                <label className="block text-gray-700 font-medium mb-2">University</label>
                 <input
                   type="text"
-                  name="major"
-                  required
-                  value={formData.major}
+                  name="university"
+                  value={formData.university}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:border-[#FF4DB8] focus:outline-none"
-                  placeholder="Your major or field of study"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-transparent text-lg"
+                  placeholder="University of Example"
+                  autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-white font-medium mb-2">Topics You'd Like to Mentor In *</label>
-                <p className="text-white/60 text-sm mb-4">Select all that apply</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <label className="block text-gray-700 font-medium mb-2">Year</label>
+                <select
+                  name="year"
+                  value={formData.year}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-transparent text-lg"
+                >
+                  <option value="">Select your year</option>
+                  <option value="freshman">Freshman</option>
+                  <option value="sophomore">Sophomore</option>
+                  <option value="junior">Junior</option>
+                  <option value="senior">Senior</option>
+                  <option value="graduate">Graduate Student</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={prevStep}
+                  className="flex-1 bg-gray-300 text-gray-700 py-4 rounded-lg font-semibold text-lg"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={nextStep}
+                  disabled={!canProceedFromStep2}
+                  className="flex-1 bg-[#FF4DB8] text-white py-4 rounded-lg font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Topics & Motivation */}
+          {currentStep === 3 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-800 mb-6">Almost done!</h2>
+              
+              <div>
+                <label className="block text-gray-700 font-medium mb-3">Topics you'd mentor in (select at least 1)</label>
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
                   {topicOptions.map((topic) => (
-                    <label key={topic} className="flex items-center space-x-2 cursor-pointer">
+                    <label key={topic} className="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50">
                       <input
                         type="checkbox"
                         checked={formData.topics.includes(topic)}
                         onChange={() => handleTopicChange(topic)}
-                        className="w-4 h-4 text-[#FF4DB8] bg-white/10 border-white/20 rounded focus:ring-[#FF4DB8] focus:ring-2"
+                        className="w-4 h-4 text-[#FF4DB8] border-gray-300 rounded focus:ring-[#FF4DB8]"
                       />
-                      <span className="text-white/80 text-sm">{topic}</span>
+                      <span className="text-sm text-gray-700">{topic}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className="block text-white font-medium mb-2">Why do you want to become a Wizzmo mentor? *</label>
+                <label className="block text-gray-700 font-medium mb-2">Why do you want to mentor? (2-3 sentences)</label>
                 <textarea
                   name="whyJoin"
-                  required
                   value={formData.whyJoin}
                   onChange={handleInputChange}
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:border-[#FF4DB8] focus:outline-none resize-none"
-                  placeholder="Tell us about your motivation to help fellow students..."
+                  rows={3}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-transparent text-lg resize-none"
+                  placeholder="I want to help because..."
                 />
               </div>
 
-              <div>
-                <label className="block text-white font-medium mb-2">Share a relevant experience *</label>
-                <p className="text-white/60 text-sm mb-2">Describe a challenging situation you navigated in college and how you grew from it</p>
-                <textarea
-                  name="experience"
-                  required
-                  value={formData.experience}
-                  onChange={handleInputChange}
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:border-[#FF4DB8] focus:outline-none resize-none"
-                  placeholder="Share your story..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-white font-medium mb-2">Instagram Handle (Optional)</label>
-                <p className="text-white/60 text-sm mb-2">For verification purposes only</p>
-                <input
-                  type="text"
-                  name="instagram"
-                  value={formData.instagram}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:border-[#FF4DB8] focus:outline-none"
-                  placeholder="@yourusername"
-                />
-              </div>
-
-              <div>
-                <label className="block text-white font-medium mb-2">How did you hear about Wizzmo?</label>
-                <input
-                  type="text"
-                  name="referral"
-                  value={formData.referral}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:border-[#FF4DB8] focus:outline-none"
-                  placeholder="Friend, social media, campus event, etc."
-                />
-              </div>
-
-              <div className="text-center pt-8">
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={prevStep}
+                  className="flex-1 bg-gray-300 text-gray-700 py-4 rounded-lg font-semibold text-lg"
+                >
+                  Back
+                </button>
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="bg-gradient-to-r from-[#FF4DB8] to-[#8B5CF6] text-white text-lg font-bold rounded-full px-12 py-4 hover:from-[#FF6BCC] hover:to-[#9F7AEA] transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  disabled={!canSubmit || submitting}
+                  className="flex-1 bg-[#FF4DB8] text-white py-4 rounded-lg font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? (
-                    <span className="flex items-center gap-2">
-                      <span className="animate-spin">🐻</span>
-                      Submitting...
-                    </span>
-                  ) : (
-                    'Submit Application 🐻'
-                  )}
+                  {submitting ? 'Submitting...' : 'Submit Application'}
                 </button>
-                <p className="text-white/60 text-sm mt-4">
-                  The bear will review your application and get back to you soon! 🐻💕
-                </p>
               </div>
-            </form>
-          </div>
-        </div>
-      </section>
+            </div>
+          )}
 
-      <Footer />
-    </main>
+        </form>
+
+        <p className="text-white/80 text-center text-sm mt-4 max-w-md mx-auto">
+          We'll review your application and email you within 2-3 business days
+        </p>
+      </div>
+    </div>
   );
 }
