@@ -35,10 +35,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('[AuthContext] Auth state changed:', event);
-        setSession(session)
-        setUser(session?.user ?? null)
-        setLoading(false)
+        console.log('[AuthContext] Auth state changed:', event, 'Session exists:', !!session);
+        
+        // Add small debounce for rapid state changes during logout
+        if (event === 'SIGNED_OUT') {
+          console.log('[AuthContext] 🚪 User signed out, clearing auth state');
+          setTimeout(() => {
+            setSession(null);
+            setUser(null);
+            setLoading(false);
+          }, 100);
+        } else {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
       }
     )
 
@@ -65,7 +76,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    console.log('[AuthContext] 🚪 Starting signOut process');
+    try {
+      // Clear local state immediately to prevent race conditions
+      setSession(null);
+      setUser(null);
+      
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('[AuthContext] SignOut error:', error);
+        throw error;
+      }
+      
+      console.log('[AuthContext] ✅ SignOut completed successfully');
+    } catch (error) {
+      console.error('[AuthContext] SignOut failed:', error);
+      // Even if signOut fails, clear local state
+      setSession(null);
+      setUser(null);
+      throw error;
+    }
   }
 
   const resetPassword = async (email: string) => {

@@ -165,7 +165,14 @@ export default function AskScreen() {
 
     if (!userProfile?.interests) {
       // No user interests - just put "Other" at the end
-      return otherCategory ? [...normalCategories, otherCategory] : normalCategories;
+      const finalOtherCategory = otherCategory || {
+        id: 'other-manual',
+        slug: 'other', 
+        name: 'Other',
+        icon: '💬',
+        description: 'Other topics not covered above'
+      };
+      return [...normalCategories, finalOtherCategory];
     }
 
     const relevantCats = getRelevantCategories();
@@ -181,11 +188,16 @@ export default function AskScreen() {
       return 0;
     });
 
-    // Add "Other" at the end
-    if (otherCategory) {
-      sortedCategories.push(otherCategory);
-    }
-
+    // Always add "Other" at the end, create if doesn't exist
+    const finalOtherCategory = otherCategory || {
+      id: 'other-manual',
+      slug: 'other',
+      name: 'Other',
+      icon: '💬',
+      description: 'Other topics not covered above'
+    };
+    
+    sortedCategories.push(finalOtherCategory);
     return sortedCategories;
   };
 
@@ -502,33 +514,23 @@ export default function AskScreen() {
 
       // Create the question using AppContext (this updates local state automatically)
       const preferredMentorId = selectedMentor || undefined; // For single mentor selection
+      const preferredMentorIds = preSelectedMentors.length > 0 ? preSelectedMentors.map(m => m.id) : undefined;
+      
       const newQuestionId = await submitQuestion(
         title.trim(),
         question.trim() || title.trim(), // Use title as question if no details provided
         categoryId,
-        isAnonymous,
-        preferredMentorId
+        !allowPublicShare, // is_anonymous is the inverse of allowPublicShare
+        preferredMentorId,
+        preferredMentorIds
       );
 
       console.log('[AskScreen] Question created successfully:', newQuestionId);
 
-      // If multiple mentors were pre-selected, create advice sessions for each
+      // Log successful multi-mentor assignment (no more multiple sessions created)
       if (preSelectedMentors.length > 0 && newQuestionId) {
-        console.log('[AskScreen] Creating advice sessions for', preSelectedMentors.length, 'pre-selected mentors');
-        
-        for (const mentor of preSelectedMentors) {
-          try {
-            await supabaseService.createAdviceSession(newQuestionId, mentor.id);
-            console.log('[AskScreen] Created advice session for mentor:', mentor.name);
-          } catch (error) {
-            console.error('[AskScreen] Failed to create advice session for mentor:', mentor.name, error);
-            
-            // Skip self-mentoring attempts silently in bulk creation
-            if ((error as Error)?.message === 'Students cannot ask questions to themselves') {
-              console.log('[AskScreen] Skipping self-mentor in preselected list');
-            }
-          }
-        }
+        console.log('[AskScreen] Question assigned to', preSelectedMentors.length, 'mentors for competitive selection');
+        console.log('[AskScreen] Mentors who can see this question:', preSelectedMentors.map(m => m.name));
       }
 
       // Notify mentors of the new question
@@ -575,7 +577,14 @@ export default function AskScreen() {
           }
           // Question still created, just not the direct session - continue normally
         } else {
-          console.log('[AskScreen] Direct session created:', session?.id);
+          console.log('[AskScreen] ✅ Direct session created successfully:', session?.id);
+          console.log('[AskScreen] Session details:', { 
+            sessionId: session?.id,
+            questionId: newQuestionId,
+            mentorId: selectedMentor,
+            studentId: user?.id,
+            status: session?.status 
+          });
         }
       }
 
@@ -641,6 +650,7 @@ export default function AskScreen() {
         showBackButton={true}
         showChatButton={false}
         showProfileButton={false}
+        onBackPress={() => router.push('/(tabs)/')}
       />
 
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -789,7 +799,7 @@ export default function AskScreen() {
                 contentContainerStyle={styles.categoriesScrollContent}
                 showsVerticalScrollIndicator={false}
               >
-              {[...sortCategoriesForUser(categories), ...(categories.find(cat => cat.slug === 'other') ? [] : [{ id: 'other-manual', slug: 'other', name: 'Other', icon: null, description: 'Other topics not covered above' }])].map((category) => {
+              {sortCategoriesForUser(categories).map((category) => {
                 const isSelected = selectedCategory === category.id;
                 return (
                 <TouchableOpacity
@@ -997,11 +1007,18 @@ export default function AskScreen() {
                             }
                           }}
                         >
-                          <View style={[styles.searchResultAvatar, { backgroundColor: isSelected ? '#FFFFFF' : colors.primary }]}>
-                            <Text style={[styles.searchResultInitial, { color: isSelected ? colors.primary : '#FFFFFF' }]}>
-                              {mentor.full_name?.charAt(0)?.toUpperCase() || '?'}
-                            </Text>
-                          </View>
+                          {mentor.avatar_url ? (
+                            <Image
+                              source={{ uri: mentor.avatar_url }}
+                              style={[styles.searchResultAvatar, { backgroundColor: colors.border }]}
+                            />
+                          ) : (
+                            <View style={[styles.searchResultAvatar, { backgroundColor: isSelected ? '#FFFFFF' : colors.primary }]}>
+                              <Text style={[styles.searchResultInitial, { color: isSelected ? colors.primary : '#FFFFFF' }]}>
+                                {mentor.full_name?.charAt(0)?.toUpperCase() || '?'}
+                              </Text>
+                            </View>
+                          )}
                           <View style={[styles.searchResultInfo, { backgroundColor: 'transparent' }]}>
                             <Text style={[styles.searchResultName, { color: isSelected ? '#FFFFFF' : colors.text }]}>
                               {mentor.full_name}
@@ -1069,11 +1086,18 @@ export default function AskScreen() {
                               setSelectedWizzmo(isSelected ? null : favorite.mentor_id);
                             }}
                           >
-                            <View style={[styles.favoriteAvatar, { backgroundColor: isSelected ? '#FFFFFF' : colors.primary }]}>
-                              <Text style={[styles.favoriteInitial, { color: isSelected ? colors.primary : '#FFFFFF' }]}>
-                                {favorite.mentors?.full_name?.charAt(0).toUpperCase() || 'W'}
-                              </Text>
-                            </View>
+                            {favorite.mentors?.avatar_url ? (
+                              <Image
+                                source={{ uri: favorite.mentors.avatar_url }}
+                                style={[styles.favoriteAvatar, { backgroundColor: colors.border }]}
+                              />
+                            ) : (
+                              <View style={[styles.favoriteAvatar, { backgroundColor: isSelected ? '#FFFFFF' : colors.primary }]}>
+                                <Text style={[styles.favoriteInitial, { color: isSelected ? colors.primary : '#FFFFFF' }]}>
+                                  {favorite.mentors?.full_name?.charAt(0).toUpperCase() || 'W'}
+                                </Text>
+                              </View>
+                            )}
                             <Text style={[styles.favoriteName, { color: isSelected ? '#FFFFFF' : colors.text }]} numberOfLines={1}>
                               {favorite.mentors?.full_name || 'Wizzmo'}
                             </Text>

@@ -786,6 +786,7 @@ export type Database = {
           interests: Json | null
           onboarding_completed: boolean | null
           role: string
+          role_selection_completed: boolean | null
           university: string | null
           updated_at: string | null
           username: string | null
@@ -804,6 +805,7 @@ export type Database = {
           interests?: Json | null
           onboarding_completed?: boolean | null
           role: string
+          role_selection_completed?: boolean | null
           university?: string | null
           updated_at?: string | null
           username?: string | null
@@ -822,6 +824,7 @@ export type Database = {
           interests?: Json | null
           onboarding_completed?: boolean | null
           role?: string
+          role_selection_completed?: boolean | null
           university?: string | null
           updated_at?: string | null
           username?: string | null

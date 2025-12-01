@@ -54,6 +54,42 @@ const educationLevels = [
 const currentYear = new Date().getFullYear();
 const graduationYears = Array.from({ length: 8 }, (_, i) => (currentYear + i).toString());
 
+const universities = [
+  'Georgetown University', 'George Washington University', 'American University', 'Harvard University',
+  'Stanford University', 'MIT', 'Yale University', 'Princeton University', 'Columbia University',
+  'University of Pennsylvania', 'Dartmouth College', 'Brown University', 'Cornell University',
+  'Duke University', 'Northwestern University', 'University of Chicago', 'Vanderbilt University',
+  'Rice University', 'Notre Dame', 'Emory University', 'UCLA', 'UC Berkeley', 'USC',
+  'University of Michigan', 'University of Virginia', 'University of North Carolina',
+  'Georgia Tech', 'University of Florida', 'University of Texas', 'New York University',
+  'Carnegie Mellon', 'Johns Hopkins', 'Washington University in St. Louis', 'Boston University',
+  'Boston College', 'Northeastern University', 'Tulane University', 'University of Miami',
+  'Syracuse University', 'Fordham University', 'Villanova University', 'Other'
+];
+
+// Bear state mapping for each step
+const bearStateMapping = {
+  1: 'happy',       // Welcome
+  2: 'interested',  // Username
+  3: 'stargazed',   // Bio & Interests  
+  4: 'sleepy',      // Details
+  5: 'glowing',     // Complete
+  6: 'glow',        // Paywall
+  7: 'happy',       // Rating
+  8: 'interested',  // Share
+  9: 'glowing',     // Final
+};
+
+const bearImages = {
+  'happy': require('@/assets/images/happy.png'),
+  'interested': require('@/assets/images/interested.png'),
+  'stargazed': require('@/assets/images/stargazed.png'),
+  'sleepy': require('@/assets/images/sleepy.png'),
+  'glowing': require('@/assets/images/glowing.png'),
+  'glow': require('@/assets/images/glow.png'),
+  'wizzmiss': require('@/assets/images/Wizzmiss.png'), // Fun reaction variant
+};
+
 export default function Onboarding() {
   const { user } = useAuth();
   const { scheduleWelcomeFlow, scheduleWeeklyReminder } = useNotifications();
@@ -64,6 +100,9 @@ export default function Onboarding() {
   const scrollViewRef = useRef<ScrollView>(null);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
 
+  // Animation state
+  const [currentBearState, setCurrentBearState] = useState('happy');
+
   // Form data
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
@@ -72,10 +111,53 @@ export default function Onboarding() {
   const [gender, setGender] = useState('');
   const [educationLevel, setEducationLevel] = useState('');
   const [graduationYear, setGraduationYear] = useState('');
+  const [university, setUniversity] = useState('');
+  const [universitySearch, setUniversitySearch] = useState('');
+  const [showUniversityResults, setShowUniversityResults] = useState(false);
+  
+  // Fun interaction state
+  const [showWizzmiss, setShowWizzmiss] = useState(false);
+  const wizzmissTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Filter universities based on search
+  const filteredUniversities = universities.filter(uni => 
+    uni.toLowerCase().includes(universitySearch.toLowerCase())
+  );
+
+  // Function to trigger Wizzmiss animation on user interactions
+  const triggerWizzmissReaction = () => {
+    setShowWizzmiss(true);
+    
+    // Clear any existing timeout
+    if (wizzmissTimeoutRef.current) {
+      clearTimeout(wizzmissTimeoutRef.current);
+    }
+    
+    // Revert back to normal Wizzbert after 1.5 seconds
+    wizzmissTimeoutRef.current = setTimeout(() => {
+      setShowWizzmiss(false);
+    }, 1500);
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (wizzmissTimeoutRef.current) {
+        clearTimeout(wizzmissTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Bear state transition animation
 
   // Custom function to handle step changes and scroll to top for completed screen
   const handleStepChange = (step: number) => {
     setCurrentStep(step);
+    
+    // Update bear state
+    const newBearState = bearStateMapping[step] || 'happy';
+    setCurrentBearState(newBearState);
+    
     // Scroll to top when moving to completed screen (step 5)
     if (step === 5 && scrollViewRef.current) {
       setTimeout(() => {
@@ -83,6 +165,12 @@ export default function Onboarding() {
       }, 100);
     }
   };
+
+  // Initialize bear state and add idle animation
+  useEffect(() => {
+    const initialState = bearStateMapping[currentStep] || 'happy';
+    setCurrentBearState(initialState);
+  }, [currentStep]);
 
   useEffect(() => {
     const checkUsernameAvailability = async () => {
@@ -158,18 +246,20 @@ export default function Onboarding() {
       return;
     }
 
+    triggerWizzmissReaction(); // Fun reaction when user progresses
+
     if (currentStep === 4) {
       await completeOnboarding();
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setCurrentStep(currentStep + 1);
+      handleStepChange(currentStep + 1);
     }
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setCurrentStep(currentStep - 1);
+      handleStepChange(currentStep - 1);
     }
   };
 
@@ -189,6 +279,7 @@ export default function Onboarding() {
         gender,
         education_level: educationLevel,
         graduation_year: (educationLevel !== 'not_student' && graduationYear) ? parseInt(graduationYear) : null,
+        university: (educationLevel === 'university' && university) ? university.trim() : null,
         interests: selectedInterests,
         onboarding_completed: true,
         vertical: CURRENT_VERTICAL_KEY,
@@ -203,7 +294,11 @@ export default function Onboarding() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await scheduleWelcomeFlow(user.id);
       await scheduleWeeklyReminder(user.id);
-      handleStepChange(5);
+      
+      // Add a small delay to ensure the database update has propagated
+      setTimeout(() => {
+        handleStepChange(5);
+      }, 500);
     } catch (error) {
       console.error('[Onboarding] Unexpected error:', error);
       Alert.alert('error', 'Something went wrong. Please try again.');
@@ -213,6 +308,7 @@ export default function Onboarding() {
   };
 
   const toggleInterest = (categoryId: string) => {
+    triggerWizzmissReaction(); // Fun reaction when user selects interests
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedInterests(prev => 
       prev.includes(categoryId)
@@ -235,7 +331,7 @@ export default function Onboarding() {
         
         // Continue to next step after review request
         setTimeout(() => {
-          setCurrentStep(8);
+          handleStepChange(8);
         }, 1000); // Small delay to let review complete
       } else {
         // Fallback to store URL for older devices
@@ -250,7 +346,7 @@ export default function Onboarding() {
         Alert.alert(
           'Thanks! 💕',
           'Your rating helps us reach more college students who need advice!',
-          [{ text: 'Continue', onPress: () => setCurrentStep(8) }]
+          [{ text: 'Continue', onPress: () => handleStepChange(8) }]
         );
       }
     } catch (error) {
@@ -260,14 +356,14 @@ export default function Onboarding() {
       Alert.alert(
         'Thanks! 💕',
         'Your support means the world to us!',
-        [{ text: 'Continue', onPress: () => setCurrentStep(8) }]
+        [{ text: 'Continue', onPress: () => handleStepChange(8) }]
       );
     }
   };
 
   const handleSkipRating = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setCurrentStep(8); // Go to share step
+    handleStepChange(8); // Go to share step
   };
 
   const handleShare = async () => {
@@ -279,41 +375,63 @@ export default function Onboarding() {
       });
       
       if (result.action === Share.sharedAction) {
-        setCurrentStep(9); // Go to final step
+        handleStepChange(9); // Go to final step
       } else {
-        setCurrentStep(9); // Go to final step
+        handleStepChange(9); // Go to final step
       }
     } catch (error) {
       console.error('Error sharing:', error);
-      setCurrentStep(9); // Go to final step
+      handleStepChange(9); // Go to final step
     }
   };
 
   const handleSkipShare = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setCurrentStep(9); // Go to final step
+    handleStepChange(9); // Go to final step
+  };
+
+  // Bear Component
+  const BearImage = ({ size = 'medium' }) => {
+    const bearSizes = {
+      small: { width: 120, height: 120 },
+      medium: { width: 160, height: 160 },
+      large: { width: 200, height: 200 },
+    };
+
+    // Show Wizzmiss if triggered, otherwise use the current bear state
+    const imageSource = showWizzmiss ? bearImages['wizzmiss'] : bearImages[currentBearState as keyof typeof bearImages];
+
+    return (
+      <View style={styles.bearContainer} pointerEvents="none">
+        <Image
+          source={imageSource}
+          style={[styles.bearImage, bearSizes[size as keyof typeof bearSizes]]}
+          resizeMode="contain"
+        />
+      </View>
+    );
   };
 
   const renderWelcome = () => (
-    <View style={styles.stepContent}>
-      <View style={styles.logoContainer}>
-        <Text style={styles.logoText}>wizzmo</Text>
+    <View style={styles.stepContent} pointerEvents="box-none">
+      <View style={styles.logoContainer} pointerEvents="none">
+        <BearImage size="large" />
       </View>
       <Text style={styles.welcomeTitle}>welcome to wizzmo</Text>
       <Text style={styles.welcomeSubtitle}>
-        life / dating advice from college girls
+        ask a girl
       </Text>
       
-      <View style={styles.featuresList}>
-        <View style={styles.feature}>
+      <View style={styles.featuresList} pointerEvents="none">
+        <View style={styles.feature} pointerEvents="none">
           <Ionicons name="heart-outline" size={20} color="#FFFFFF" />
           <Text style={styles.featureText}>dating & relationship advice</Text>
         </View>
-        <View style={styles.feature}>
+        <View style={styles.feature} pointerEvents="none">
           <Ionicons name="people-outline" size={20} color="#FFFFFF" />
           <Text style={styles.featureText}>verified college mentors</Text>
         </View>
-        <View style={styles.feature}>
+        <View style={styles.feature} pointerEvents="none">
           <Ionicons name="shield-checkmark-outline" size={20} color="#FFFFFF" />
           <Text style={styles.featureText}>completely anonymous</Text>
         </View>
@@ -322,13 +440,17 @@ export default function Onboarding() {
   );
 
   const renderUsername = () => (
-    <View style={styles.stepContent}>
+    <View style={styles.stepContent} pointerEvents="box-none">
+      <BearImage size="medium" />
       <Text style={styles.inputLabel}>choose your username</Text>
       <View style={styles.usernameContainer}>
         <TextInput
           style={styles.textInput}
           value={username}
-          onChangeText={setUsername}
+          onChangeText={(text) => {
+            setUsername(text);
+            triggerWizzmissReaction(); // Fun reaction when user types
+          }}
           placeholder="enter a unique username"
           placeholderTextColor="rgba(0,0,0,0.4)"
           autoCapitalize="none"
@@ -355,13 +477,17 @@ export default function Onboarding() {
   );
 
   const renderBioAndInterests = () => (
-    <View style={styles.stepContent}>
+    <View style={styles.stepContent} pointerEvents="box-none">
+      <BearImage size="medium" />
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>tell us about yourself</Text>
         <TextInput
           style={[styles.textInput, styles.bioInput]}
           value={bio}
-          onChangeText={setBio}
+          onChangeText={(text) => {
+            setBio(text);
+            triggerWizzmissReaction(); // Fun reaction when user types
+          }}
           placeholder="write a short bio about yourself..."
           placeholderTextColor="rgba(0,0,0,0.4)"
           multiline
@@ -403,9 +529,10 @@ export default function Onboarding() {
   );
 
   const renderDetails = () => (
-    <View style={styles.stepContent}>
+    <View style={styles.stepContent} pointerEvents="box-none">
+      <BearImage size="medium" />
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>age (optional)</Text>
+        <Text style={styles.inputLabel}>age (helpful)</Text>
         <View style={styles.wheelPickerContainer}>
           <Picker
             selectedValue={age}
@@ -413,6 +540,7 @@ export default function Onboarding() {
             itemStyle={styles.wheelPickerItem}
             onValueChange={(itemValue) => {
               setAge(itemValue);
+              triggerWizzmissReaction(); // Fun reaction when user selects
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
           >
@@ -436,6 +564,7 @@ export default function Onboarding() {
               ]}
               onPress={() => {
                 setGender(option);
+                triggerWizzmissReaction(); // Fun reaction when user selects
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
             >
@@ -462,6 +591,7 @@ export default function Onboarding() {
               ]}
               onPress={() => {
                 setEducationLevel(option.value);
+                triggerWizzmissReaction(); // Fun reaction when user selects
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
             >
@@ -489,6 +619,7 @@ export default function Onboarding() {
                 ]}
                 onPress={() => {
                   setGraduationYear(option);
+                  triggerWizzmissReaction(); // Fun reaction when user selects
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               >
@@ -503,31 +634,132 @@ export default function Onboarding() {
           </View>
         </View>
       )}
+
+      {educationLevel === 'university' && (
+        <TouchableWithoutFeedback 
+          onPress={() => {
+            // Don't auto-hide dropdown - let user continue searching
+            Keyboard.dismiss();
+          }}
+        >
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>university</Text>
+            <TextInput
+            style={styles.textInput}
+            placeholder="Type to search universities..."
+            placeholderTextColor="#CCCCCC"
+            value={university || universitySearch}
+            onChangeText={(text) => {
+              triggerWizzmissReaction(); // Fun reaction when user types
+              
+              if (university) {
+                // If a university was selected, clear it and start fresh search
+                setUniversity('');
+                setUniversitySearch(text);
+              } else {
+                setUniversitySearch(text);
+              }
+              
+              // Check if the typed text exactly matches a university
+              const exactMatch = universities.find(uni => 
+                uni.toLowerCase() === text.toLowerCase()
+              );
+              
+              if (exactMatch) {
+                // Exact match found - set it as selected and hide dropdown
+                setUniversity(exactMatch);
+                setUniversitySearch('');
+                setShowUniversityResults(false);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } else {
+                // No exact match - show dropdown if there's text
+                setShowUniversityResults(text.length > 0);
+              }
+            }}
+            onFocus={() => {
+              if (!university && universitySearch.length > 0) {
+                setShowUniversityResults(true);
+              }
+            }}
+            onSubmitEditing={() => {
+              // Don't hide results when user hits done - let them pick from list
+              Keyboard.dismiss();
+            }}
+            returnKeyType="done"
+            autoCapitalize="words"
+            autoComplete="off"
+            autoCorrect={false}
+          />
+          {showUniversityResults && (
+            <View style={styles.universityResults}>
+              <ScrollView 
+                style={styles.universityScrollView} 
+                keyboardShouldPersistTaps="always"
+                nestedScrollEnabled={true}
+                showsVerticalScrollIndicator={true}
+              >
+                {filteredUniversities.length > 0 ? (
+                  filteredUniversities.slice(0, 8).map((uni) => (
+                    <TouchableOpacity
+                      key={uni}
+                      style={styles.universityOption}
+                      onPress={() => {
+                        setUniversity(uni);
+                        setUniversitySearch('');
+                        setShowUniversityResults(false);
+                        triggerWizzmissReaction(); // Fun reaction when user selects
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={styles.universityOptionText}>{uni}</Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View style={styles.noResultsContainer}>
+                    <Text style={styles.noResultsText}>
+                      No universities found. Try a different search term.
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          )}
+          {university && (
+            <View style={styles.selectedUniversity}>
+              <Text style={styles.selectedUniversityText}>{university}</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  setUniversity('');
+                  setUniversitySearch('');
+                  setShowUniversityResults(false);
+                }}
+                style={styles.clearButton}
+              >
+                <Ionicons name="close" size={16} color="#666" />
+              </TouchableOpacity>
+            </View>
+          )}
+          </View>
+        </TouchableWithoutFeedback>
+      )}
     </View>
   );
 
   const renderComplete = () => (
-    <View style={styles.stepContent}>
-      <View>
-        <LinearGradient
-          colors={['#FF4DB8', '#8B5CF6']}
-          style={styles.completionIcon}
-        >
-          <Ionicons name="checkmark" size={32} color="#FFFFFF" />
-        </LinearGradient>
-      </View>
+    <View style={styles.stepContent} pointerEvents="box-none">
+      <BearImage size="large" />
       
       <View>
         <Text style={styles.completionTitle}>you're all set!</Text>
         <Text style={styles.completionSubtitle}>
-          your profile is complete and you're ready to start getting amazing college advice
+          congratulations! ready for dating & relationship advice?
         </Text>
       </View>
 
       <View>
         <TouchableOpacity 
           style={styles.continueButton} 
-          onPress={() => setCurrentStep(6)}
+          onPress={() => handleStepChange(6)}
         >
           <LinearGradient
             colors={['#FFFFFF', '#F8F9FA']}
@@ -542,7 +774,7 @@ export default function Onboarding() {
   );
 
   const renderRating = () => (
-    <View style={styles.stepContent}>
+    <View style={styles.stepContent} pointerEvents="box-none">
       <View style={styles.ratingIconContainer}>
         <Ionicons name="star" size={48} color="#FFD700" />
       </View>
@@ -575,14 +807,14 @@ export default function Onboarding() {
   );
 
   const renderShare = () => (
-    <View style={styles.stepContent}>
+    <View style={styles.stepContent} pointerEvents="box-none">
       <View style={styles.shareIconContainer}>
         <Ionicons name="share-social" size={48} color="#FFFFFF" />
       </View>
       
       <Text style={styles.shareTitle}>spread the word</Text>
       <Text style={styles.shareSubtitle}>
-        help your friends discover wizzmo! share the app with other college students who could use some dating advice
+        share wizzmo with friends who need dating advice!
       </Text>
 
       <TouchableOpacity 
@@ -608,10 +840,10 @@ export default function Onboarding() {
   );
 
   const renderPaywall = () => (
-    <View style={styles.stepContent}>
+    <View style={styles.stepContent} pointerEvents="box-none">
       <PaywallVariantA 
-        onClose={() => setCurrentStep(7)}
-        onSuccess={() => setCurrentStep(7)}
+        onClose={() => handleStepChange(7)}
+        onSuccess={() => handleStepChange(7)}
       />
     </View>
   );
@@ -625,23 +857,35 @@ export default function Onboarding() {
         <Ionicons name="heart" size={40} color="#FFFFFF" />
       </LinearGradient>
       
-      <Text style={styles.finalTitle}>welcome to the community!</Text>
+      <Text style={styles.finalTitle}>welcome to wizzmo!</Text>
       <Text style={styles.finalSubtitle}>
-        ready to start getting amazing college advice and connect with verified mentors
+        congratulations! ready for dating & relationship advice from verified mentors
       </Text>
 
-      <TouchableOpacity 
-        style={styles.startButton} 
-        onPress={() => router.replace('/(tabs)/')}
-      >
-        <LinearGradient
-          colors={['#FFFFFF', '#F8F9FA']}
-          style={styles.startGradient}
+      <View style={styles.actionButtons}>
+        <TouchableOpacity 
+          style={styles.startButton} 
+          onPress={() => router.replace('/(tabs)')}
         >
-          <Text style={styles.startButtonText}>start exploring</Text>
-          <Ionicons name="arrow-forward" size={20} color="#FF4DB8" />
-        </LinearGradient>
-      </TouchableOpacity>
+          <LinearGradient
+            colors={['#FFFFFF', '#F8F9FA']}
+            style={styles.startGradient}
+          >
+            <Text style={styles.startButtonText}>start asking questions!</Text>
+            <Ionicons name="arrow-forward" size={20} color="#FF4DB8" />
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.secondaryButton}>
+          <Text style={styles.secondaryButtonText}>enable notifications</Text>
+          <Ionicons name="notifications-outline" size={18} color="rgba(255,255,255,0.8)" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.secondaryButton}>
+          <Text style={styles.secondaryButtonText}>share with friends</Text>
+          <Ionicons name="share-outline" size={18} color="rgba(255,255,255,0.8)" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -663,7 +907,6 @@ export default function Onboarding() {
   const stepInfo = getStepInfo();
 
   return (
-    <TouchableWithoutFeedback onPress={dismissKeyboard}>
       <View style={styles.container}>
         <LinearGradient
           colors={['#FF4DB8', '#8B5CF6']}
@@ -714,22 +957,27 @@ export default function Onboarding() {
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                bounces={true}
+                keyboardShouldPersistTaps="always"
                 scrollEnabled={true}
-                alwaysBounceVertical={true}
+                bounces={true}
+                alwaysBounceVertical={false}
                 contentInsetAdjustmentBehavior="automatic"
+                removeClippedSubviews={false}
                 onScrollBeginDrag={handleScrollTap}
+                scrollEventThrottle={16}
               >
-                {currentStep === 1 && renderWelcome()}
-                {currentStep === 2 && renderUsername()}
-                {currentStep === 3 && renderBioAndInterests()}
-                {currentStep === 4 && renderDetails()}
-                {currentStep === 5 && renderComplete()}
-                {currentStep === 6 && renderPaywall()}
-                {currentStep === 7 && renderRating()}
-                {currentStep === 8 && renderShare()}
-                {currentStep === 9 && renderFinalComplete()}
+                {/* Transparent padding area for scroll detection */}
+                <View style={styles.transparentScrollArea}>
+                  {currentStep === 1 && renderWelcome()}
+                  {currentStep === 2 && renderUsername()}
+                  {currentStep === 3 && renderBioAndInterests()}
+                  {currentStep === 4 && renderDetails()}
+                  {currentStep === 5 && renderComplete()}
+                  {currentStep === 6 && renderPaywall()}
+                  {currentStep === 7 && renderRating()}
+                  {currentStep === 8 && renderShare()}
+                  {currentStep === 9 && renderFinalComplete()}
+                </View>
               </ScrollView>
             </KeyboardAvoidingView>
 
@@ -741,7 +989,7 @@ export default function Onboarding() {
                     style={styles.skipButton}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setCurrentStep(4); // Skip to step 4 (details)
+                      handleStepChange(4); // Skip to step 4 (details)
                     }}
                   >
                     <Text style={styles.skipButtonText}>skip</Text>
@@ -773,7 +1021,6 @@ export default function Onboarding() {
           </SafeAreaView>
         </LinearGradient>
       </View>
-    </TouchableWithoutFeedback>
   );
 }
 
@@ -781,6 +1028,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FF4DB8',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   gradientBackground: {
     flex: 1,
@@ -854,10 +1106,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 200,
-    flexGrow: 1,
-    justifyContent: 'flex-start',
+    paddingHorizontal: 0, // Remove horizontal padding from container
+    paddingBottom: 120,
+    paddingTop: 20,
+    minHeight: '150%', // Ensure content is tall enough to scroll
+  },
+  transparentScrollArea: {
+    flex: 1,
+    paddingHorizontal: 24, // Move horizontal padding to content area
+    // Add extra invisible padding on sides for scroll detection
+    marginHorizontal: -100,
+    paddingHorizontal: 124, // 24 + 100 for content offset
   },
   stepContent: {
     paddingVertical: 20,
@@ -872,6 +1131,14 @@ const styles = StyleSheet.create({
   bearLogo: {
     width: 120,
     height: 120,
+  },
+  bearContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  bearImage: {
+    width: 80,
+    height: 80,
   },
   welcomeTitle: {
     fontSize: 28,
@@ -937,6 +1204,67 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#000000',
+  },
+  universityResults: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 0,
+    borderWidth: 2,
+    borderColor: '#000000',
+    marginTop: 4,
+    maxHeight: 160,
+    zIndex: 1000,
+    elevation: 5, // For Android shadow
+    shadowColor: '#000', // For iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  universityScrollView: {
+    maxHeight: 160,
+    flexGrow: 0, // Prevent expanding beyond maxHeight
+  },
+  universityOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  universityOptionText: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#000000',
+  },
+  selectedUniversity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 0,
+    borderWidth: 1,
+    borderColor: '#DDD',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  selectedUniversityText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#000000',
+    flex: 1,
+  },
+  clearButton: {
+    padding: 4,
+  },
+  noResultsContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#666666',
+    textAlign: 'center',
   },
   bioInput: {
     minHeight: 100,
@@ -1278,7 +1606,28 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
     lineHeight: 24,
-    marginBottom: 40,
+    marginBottom: 32,
+    textTransform: 'lowercase',
+  },
+  actionButtons: {
+    gap: 12,
+  },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 0,
+    gap: 8,
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.8)',
     textTransform: 'lowercase',
   },
 

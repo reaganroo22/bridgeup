@@ -219,17 +219,11 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.log('[SubscriptionContext] Final plan type:', planType);
       console.log('[SubscriptionContext] Final status:', isPro ? 'active' : 'cancelled');
       
-      const { error } = await supabaseService.updateSubscription(
-        user!.id,
-        planType,
-        isPro ? 'active' : 'cancelled'
-      );
+      // Temporarily disabled due to auth context mismatch during account switching
+      // The issue: User A is authenticated but trying to update User B's subscription
+      // TODO: Fix auth context synchronization during account switching
       
-      if (error) {
-        console.error('[SubscriptionContext] Error updating Supabase subscription:', error);
-      } else {
-        console.log('[SubscriptionContext] Supabase subscription updated successfully');
-      }
+      console.log('[SubscriptionContext] Subscription sync disabled - preventing RLS errors during account switching');
     } catch (error) {
       console.error('[SubscriptionContext] Error updating Supabase subscription:', error);
     }

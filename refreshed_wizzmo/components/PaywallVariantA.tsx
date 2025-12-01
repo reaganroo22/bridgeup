@@ -89,7 +89,7 @@ export default function PaywallVariantA({ visible, onClose }: PaywallVariantAPro
             <View style={styles.titleSection}>
               <Text style={styles.title}>unlock unlimited spill 💅</Text>
               <Text style={styles.subtitle}>
-                get dating advice from college girls who actually know what they're talking about
+                ask for life/dating advice from college girls who actually know what they're talking about
               </Text>
             </View>
 
@@ -161,7 +161,7 @@ export default function PaywallVariantA({ visible, onClose }: PaywallVariantAPro
                   </View>
                 </View>
                 <Text style={[styles.planPrice, styles.premiumPriceText]}>
-                  {offerings?.[0]?.availablePackages.find(pkg => pkg.identifier === '$rc_annual')?.product.priceString || '$59.99'}
+                  {offerings?.[0]?.availablePackages.find(pkg => pkg.identifier === '$rc_annual')?.product.priceString || '$59.99'} per year
                 </Text>
                 <Text style={styles.planPer}>just $0.16/day</Text>
                 <Text style={styles.planFeatures}>everything + VIP perks + exclusive content</Text>

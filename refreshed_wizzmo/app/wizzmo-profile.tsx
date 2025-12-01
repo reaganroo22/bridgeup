@@ -373,6 +373,27 @@ export default function WizzmoProfileScreen() {
               )}
             </View>
 
+            {/* Edit Profile Button - Only show when viewing own profile */}
+            {isViewingSelf && (
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={styles.editProfileButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push('/(tabs)/profile');
+                  }}
+                >
+                  <LinearGradient
+                    colors={colors.gradientPrimary}
+                    style={styles.editProfileButtonGradient}
+                  >
+                    <Ionicons name="create-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.editProfileButtonText}>edit profile</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Action Buttons - Only show for users in student mode viewing mentors */}
             {!isViewingSelf && (currentMode === 'student' || (currentUserProfile?.role === 'student')) && (
               <View style={styles.actionButtons}>
@@ -1311,5 +1332,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: 'white',
+  },
+
+  // Edit Profile Button Styles
+  editProfileButton: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  editProfileButtonGradient: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  editProfileButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+    textTransform: 'lowercase',
   },
 });

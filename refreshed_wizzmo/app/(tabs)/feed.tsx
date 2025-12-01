@@ -498,7 +498,9 @@ export default function FeedScreen() {
                 no questions yet
               </Text>
               <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
-                Be the first to ask a question!
+                {currentMode === 'mentor' 
+                  ? 'No questions to review right now!'
+                  : 'Be the first to ask a question!'}
               </Text>
             </View>
           ) : (

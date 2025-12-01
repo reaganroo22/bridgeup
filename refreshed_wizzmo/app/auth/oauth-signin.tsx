@@ -30,6 +30,12 @@ export default function OAuthSignIn() {
   
   const [loading, setLoading] = useState<string | null>(null);
   const [hasNavigated, setHasNavigated] = useState(false);
+
+  // Demo mode credentials
+  const DEMO_CREDENTIALS = {
+    email: 'demo@wizzmo.app',
+    password: 'demo123456'
+  };
   
   // Animation values
   const logoScale = useRef(new Animated.Value(1)).current;
@@ -130,6 +136,47 @@ export default function OAuthSignIn() {
     }
   };
 
+  const handleDemoSignIn = async () => {
+    if (loading) return;
+
+    setLoading('demo');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      console.log('[OAuthSignIn] Starting demo sign-in');
+      
+      // Ensure we start with a clean auth state
+      await supabase.auth.signOut({ scope: 'local' });
+      
+      // Sign in with demo credentials
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: DEMO_CREDENTIALS.email,
+        password: DEMO_CREDENTIALS.password,
+      });
+
+      if (error) {
+        console.error('[OAuthSignIn] Demo sign-in error:', error);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert('Demo sign in failed', 'Unable to access demo account. Please try OAuth instead.');
+        return;
+      }
+
+      if (data?.user) {
+        console.log('[OAuthSignIn] Demo sign-in successful');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        
+        // Navigate directly to app since demo account is pre-configured
+        router.replace('/(tabs)/');
+      }
+    } catch (error) {
+      console.error('[OAuthSignIn] Demo sign-in error:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Demo error', 'Something went wrong with demo mode. Please try OAuth instead.');
+    } finally {
+      setLoading(null);
+    }
+  };
+
   const checkOnboardingStatus = async (userId: string) => {
     if (hasNavigated) return; // Prevent double navigation
     
@@ -139,14 +186,98 @@ export default function OAuthSignIn() {
       // Add a small delay to prevent race conditions
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const { data: userProfile } = await supabaseService.getUserProfile(userId);
+      let { data: userProfile } = await supabaseService.getUserProfile(userId);
       
-      if (!userProfile || !userProfile.onboarding_completed) {
-        console.log('[OAuthSignIn] Redirecting to onboarding');
+      if (!userProfile) {
+        console.log('[OAuthSignIn] No user profile found, redirecting to onboarding');
         router.replace('/auth/onboarding');
+        return;
+      }
+
+      // Check for mentor application to determine available roles
+      console.log('[OAuthSignIn] Checking for mentor application for:', userProfile.email);
+      
+      let hasApprovedMentorApplication = false;
+      let hasPendingMentorApplication = false;
+      
+      try {
+        const { data: application, error } = await supabase
+          .from('mentor_applications')
+          .select('*')
+          .eq('email', userProfile.email.toLowerCase())
+          .single();
+
+        if (!error && application) {
+          console.log('[OAuthSignIn] Found mentor application with status:', application.application_status);
+          
+          if (application.application_status === 'approved') {
+            hasApprovedMentorApplication = true;
+          } else if (application.application_status === 'pending') {
+            hasPendingMentorApplication = true;
+          }
+        } else if (error && error.code !== 'PGRST116') {
+          console.error('[OAuthSignIn] Error checking mentor application:', error);
+        } else {
+          console.log('[OAuthSignIn] No mentor application found');
+        }
+      } catch (mentorError) {
+        console.error('[OAuthSignIn] Error in mentor check:', mentorError);
+      }
+
+      // Handle pending applications - only block NEW users, not existing students
+      if (hasPendingMentorApplication) {
+        console.log('[OAuthSignIn] User profile check - onboarding_completed:', userProfile.onboarding_completed, 'role:', userProfile.role);
+        
+        if (userProfile.onboarding_completed && userProfile.role === 'student') {
+          console.log('[OAuthSignIn] Existing student has pending mentor application - allowing normal app access');
+          // Let existing students continue to use the app normally
+        } else {
+          console.log('[OAuthSignIn] New user with pending mentor application, redirecting to pending approval');
+          router.replace('/auth/pending-approval');
+          return;
+        }
+      }
+
+      // Check if user needs role selection (existing student with approved mentor application)
+      if (hasApprovedMentorApplication && userProfile.role === 'student' && userProfile.onboarding_completed) {
+        console.log('[OAuthSignIn] User eligible for both roles, showing role selection');
+        router.replace('/auth/role-selection');
+        return;
+      }
+
+      // Auto-upgrade role for new users with approved mentor applications
+      if (hasApprovedMentorApplication && !userProfile.onboarding_completed && userProfile.role !== 'mentor' && userProfile.role !== 'both') {
+        const newRole = userProfile.role === 'student' ? 'both' : 'mentor';
+        console.log('[OAuthSignIn] Auto-upgrading new user role from', userProfile.role, 'to:', newRole);
+        
+        const { error: updateError } = await supabaseService.updateUserProfile(userId, { role: newRole });
+        if (!updateError) {
+          userProfile = { ...userProfile, role: newRole };
+          console.log('[OAuthSignIn] Role upgraded successfully to:', newRole);
+        } else {
+          console.error('[OAuthSignIn] Failed to update role:', updateError);
+        }
+      }
+
+      // Check onboarding status and redirect accordingly  
+      if (!userProfile.onboarding_completed) {
+        // Check if this is a mentor who needs mentor onboarding
+        if ((userProfile.role === 'mentor' || userProfile.role === 'both')) {
+          console.log('[OAuthSignIn] Redirecting new mentor to mentor onboarding');
+          router.replace('/auth/mentor-onboarding');
+        } else {
+          console.log('[OAuthSignIn] Redirecting to student onboarding');
+          router.replace('/auth/onboarding');
+        }
       } else {
-        console.log('[OAuthSignIn] Redirecting to app');
-        router.replace('/(tabs)/');
+        // Onboarding completed, but check if mentor still needs mentor profile setup
+        if ((userProfile.role === 'mentor' || userProfile.role === 'both') && !userProfile.mentor_profile) {
+          console.log('[OAuthSignIn] Existing user needs mentor profile setup');
+          router.replace('/auth/mentor-onboarding');
+        } else {
+          console.log('[OAuthSignIn] Redirecting to app');
+          router.replace('/(tabs)/');
+        }
       }
     } catch (error) {
       console.error('[OAuthSignIn] Error checking onboarding:', error);
@@ -226,7 +357,7 @@ export default function OAuthSignIn() {
               <Text style={styles.logoText}>wizzmo</Text>
             </View>
             <Text style={[styles.subtitle, { color: '#FFFFFF' }]}>
-              life / dating advice from college girls
+              ask a girl
             </Text>
           </Animated.View>
 
@@ -237,6 +368,31 @@ export default function OAuthSignIn() {
                 { provider: 'apple', label: 'Continue with Apple' },
                 { provider: 'google', label: 'Continue with Google' }
               ].map(renderOAuthButton)}
+              
+              {/* Demo Mode Button */}
+              <TouchableOpacity
+                style={[
+                  styles.oauthButton,
+                  styles.demoButton,
+                  {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                    opacity: loading && loading !== 'demo' ? 0.5 : 1,
+                  }
+                ]}
+                onPress={handleDemoSignIn}
+                disabled={loading !== null}
+                activeOpacity={0.8}
+              >
+                {loading === 'demo' ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Ionicons name="play-circle-outline" size={20} color="#FFFFFF" />
+                )}
+                <Text style={[styles.oauthButtonText, { color: '#FFFFFF' }]}>
+                  {loading === 'demo' ? 'signing in...' : 'Demo Mode (Screenshots)'}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Info Text */}
@@ -332,6 +488,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: -0.2,
+  },
+  demoButton: {
+    marginTop: 8,
   },
   infoContainer: {
     justifyContent: 'center',

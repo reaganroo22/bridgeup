@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Animated, Image } from 'react-native';
+import { StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Animated, Image, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +17,14 @@ import * as Haptics from 'expo-haptics';
 import * as supabaseService from '@/lib/supabaseService';
 import { supabase } from '@/lib/supabase';
 import AdviceScreen from './advice';
+
+// Helper function to get meaningful student name
+const getStudentDisplayName = (student?: { full_name: string; email?: string; username?: string }) => {
+  return student?.full_name?.trim() || 
+         student?.username || 
+         student?.email?.split('@')[0] || 
+         'Student';
+};
 
 interface AdviceSession {
   id: string;
@@ -39,6 +47,8 @@ interface AdviceSession {
   students?: {
     full_name: string;
     avatar_url?: string;
+    email?: string;
+    username?: string;
   };
   messages?: Array<{
     id: string;
@@ -64,11 +74,17 @@ export default function UnifiedChatsScreen() {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [selectedChatForRating, setSelectedChatForRating] = useState<string | null>(null);
   const [sessions, setSessions] = useState<AdviceSession[]>([]);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'resolved'>('all');
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   // Fetch mentor's advice sessions
   const fetchSessions = useCallback(async () => {
-    if (!user || !isWizzmo) return;
+    if (!user || !isWizzmo) {
+      console.log('[MentorChats] ❌ Cannot fetch sessions - user:', !!user, 'isWizzmo:', isWizzmo);
+      return;
+    }
 
+    console.log('[MentorChats] 🔍 Fetching sessions for mentor:', user.id.slice(0, 8));
     try {
       const { data, error } = await supabase
         .from('advice_sessions')
@@ -82,7 +98,9 @@ export default function UnifiedChatsScreen() {
           ),
           students:users!advice_sessions_student_id_fkey (
             full_name,
-            avatar_url
+            avatar_url,
+            email,
+            username
           ),
           messages (
             id,
@@ -101,8 +119,22 @@ export default function UnifiedChatsScreen() {
         return;
       }
 
-      console.log('[MentorChats] Fetched sessions:', data?.length);
-      console.log('[MentorChats] Session statuses:', data?.map(s => ({ id: s.id.slice(0, 8), status: s.status })));
+      console.log('[MentorChats] ✅ Fetched sessions:', data?.length);
+      console.log('[MentorChats] Session details:', data?.map(s => ({ 
+        id: s.id.slice(0, 8), 
+        status: s.status,
+        questionTitle: s.questions?.title,
+        studentName: s.students?.full_name,
+        createdAt: s.created_at 
+      })));
+      
+      // Log pending sessions specifically
+      const pendingSessions = data?.filter(s => s.status === 'pending') || [];
+      if (pendingSessions.length > 0) {
+        console.log('[MentorChats] 🟡 Found pending sessions for mentor:', pendingSessions.length);
+        pendingSessions.forEach(s => console.log(`  - ${s.id.slice(0, 8)}: ${s.questions?.title} from ${s.students?.full_name}`));
+      }
+      
       setSessions(data || []);
     } catch (error) {
       console.error('Error fetching sessions:', error);
@@ -249,9 +281,11 @@ export default function UnifiedChatsScreen() {
   };
 
   const onRefresh = async () => {
+    console.log('[MentorChats] 🔄 Manual refresh triggered');
     setRefreshing(true);
     await fetchSessions();
     setRefreshing(false);
+    console.log('[MentorChats] ✅ Manual refresh completed');
   };
 
   const getTimeAgo = (timestamp: string) => {
@@ -309,7 +343,22 @@ export default function UnifiedChatsScreen() {
   const activeSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'active'));
   const resolvedSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'resolved'));
 
-  console.log('[MentorChats] Filtered - Active:', activeSessions.length, 'Resolved:', resolvedSessions.length);
+  // Filter sessions based on active filter
+  const getFilteredSessions = () => {
+    switch (activeFilter) {
+      case 'active':
+        return activeSessions;
+      case 'resolved':
+        return resolvedSessions;
+      case 'all':
+      default:
+        return [...activeSessions, ...resolvedSessions];
+    }
+  };
+  
+  const filteredSessions = getFilteredSessions();
+
+  console.log('[MentorChats] Filtered - Active:', activeSessions.length, 'Resolved:', resolvedSessions.length, 'Current filter:', activeFilter, 'Showing:', filteredSessions.length);
 
   if (loading) {
     return (
@@ -353,27 +402,263 @@ export default function UnifiedChatsScreen() {
         }
       >
         <View style={{ height: insets.top + 100 }} />
+        
+        {/* Instagram-Style Filter Button */}
+        <View style={[styles.filterContainer, { backgroundColor: colors.background }]}>
+          <TouchableOpacity
+            style={[styles.filterButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowFilterModal(true);
+            }}
+          >
+            <Ionicons name="options-outline" size={20} color={colors.text} />
+            <Text style={[styles.filterButtonText, { color: colors.text }]}>
+              {activeFilter === 'all' ? 'all chats' : 
+               activeFilter === 'active' ? 'active' :
+               'resolved'}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+        
         <View style={[styles.content, { backgroundColor: colors.background }]}>
 
-          {/* Active Chats Section */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                active chats
-              </Text>
-              <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>
-                {activeSessions.length}
-              </Text>
-            </View>
+          {/* Show separate sections when filter is 'all', otherwise show filtered section */}
+          {activeFilter === 'all' ? (
+            <>
+              {/* Active Chats Section */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                    active chats
+                  </Text>
+                  <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>
+                    {activeSessions.length}
+                  </Text>
+                </View>
 
-            {activeSessions.length > 0 ? (
+                {activeSessions.length > 0 ? (
+                  <View style={styles.chatsList}>
+                    {activeSessions.map((session, index) => {
+                      const lastMessage = getLastMessage(session);
+                      const unreadCount = getUnreadCount(session);
+                      const categoryName = session.questions?.categories?.name || 'chat';
+                      const questionTitle = session.questions?.title || 'Question';
+                      const studentName = getStudentDisplayName(session.students);
+                      const isResolved = session.status === 'resolved';
+
+                      return (
+                        <TouchableOpacity
+                          key={session.id}
+                          style={[
+                            styles.chatItem,
+                            { 
+                              backgroundColor: colors.surface,
+                              borderColor: colors.border,
+                              shadowColor: colors.text,
+                              shadowOffset: { width: 0, height: 1 },
+                              shadowOpacity: 0.05,
+                              shadowRadius: 2,
+                              elevation: 1,
+                            },
+                            index < activeSessions.length - 1 && { marginBottom: 8 },
+                          ]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            router.push(`/chat?chatId=${session.id}`);
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          {/* Left side with avatar */}
+                          <View style={styles.chatLeft}>
+                            <Image
+                              source={{
+                                uri: session.students?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(studentName)}&background=FF4DB8&color=fff&size=128`
+                              }}
+                              style={styles.studentAvatar}
+                            />
+                            {unreadCount > 0 && (
+                              <View style={[styles.unreadIndicator, { backgroundColor: colors.primary }]} />
+                            )}
+                          </View>
+
+                          {/* Main content */}
+                          <View style={styles.chatContent}>
+                            <View style={styles.chatHeader}>
+                              <View style={styles.chatTitleRow}>
+                                <Text style={[styles.studentName, { color: colors.text }]} numberOfLines={1}>
+                                  {studentName}
+                                </Text>
+                                <View style={[styles.categoryPill, { backgroundColor: colors.primary + '20', borderColor: colors.primary + '40' }]}>
+                                  <Text style={[styles.categoryText, { color: colors.primary }]}>
+                                    {categoryName}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Text style={[styles.timestamp, { color: colors.textSecondary }]}>
+                                {lastMessage
+                                  ? getTimeAgo(lastMessage.created_at)
+                                  : getTimeAgo(session.created_at)
+                                }
+                              </Text>
+                            </View>
+
+                            <Text style={[styles.questionTitle, { color: colors.text }]} numberOfLines={2}>
+                              {questionTitle}
+                            </Text>
+                            
+                            {session.questions?.content && (
+                              <Text style={[styles.questionContent, { color: colors.textSecondary }]} numberOfLines={3}>
+                                {session.questions.content}
+                              </Text>
+                            )}
+
+                            <View style={styles.lastMessageRow}>
+                              {lastMessage?.audio_url ? (
+                                <View style={styles.audioMessageRow}>
+                                  <Ionicons name="mic" size={14} color={colors.primary} />
+                                  <Text style={[styles.audioMessageText, { color: colors.textSecondary }]}>
+                                    Voice message
+                                  </Text>
+                                </View>
+                              ) : (
+                                <Text style={[styles.lastMessageText, { color: lastMessage ? colors.text : colors.textSecondary }]} numberOfLines={1}>
+                                  {lastMessage?.content || 'No messages yet'}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+
+                          {/* Right side with indicators */}
+                          <View style={styles.chatRight}>
+                            {unreadCount > 0 && (
+                              <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
+                                <Text style={styles.unreadText}>
+                                  {unreadCount > 99 ? '99+' : unreadCount.toString()}
+                                </Text>
+                              </View>
+                            )}
+                            <Ionicons 
+                              name="chevron-forward" 
+                              size={16} 
+                              color={colors.textSecondary} 
+                              style={{ marginTop: 4 }}
+                            />
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Ionicons name="chatbubbles-outline" size={48} color={colors.textSecondary} style={styles.emptyIcon} />
+                    <Text style={[styles.emptyStateTitle, { color: colors.text }]}>
+                      No active chats
+                    </Text>
+                    <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+                      New questions will appear here when students ask for advice
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Resolved Chats Section */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                    resolved
+                  </Text>
+                  <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>
+                    {resolvedSessions.length}
+                  </Text>
+                </View>
+
+                {resolvedSessions.length > 0 ? (
+                  <View style={[styles.resolvedList, { borderColor: colors.border }]}>
+                    {resolvedSessions.map((session, index) => {
+                      const categoryName = session.questions?.categories?.name || 'chat';
+                      const questionTitle = session.questions?.title || 'Question';
+                      const studentName = getStudentDisplayName(session.students);
+
+                      return (
+                        <View
+                          key={session.id}
+                          style={[
+                            styles.resolvedItem,
+                            { borderBottomColor: colors.separator },
+                            index === resolvedSessions.length - 1 && { borderBottomWidth: 0 },
+                          ]}
+                        >
+                          <TouchableOpacity
+                            style={styles.resolvedMainContent}
+                            onPress={() => router.push(`/chat?chatId=${session.id}`)}
+                          >
+                            <View style={styles.resolvedContent}>
+                              <Text style={[styles.resolvedTitle, { color: colors.text }]} numberOfLines={2}>
+                                {questionTitle}
+                              </Text>
+                              <View style={styles.resolvedMeta}>
+                                <Text style={[styles.resolvedCategoryText, { color: colors.textSecondary }]}>
+                                  {categoryName}
+                                </Text>
+                                {session.rating && (
+                                  <View style={styles.ratingContainer}>
+                                    {renderStars(session.rating)}
+                                  </View>
+                                )}
+                              </View>
+                            </View>
+
+                            <View style={styles.resolvedRight}>
+                              {session.rating && (
+                                <View style={[styles.helpfulBadge, { backgroundColor: colors.surfaceElevated }]}>
+                                  <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                                </View>
+                              )}
+                              <Text style={[styles.timestamp, { color: colors.textTertiary }]}>
+                                {getTimeAgo(session.created_at)}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Ionicons name="chatbubbles-outline" size={48} color={colors.textSecondary} style={styles.emptyIcon} />
+                    <Text style={[styles.emptyStateTitle, { color: colors.text }]}>
+                      No resolved chats
+                    </Text>
+                    <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+                      Completed conversations will appear here
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </>
+          ) : (
+            /* Single filtered section for specific filters */
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  {activeFilter === 'active' ? 'active chats' : 'resolved chats'}
+                </Text>
+                <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>
+                  {filteredSessions.length}
+                </Text>
+              </View>
+
+              {filteredSessions.length > 0 ? (
               <View style={styles.chatsList}>
-                {activeSessions.map((session, index) => {
+                {filteredSessions.map((session, index) => {
                   const lastMessage = getLastMessage(session);
                   const unreadCount = getUnreadCount(session);
                   const categoryName = session.questions?.categories?.name || 'chat';
                   const questionTitle = session.questions?.title || 'Question';
-                  const studentName = session.students?.full_name || 'User';
+                  const studentName = getStudentDisplayName(session.students);
+                  const isResolved = session.status === 'resolved';
 
                   return (
                     <TouchableOpacity
@@ -389,7 +674,7 @@ export default function UnifiedChatsScreen() {
                           shadowRadius: 2,
                           elevation: 1,
                         },
-                        index < activeSessions.length - 1 && { marginBottom: 8 },
+                        index < filteredSessions.length - 1 && { marginBottom: 8 },
                       ]}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -441,6 +726,15 @@ export default function UnifiedChatsScreen() {
                           </Text>
                         )}
 
+                        {/* Status indicator for resolved chats */}
+                        {isResolved && session.rating && (
+                          <View style={[styles.resolvedIndicator, { backgroundColor: colors.surfaceElevated }]}>
+                            <View style={styles.ratingContainer}>
+                              {renderStars(session.rating)}
+                            </View>
+                          </View>
+                        )}
+
                         <View style={styles.lastMessageRow}>
                           {lastMessage?.audio_url ? (
                             <View style={styles.audioMessageRow}>
@@ -451,7 +745,7 @@ export default function UnifiedChatsScreen() {
                             </View>
                           ) : (
                             <Text style={[styles.lastMessageText, { color: lastMessage ? colors.text : colors.textSecondary }]} numberOfLines={1}>
-                              {lastMessage?.content || 'No messages yet'}
+                              {lastMessage?.content || (isResolved ? 'Conversation completed' : 'No messages yet')}
                             </Text>
                           )}
                         </View>
@@ -459,11 +753,16 @@ export default function UnifiedChatsScreen() {
 
                       {/* Right side with indicators */}
                       <View style={styles.chatRight}>
-                        {unreadCount > 0 && (
+                        {!isResolved && unreadCount > 0 && (
                           <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
                             <Text style={styles.unreadText}>
                               {unreadCount > 99 ? '99+' : unreadCount.toString()}
                             </Text>
+                          </View>
+                        )}
+                        {isResolved && session.rating && (
+                          <View style={[styles.helpfulBadge, { backgroundColor: colors.surfaceElevated }]}>
+                            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
                           </View>
                         )}
                         <Ionicons 
@@ -481,99 +780,89 @@ export default function UnifiedChatsScreen() {
               <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Ionicons name="chatbubbles-outline" size={48} color={colors.textSecondary} style={styles.emptyIcon} />
                 <Text style={[styles.emptyStateTitle, { color: colors.text }]}>
-                  No active chats
+                  {activeFilter === 'active' ? 'No active chats' :
+                   activeFilter === 'resolved' ? 'No resolved chats' :
+                   'No chats yet'}
                 </Text>
                 <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
-                  New questions will appear here when students ask for advice
+                  {activeFilter === 'active' ? 'New questions will appear here when students ask for advice' :
+                   activeFilter === 'resolved' ? 'Completed conversations will appear here' :
+                   'Start helping students by accepting questions from your inbox'}
                 </Text>
               </View>
             )}
-          </View>
-
-          {/* Resolved Chats Section */}
-          {resolvedSessions.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  resolved
-                </Text>
-                <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>
-                  {resolvedSessions.length}
-                </Text>
-              </View>
-
-              <View style={[styles.resolvedList, { borderColor: colors.border }]}>
-                {resolvedSessions.map((session, index) => {
-                  const categoryName = session.questions?.categories?.name || 'chat';
-                  const questionTitle = session.questions?.title || 'Question';
-                  const studentName = session.students?.full_name || 'User';
-
-                  return (
-                    <View
-                      key={session.id}
-                      style={[
-                        styles.resolvedItem,
-                        { borderBottomColor: colors.separator },
-                        index === resolvedSessions.length - 1 && { borderBottomWidth: 0 },
-                      ]}
-                    >
-                      <TouchableOpacity
-                        style={styles.resolvedMainContent}
-                        onPress={() => router.push(`/chat?chatId=${session.id}`)}
-                      >
-                        <View style={styles.resolvedContent}>
-                          <Text style={[styles.resolvedTitle, { color: colors.text }]} numberOfLines={2}>
-                            {questionTitle}
-                          </Text>
-                          {session.questions?.content && (
-                            <Text style={[styles.resolvedQuestionContent, { color: colors.textSecondary }]} numberOfLines={2}>
-                              {session.questions.content}
-                            </Text>
-                          )}
-                          <View style={styles.resolvedMeta}>
-                            <Text style={[styles.resolvedCategoryText, { color: colors.textSecondary }]}>
-                              {categoryName}
-                            </Text>
-                            {session.rating && (
-                              <View style={styles.ratingContainer}>
-                                {renderStars(session.rating)}
-                              </View>
-                            )}
-                          </View>
-                        </View>
-
-                        <View style={styles.resolvedRight}>
-                          {session.rating && (
-                            <View style={[styles.helpfulBadge, { backgroundColor: colors.surfaceElevated }]}>
-                              <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-                            </View>
-                          )}
-                          <Text style={[styles.timestamp, { color: colors.textTertiary }]}>
-                            {getTimeAgo(session.created_at)}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-
-                      {/* Rate Session Button (if not rated) */}
-                      {!session.rating && (
-                        <TouchableOpacity
-                          style={[styles.rateButton, { borderTopColor: colors.separator }]}
-                          onPress={() => handleOpenRating(session.id)}
-                        >
-                          <Ionicons name="star-outline" size={16} color={colors.primary} />
-                          <Text style={[styles.rateButtonText, { color: colors.primary }]}>
-                            rate this session
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
             </View>
           )}
+
         </View>
       </ScrollView>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={showFilterModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          {/* Modal Header */}
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity 
+              onPress={() => setShowFilterModal(false)}
+              style={styles.modalCloseButton}
+            >
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              filter chats
+            </Text>
+            <View style={{ width: 44 }} />
+          </View>
+          
+          {/* Filter Options */}
+          <ScrollView style={styles.modalContent}>
+            {[
+              { key: 'all', label: 'all chats', count: sessions.length },
+              { key: 'active', label: 'active', count: activeSessions.length },
+              { key: 'resolved', label: 'resolved', count: resolvedSessions.length },
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.key}
+                style={[
+                  styles.filterOption,
+                  { 
+                    backgroundColor: activeFilter === option.key ? colors.primary + '10' : colors.surface,
+                    borderColor: activeFilter === option.key ? colors.primary : colors.border
+                  }
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setActiveFilter(option.key as any);
+                  setShowFilterModal(false);
+                }}
+              >
+                <View style={styles.filterOptionContent}>
+                  <Text style={[
+                    styles.filterOptionLabel, 
+                    { color: activeFilter === option.key ? colors.primary : colors.text }
+                  ]}>
+                    {option.label}
+                  </Text>
+                  <Text style={[
+                    styles.filterOptionCount, 
+                    { color: colors.textSecondary }
+                  ]}>
+                    {option.count}
+                  </Text>
+                </View>
+                {activeFilter === option.key && (
+                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* Rating Modal */}
       <RatingModal
@@ -585,8 +874,8 @@ export default function UnifiedChatsScreen() {
         onSubmit={handleRatingSubmit}
         wizzmoName={
           selectedChatForRating
-            ? sessions.find(s => s.id === selectedChatForRating)?.students?.full_name || 'student'
-            : 'user'
+            ? getStudentDisplayName(sessions.find(s => s.id === selectedChatForRating)?.students)
+            : 'student'
         }
       />
     </>
@@ -766,6 +1055,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  resolvedIndicator: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    marginBottom: 6,
+  },
 
   // Resolved List
   resolvedList: {
@@ -809,6 +1104,7 @@ const styles = StyleSheet.create({
   ratingContainer: {
     flexDirection: 'row',
     gap: 2,
+    alignItems: 'center',
   },
   resolvedRight: {
     alignItems: 'flex-end',
@@ -861,5 +1157,84 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
     textAlign: 'center',
     lineHeight: 20,
+  },
+
+  // Instagram-Style Filter Button
+  filterContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderRadius: 8,
+    gap: 8,
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+    flex: 1,
+    textAlign: 'center',
+  },
+
+  // Filter Modal Styles
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    paddingTop: 60,
+  },
+  modalCloseButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  filterOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flex: 1,
+    marginRight: 12,
+  },
+  filterOptionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  filterOptionCount: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

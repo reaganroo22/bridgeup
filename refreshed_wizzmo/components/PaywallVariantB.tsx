@@ -133,7 +133,7 @@ export default function PaywallVariantB({ visible, onClose }: PaywallVariantBPro
                   </View>
                 </View>
                 <Text style={styles.planPrice}>
-                  {offerings?.[0]?.availablePackages.find(pkg => pkg.identifier === '$rc_annual')?.product.priceString || '$59.99'}
+                  {offerings?.[0]?.availablePackages.find(pkg => pkg.identifier === '$rc_annual')?.product.priceString || '$59.99'} per year
                 </Text>
                 <Text style={styles.planPer}>best value</Text>
               </TouchableOpacity>

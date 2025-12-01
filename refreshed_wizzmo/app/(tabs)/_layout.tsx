@@ -17,8 +17,8 @@ export default function TabLayout() {
   const { user: authUser } = useAuth();
   const { currentMode, isLoading } = useUserMode();
 
-  // Show loading spinner while UserModeContext is loading
-  if (isLoading) {
+  // Show loading spinner while UserModeContext is loading or currentMode is null
+  if (isLoading || currentMode === null) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />

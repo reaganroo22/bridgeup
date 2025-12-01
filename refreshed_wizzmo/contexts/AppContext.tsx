@@ -79,7 +79,7 @@ interface AppContextType {
   availableWizzmos: Wizzmo[];
   trendingTopics: TrendingTopic[];
   loading: boolean;
-  submitQuestion: (title: string, content: string, category: string, isAnonymous: boolean, preferredMentorId?: string) => Promise<string>;
+  submitQuestion: (title: string, content: string, category: string, isAnonymous: boolean, preferredMentorId?: string, preferredMentorIds?: string[]) => Promise<string>;
   sendMessage: (chatId: string, text: string) => void;
   markChatAsRead: (chatId: string) => void;
   resolvChat: (chatId: string) => void;
@@ -470,84 +470,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .sort((a, b) => b.trendingScore - a.trendingScore)
       .slice(0, 10); // Top 10
 
-      // If we have trending topics, use them; otherwise use demo data
-      if (topics.length > 0) {
-        setTrendingTopics(topics);
-      } else {
-        // Fallback demo topics to make the UI look populated
-        setTrendingTopics([
-          {
-            id: 'demo-1',
-            title: 'how to survive freshman year',
-            participants: 24,
-            category: 'General Advice',
-            emoji: '💭',
-            isLive: true,
-            trendingScore: 95
-          },
-          {
-            id: 'demo-2',
-            title: 'dealing with imposter syndrome',
-            participants: 18,
-            category: 'Mental Health',
-            emoji: '🧠',
-            isLive: true,
-            trendingScore: 87
-          },
-          {
-            id: 'demo-3',
-            title: 'finding internships as a sophomore',
-            participants: 31,
-            category: 'Career & Internships',
-            emoji: '💼',
-            isLive: false,
-            trendingScore: 76
-          },
-          {
-            id: 'demo-4',
-            title: 'roommate drama help',
-            participants: 12,
-            category: 'Dorm Life',
-            emoji: '🏠',
-            isLive: true,
-            trendingScore: 69
-          },
-          {
-            id: 'demo-5',
-            title: 'should i change my major',
-            participants: 15,
-            category: 'Academics',
-            emoji: '📚',
-            isLive: false,
-            trendingScore: 54
-          }
-        ]);
-      }
+      // Only show real trending topics - no demo data
+      setTrendingTopics(topics);
       
-      console.log('[AppContext] Trending topics loaded:', topics.length || 5);
+      console.log('[AppContext] Trending topics loaded:', topics.length);
     } catch (error) {
       console.error('[AppContext] Error fetching trending topics:', error);
-      // Error fallback - still show demo data so UI doesn't look broken
-      setTrendingTopics([
-        {
-          id: 'demo-1',
-          title: 'how to survive freshman year',
-          participants: 24,
-          category: 'General Advice',
-          emoji: '💭',
-          isLive: true,
-          trendingScore: 95
-        },
-        {
-          id: 'demo-2',
-          title: 'dealing with imposter syndrome',
-          participants: 18,
-          category: 'Mental Health',
-          emoji: '🧠',
-          isLive: true,
-          trendingScore: 87
-        }
-      ]);
+      // No demo data fallback - show empty list
+      setTrendingTopics([]);
     }
   };
 
@@ -647,7 +577,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
    * Submit a new question
    * Creates question in Supabase and returns question ID
    */
-  const submitQuestion = async (title: string, content: string, category: string, isAnonymous: boolean, preferredMentorId?: string): Promise<string> => {
+  const submitQuestion = async (title: string, content: string, category: string, isAnonymous: boolean, preferredMentorId?: string, preferredMentorIds?: string[]): Promise<string> => {
     if (!authUser) {
       throw new Error('User not authenticated');
     }
@@ -677,8 +607,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Check subscription limit before creating question
       const { data: subscription } = await supabaseService.getUserSubscription(authUser.id);
-      if (subscription?.questions_limit && subscription.questions_used >= subscription.questions_limit) {
-        throw new Error('Question limit reached. Please upgrade your plan.');
+      console.log('[AppContext] Subscription check:', {
+        plan_type: subscription?.plan_type,
+        status: subscription?.status,
+        questions_limit: subscription?.questions_limit,
+        questions_used: subscription?.questions_used,
+        limitCheckPasses: !(subscription?.questions_limit > 0 && subscription.questions_used >= subscription.questions_limit)
+      });
+      
+      // Fix for pro users who have wrong questions_limit in database
+      if (subscription?.plan_type?.includes('pro') && subscription?.questions_limit !== -1) {
+        console.log('[AppContext] Pro user has wrong limit, attempting to fix...');
+        await supabaseService.updateSubscription(authUser.id, subscription.plan_type as any, 'active');
+      }
+      
+      // Only check limits if questions_limit is positive (not -1 for unlimited)
+      if (subscription?.questions_limit > 0 && subscription.questions_used >= subscription.questions_limit) {
+        // Double-check for pro users
+        if (subscription?.plan_type?.includes('pro')) {
+          console.log('[AppContext] Pro user bypassing limit check');
+        } else {
+          throw new Error('Question limit reached. Please upgrade your plan.');
+        }
       }
 
       // Create question in Supabase
@@ -690,7 +640,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isAnonymous,
         'medium', // default urgency
         'wizzmo', // vertical
-        preferredMentorId // preferred mentor ID
+        preferredMentorId, // preferred mentor ID
+        preferredMentorIds // preferred mentor IDs array
       );
 
       if (error) throw error;

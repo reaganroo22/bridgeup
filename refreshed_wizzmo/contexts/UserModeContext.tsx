@@ -6,7 +6,7 @@ import * as supabaseService from '../lib/supabaseService';
 type UserMode = 'student' | 'mentor';
 
 interface UserModeContextType {
-  currentMode: UserMode;
+  currentMode: UserMode | null;
   availableModes: UserMode[];
   switchMode: (mode: UserMode) => Promise<void>;
   canSwitch: boolean;
@@ -17,9 +17,9 @@ const UserModeContext = createContext<UserModeContextType | undefined>(undefined
 
 export function UserModeProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [currentMode, setCurrentMode] = useState<UserMode>('student');
+  const [currentMode, setCurrentMode] = useState<UserMode | null>(null); // Start with null to prevent flicker
   const [isLoading, setIsLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string>('student');
+  const [userRole, setUserRole] = useState<string>('');
 
   // Fetch user role from database
   useEffect(() => {
@@ -34,8 +34,22 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
         if (userProfile?.role) {
           setUserRole(userProfile.role);
           console.log(`🔧 [UserMode] User role fetched: ${userProfile.role} for ${userProfile.email}`);
+          
+          // IMMEDIATELY set the correct mode based on role to prevent any flicker
+          if (userProfile.role === 'mentor') {
+            setCurrentMode('mentor');
+            console.log(`🔧 [UserMode] 🎯 PURE MENTOR - immediately set to mentor mode`);
+          } else if (userProfile.role === 'student') {
+            setCurrentMode('student');
+            console.log(`🔧 [UserMode] Student detected - immediately set to student mode`);
+          } else if (userProfile.role === 'both') {
+            setCurrentMode('mentor'); // Default to mentor for dual role
+            console.log(`🔧 [UserMode] Dual role detected - immediately set to mentor mode`);
+          }
         } else {
           console.log(`🔧 [UserMode] No user profile or role found for user: ${user.id}`);
+          // If no profile, default to student
+          setCurrentMode('student');
         }
       } catch (error) {
         console.error('Error fetching user role:', error);
@@ -66,8 +80,8 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
     const newAvailableModes = getAvailableModes(userRole);
     setAvailableModes(newAvailableModes);
     
-    // If current mode is not in available modes, switch to appropriate default
-    if (!newAvailableModes.includes(currentMode)) {
+    // If current mode is null or not in available modes, switch to appropriate default
+    if (currentMode === null || !newAvailableModes.includes(currentMode)) {
       const defaultMode = userRole === 'mentor' ? 'mentor' : userRole === 'both' ? 'mentor' : 'student';
       if (newAvailableModes.includes(defaultMode)) {
         setCurrentMode(defaultMode);
@@ -95,6 +109,15 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
+        // CRITICAL: For pure mentors, FORCE mentor mode regardless of saved preferences
+        if (userRole === 'mentor') {
+          console.log('🔧 [UserMode] 🚫 PURE MENTOR - FORCING mentor mode, ignoring any saved preferences');
+          setCurrentMode('mentor');
+          await AsyncStorage.setItem(`user_mode_${user.id}`, 'mentor');
+          setIsLoading(false);
+          return;
+        }
+        
         const savedMode = await AsyncStorage.getItem(`user_mode_${user.id}`);
         
         if (savedMode && availableModes.includes(savedMode as UserMode)) {

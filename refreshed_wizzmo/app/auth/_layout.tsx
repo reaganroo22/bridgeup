@@ -18,11 +18,16 @@ export default function AuthLayout() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: 'transparent' },
+            gestureEnabled: false,
+            animation: 'none'
           }}
         >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="oauth-signin" />
-          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="index" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="oauth-signin" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="mentor-onboarding" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="role-selection" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="pending-approval" options={{ gestureEnabled: false }} />
         </Stack>
       </LinearGradient>
     </View>

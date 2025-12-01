@@ -24,6 +24,8 @@ import { useAuth } from '../contexts/AuthContext';
 import VoiceRecorder, { AudioRecording } from '@/components/VoiceRecorder';
 import VoicePlayer from '@/components/VoicePlayer';
 import RatingModal from '@/components/RatingModal';
+import MentorResolutionModal from '@/components/MentorResolutionModal';
+import StudentResolutionModal from '@/components/StudentResolutionModal';
 import GifPicker from '@/components/GifPicker';
 import FullscreenMediaModal from '@/components/FullscreenMediaModal';
 import { UnsendButton, EditButton, ReplyButton } from '@/components/MessageActions';
@@ -94,6 +96,8 @@ export default function ChatScreen() {
 
   const [inputText, setInputText] = useState('');
   const [showRatingModal, setShowRatingModal] = useState(false);
+  const [showMentorResolutionModal, setShowMentorResolutionModal] = useState(false);
+  const [showStudentResolutionModal, setShowStudentResolutionModal] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [session, setSession] = useState<AdviceSession | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
@@ -214,17 +218,32 @@ export default function ChatScreen() {
           ),
           students:users!advice_sessions_student_id_fkey (
             full_name,
-            avatar_url
+            avatar_url,
+            email,
+            username
           ),
           mentors:users!advice_sessions_mentor_id_fkey (
             full_name,
-            avatar_url
+            avatar_url,
+            email,
+            username
           )
         `)
         .eq('id', chatId)
         .single();
 
       if (sessionData) {
+        console.log('[Chat] 🔍 Session data fetched:', {
+          id: sessionData.id,
+          student_id: sessionData.student_id,
+          mentor_id: sessionData.mentor_id,
+          students: sessionData.students,
+          mentors: sessionData.mentors,
+          studentsName: sessionData.students?.full_name,
+          studentsEmail: sessionData.students?.email,
+          studentsUsername: sessionData.students?.username,
+          mentorsName: sessionData.mentors?.full_name
+        });
         setSession(sessionData);
       }
 
@@ -827,7 +846,14 @@ export default function ChatScreen() {
               }
 
               setTimeout(() => {
-                setShowRatingModal(true);
+                // Show different modals based on user role
+                if (user?.id === session?.mentor_id) {
+                  // Mentor resolving chat
+                  setShowMentorResolutionModal(true);
+                } else {
+                  // Student resolving chat
+                  setShowStudentResolutionModal(true);
+                }
               }, 300);
             }
           }
@@ -916,6 +942,74 @@ export default function ChatScreen() {
     } catch (error) {
       console.error('[Chat] Error submitting rating:', error);
       Alert.alert('error', 'failed to submit rating. please try again.');
+    }
+  };
+
+  const handleMentorResolutionSubmit = async (rating: number, reason: string) => {
+    if (!chatId || !user || !session) return;
+
+    try {
+      console.log('[Chat] Mentor submitting resolution for chat:', chatId, 'Student Rating:', rating);
+
+      // Update session with mentor's resolution data
+      const { error } = await supabase
+        .from('advice_sessions')
+        .update({ 
+          mentor_rating: rating, 
+          resolution_reason: reason,
+          resolved_at: new Date().toISOString() 
+        })
+        .eq('id', chatId);
+
+      if (error) {
+        console.error('[Chat] Error submitting mentor resolution:', error);
+        Alert.alert('error', 'failed to resolve chat. please try again.');
+        return;
+      }
+
+      console.log('[Chat] Mentor resolution submitted successfully');
+      setShowMentorResolutionModal(false);
+      
+      // Show success feedback
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      console.log('[Chat] Navigating back to mentor chats...');
+      router.back();
+    } catch (error) {
+      console.error('[Chat] Error submitting mentor resolution:', error);
+      Alert.alert('error', 'failed to resolve chat. please try again.');
+    }
+  };
+
+  const handleStudentResolutionSubmit = async (rating: number, feedback: string) => {
+    if (!chatId || !user || !session) return;
+    try {
+      console.log('[Chat] Student submitting resolution for chat:', chatId, 'Mentor Rating:', rating);
+      // Update session with student's resolution data
+      const { error } = await supabase
+        .from('advice_sessions')
+        .update({ 
+          rating: rating, 
+          feedback: feedback,
+          student_resolved_at: new Date().toISOString() 
+        })
+        .eq('id', chatId);
+      if (error) {
+        console.error('[Chat] Error submitting student resolution:', error);
+        Alert.alert('error', 'failed to resolve chat. please try again.');
+        return;
+      }
+      console.log('[Chat] Student resolution submitted successfully');
+      setShowStudentResolutionModal(false);
+      
+      // Show success feedback
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      console.log('[Chat] Navigating back to student chats...');
+      router.back();
+    } catch (error) {
+      console.error('[Chat] Error submitting student resolution:', error);
+      Alert.alert('error', 'failed to resolve chat. please try again.');
     }
   };
 
@@ -1811,9 +1905,13 @@ export default function ChatScreen() {
   }
 
   const categoryName = session.questions?.categories?.name || 'chat';
+  // Get meaningful name for the other person in chat
   const otherPersonName = user?.id === session.student_id
     ? session.mentors?.full_name || 'Mentor'
-    : session.students?.full_name || 'Student';
+    : (session.students?.full_name?.trim() || 
+       session.students?.username || 
+       session.students?.email?.split('@')[0] || 
+       'Student');
 
   return (
     <KeyboardAvoidingView
@@ -1925,9 +2023,24 @@ export default function ChatScreen() {
           </View>
 
           {/* Question Title */}
-          <Text style={[styles.enhancedQuestionTitle, { color: colors.text }]}>
-            {user?.id === session.student_id ? 'my question' : session.questions.title}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 2, marginBottom: 4, flexWrap: 'wrap' }}>
+            {user?.id === session.student_id && (
+              <Text
+                style={{
+                  fontFamily: 'Courier',
+                  fontSize: 13,
+                  color: colors.primary,
+                  fontWeight: '600',
+                  marginRight: 6,
+                  flexShrink: 0,
+                  letterSpacing: -0.2,
+                }}
+              >
+                me:
+              </Text>
+            )}
+            <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text, flex: 1 }}>{(user?.id === session.student_id ? " " : "") + (session.questions.title || session.questions.content || 'Question')}</Text>
+          </View>
 
           {/* Question Content */}
           {showQuestionContext && session.questions.content && (
@@ -2443,6 +2556,21 @@ export default function ChatScreen() {
         showFavorite={user?.id === session.student_id}
       />
 
+      {/* Mentor Resolution Modal */}
+      <MentorResolutionModal
+        visible={showMentorResolutionModal}
+        onClose={() => setShowMentorResolutionModal(false)}
+        onSubmit={handleMentorResolutionSubmit}
+        studentName={otherPersonName || 'the student'}
+      />
+      {/* Student Resolution Modal */}
+      <StudentResolutionModal
+        visible={showStudentResolutionModal}
+        onClose={() => setShowStudentResolutionModal(false)}
+        onSubmit={handleStudentResolutionSubmit}
+        mentorName={otherPersonName || 'your mentor'}
+      />
+
       {/* GIF Picker */}
       <GifPicker
         visible={showGifPicker}
@@ -2536,26 +2664,46 @@ export default function ChatScreen() {
               </TouchableOpacity>
             </View>
             
-            <View style={styles.emojiInputContainer}>
-              <TextInput
-                style={[styles.emojiInput, { color: colors.text, borderColor: colors.border }]}
-                placeholder="Type or select an emoji"
-                placeholderTextColor={colors.textSecondary}
-                autoFocus
-                onChangeText={(text) => {
-                  if (text.length > 0 && emojiForMessage) {
-                    // Get the last character (emoji)
-                    const emoji = text.slice(-1);
-                    handleReaction(emojiForMessage, emoji);
-                    setShowEmojiPicker(false);
-                    setEmojiForMessage(null);
-                  }
-                }}
-                multiline={false}
-                returnKeyType="done"
-                onSubmitEditing={() => setShowEmojiPicker(false)}
-              />
-            </View>
+            <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+              <View style={styles.emojiGrid}>
+              {[
+                // Faces & emotions
+                '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '☺️', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😶‍🌫️', '😏', '😒', '🙄', '😬', '😮‍💨', '🤥', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '😵‍💫', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾',
+                
+                // Hand gestures
+                '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '👊', '✊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶',
+                
+                // People & body
+                '👶', '🧒', '👦', '👧', '🧑', '👱', '👨', '🧔', '👩', '🧓', '👴', '👵', '🙍', '🙎', '🙅', '🙆', '💁', '🙋', '🧏', '🙇', '🤦', '🤷', '👮', '🕵️', '💂', '🥷', '👷', '🤴', '👸', '👳', '👲', '🧕', '🤵', '👰', '🤰', '🤱', '👼', '🎅', '🤶', '🦸', '🦹', '🧙', '🧚', '🧛', '🧜', '🧝', '🧞', '🧟', '💆', '💇', '🚶', '🧍', '🏃', '🧎', '🧑‍🦯', '🧑‍🦼', '🧑‍🦽', '🕴️', '💃', '🕺', '🤺', '🏇', '⛷️', '🏂', '🏌️', '🏄', '🚣', '🏊', '⛹️', '🏋️', '🚴', '🚵', '🤸', '🤼', '🤽', '🤾', '🤹',
+                
+                // Animals & nature
+                '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🦟', '🦗', '🕷️', '🦂', '🐢', '🐍', '🦎', '🦖', '🦕', '🐙', '🦑', '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🐘', '🦣', '🦏', '🦛', '🐪', '🐫', '🦒', '🦘', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕', '🐩', '🦮', '🐕‍🦺', '🐈', '🐈‍⬛', '🐓', '🦃', '🦚', '🦜', '🦢', '🦩', '🕊️', '🐇', '🦝', '🦨', '🦡', '🦫', '🦦', '🦥', '🐁', '🐀',
+                
+                // Food & drink
+                '🍎', '🍏', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫑', '🌽', '🥕', '🫒', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🥪', '🥙', '🧆', '🌮', '🌯', '🫔', '🥗', '🥘', '🫕', '🥫', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🦪', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🍯', '🥛', '🍼', '☕', '🫖', '🍵', '🧃', '🥤', '🧋', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧉', '🍾',
+                
+                // Activities & objects
+                '⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️‍♀️', '🏋️', '🤸‍♀️', '🤸', '⛹️‍♀️', '⛹️', '🤺', '🤾‍♀️', '🤾', '🏌️‍♀️', '🏌️', '🏇', '🧘‍♀️', '🧘', '🏄‍♀️', '🏄', '🏊‍♀️', '🏊', '🤽‍♀️', '🤽', '🚣‍♀️', '🚣', '🧗‍♀️', '🧗', '🚵‍♀️', '🚵', '🚴‍♀️', '🚴', '🏆', '🥇', '🥈', '🥉', '🏅', '🎖️', '🏵️', '🎗️', '🎫', '🎟️', '🎪', '🤹', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎵', '🎶', '🪕', '🥁', '🪘', '🎹', '🪗', '🎷', '🎺', '🪗', '🎸', '🪕', '🎻', '🎲', '♟️', '🎯', '🎳', '🎮', '🎰', '🧩',
+                
+                // Hearts & symbols
+                '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴', '📳', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️', '🆚', '💮', '🉐', '㊙️', '㊗️', '🈴', '🈵', '🈹', '🈲', '🅰️', '🅱️', '🆎', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🚹', '🚺', '🚼', '⚧️', '🚻', '🚮', '🎦', '📶', '🈁', '🔣', 'ℹ️', '🔤', '🔡', '🔠', '🆖', '🆗', '🆙', '🆒', '🆕', '🆓', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'
+              ].map((emoji, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.emojiButton, { backgroundColor: colors.surface }]}
+                  onPress={() => {
+                    if (emojiForMessage) {
+                      handleReaction(emojiForMessage, emoji);
+                      setShowEmojiPicker(false);
+                      setEmojiForMessage(null);
+                    }
+                  }}
+                >
+                  <Text style={styles.emojiText}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -3266,18 +3414,28 @@ const styles = StyleSheet.create({
   emojiPickerClose: {
     padding: 4,
   },
-  emojiInputContainer: {
+  emojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     padding: 20,
     paddingTop: 10,
   },
-  emojiInput: {
-    fontSize: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderRadius: 8,
-    textAlign: 'center',
-    minHeight: 50,
+  emojiButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    margin: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  emojiText: {
+    fontSize: 24,
   },
 
   videoContainer: {

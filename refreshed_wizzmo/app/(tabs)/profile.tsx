@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -10,9 +10,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
@@ -95,12 +96,76 @@ export default function ProfileScreen() {
   const [editedName, setEditedName] = useState('');
   const [editedUsername, setEditedUsername] = useState('');
   const [editedUniversity, setEditedUniversity] = useState('');
+  const [customUniversity, setCustomUniversity] = useState('');
   const [editedGradYear, setEditedGradYear] = useState('');
+  const [editedIsStudent, setEditedIsStudent] = useState<boolean | null>(null);
+  const [editedStudentType, setEditedStudentType] = useState<'high_school' | 'college' | null>(null);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [usernameChecking, setUsernameChecking] = useState(false);
   const [favoriteMentors, setFavoriteMentors] = useState<FavoriteMentor[]>([]);
   const [showVideoUploadModal, setShowVideoUploadModal] = useState(false);
   const [selectedVideoUri, setSelectedVideoUri] = useState<string | null>(null);
+  const [showUniversityDropdown, setShowUniversityDropdown] = useState(false);
+  const [universitySearchQuery, setUniversitySearchQuery] = useState('');
+  
+  // Common US universities list
+  const commonUniversities = [
+    'Harvard University',
+    'Stanford University',
+    'Massachusetts Institute of Technology',
+    'University of California, Berkeley',
+    'University of California, Los Angeles',
+    'Princeton University',
+    'Yale University',
+    'Columbia University',
+    'University of Chicago',
+    'University of Pennsylvania',
+    'Cornell University',
+    'Duke University',
+    'Northwestern University',
+    'Johns Hopkins University',
+    'Dartmouth College',
+    'Brown University',
+    'Vanderbilt University',
+    'Rice University',
+    'Washington University in St. Louis',
+    'University of Notre Dame',
+    'Georgetown University',
+    'Carnegie Mellon University',
+    'University of Virginia',
+    'University of Michigan',
+    'University of Southern California',
+    'Tufts University',
+    'Boston University',
+    'New York University',
+    'University of Rochester',
+    'Brandeis University',
+    'Case Western Reserve University',
+    'University of California, San Diego',
+    'University of California, Davis',
+    'University of California, Irvine',
+    'University of California, Santa Barbara',
+    'Georgia Institute of Technology',
+    'University of Florida',
+    'University of Texas at Austin',
+    'University of Washington',
+    'University of Wisconsin-Madison',
+    'Pennsylvania State University',
+    'Ohio State University',
+    'University of Illinois at Urbana-Champaign',
+    'University of North Carolina at Chapel Hill',
+    'University of Georgia',
+    'Texas A&M University',
+    'Purdue University',
+    'University of Minnesota',
+    'University of Maryland',
+    'Virginia Tech',
+    'Arizona State University',
+    'University of Arizona',
+    'University of Colorado Boulder',
+    'University of Connecticut',
+    'Other'
+  ];
 
   // Fetch user profile from Supabase
   useEffect(() => {
@@ -122,6 +187,28 @@ export default function ProfileScreen() {
 
     fetchProfile();
   }, [authUser]);
+
+  // Refetch profile data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (authUser) {
+        console.log('🔍 [Profile] Screen focused, refreshing profile data...');
+        const refreshProfileOnFocus = async () => {
+          try {
+            const { data: profile } = await supabaseService.getUserProfile(authUser.id);
+            if (profile) {
+              setUserProfile(profile);
+              setBioText(profile.bio || '');
+            }
+          } catch (error) {
+            console.error('Error refreshing profile on focus:', error);
+          }
+        };
+        
+        refreshProfileOnFocus();
+      }
+    }, [authUser])
+  );
 
   // Update notifications enabled state when permission status changes
   useEffect(() => {
@@ -330,13 +417,57 @@ export default function ProfileScreen() {
     );
   }
 
+  // Filter universities based on search query
+  const filteredUniversities = commonUniversities.filter(university =>
+    university.toLowerCase().includes(universitySearchQuery.toLowerCase())
+  );
+
+  const handleUniversitySelect = (university: string) => {
+    if (university === 'Other') {
+      setEditedUniversity('');
+      setShowUniversityDropdown(false);
+      // Focus will be on the custom input
+    } else {
+      setEditedUniversity(university);
+      setCustomUniversity('');
+      setShowUniversityDropdown(false);
+    }
+    setUniversitySearchQuery('');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   const handleEditProfile = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Set initial values from current profile
     setEditedName(userProfile?.full_name || '');
     setEditedUsername(userProfile?.username || '');
     setEditedUniversity(userProfile?.university || '');
+    setCustomUniversity('');
+    setUniversitySearchQuery('');
+    setShowUniversityDropdown(false);
     setEditedGradYear(userProfile?.graduation_year?.toString() || '');
+    
+    // Determine student status from existing data
+    const hasUniversity = userProfile?.university && userProfile.university.trim() !== '';
+    const hasGradYear = userProfile?.graduation_year && userProfile.graduation_year > 0;
+    
+    // All mentors are students - force mentors to always be college students
+    if (userProfile?.role === 'mentor' || userProfile?.role === 'both') {
+      // Mentors are ALWAYS college students
+      setEditedIsStudent(true);
+      setEditedStudentType('college');
+      console.log('[Profile] Mentor detected - forcing college student mode');
+    } else if (hasUniversity || hasGradYear) {
+      setEditedIsStudent(true);
+      // If they have university, they're a college student (even if they also have grad year)
+      // Otherwise, if they only have grad year, they're high school
+      setEditedStudentType(hasUniversity ? 'college' : 'high_school');
+    } else {
+      // Default to null - user will need to select
+      setEditedIsStudent(null);
+      setEditedStudentType(null);
+    }
+    
     setShowEditProfileModal(true);
   };
 
@@ -366,23 +497,74 @@ export default function ProfileScreen() {
   const handleSaveProfile = async () => {
     if (!authUser) return;
 
-    // Validate username if it was changed
-    if (editedUsername !== userProfile?.username) {
+    // Validate required fields
+    if (!editedName.trim()) {
+      Alert.alert('error', 'please enter your full name');
+      return;
+    }
+
+    // Username validation - only check if username is provided
+    if (editedUsername.trim() && editedUsername !== userProfile?.username) {
       if (!usernameAvailable) {
         Alert.alert('error', 'username is not available or invalid');
         return;
       }
     }
 
+    // Username validation already handled above
+
+    // Validate student fields
+    if (editedIsStudent === null) {
+      Alert.alert('error', 'please select whether you are a student');
+      return;
+    }
+
+    if (editedIsStudent && !editedStudentType) {
+      Alert.alert('error', 'please select your student type');
+      return;
+    }
+
+    if (editedIsStudent && editedStudentType === 'college' && !editedUniversity.trim() && !customUniversity.trim()) {
+      Alert.alert('error', 'please select or enter your university');
+      return;
+    }
+
+    if (editedIsStudent && editedStudentType === 'high_school' && !editedGradYear.trim()) {
+      Alert.alert('error', 'please enter your graduation year');
+      return;
+    }
+    
+    // College students should also have graduation year for better mentor profiles
+    if (editedIsStudent && editedStudentType === 'college' && !editedGradYear.trim()) {
+      Alert.alert('error', 'please enter your graduation year');
+      return;
+    }
+
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      const updates = {
+      const updates: any = {
         full_name: editedName,
-        username: editedUsername,
-        university: editedUniversity,
-        graduation_year: parseInt(editedGradYear),
       };
+      
+      // Only update username if it's provided and not empty
+      if (editedUsername.trim()) {
+        updates.username = editedUsername;
+      }
+
+      // Only add university/graduation year based on student type
+      if (editedIsStudent && editedStudentType === 'college') {
+        updates.university = editedUniversity || customUniversity;
+        // College students can also have graduation year
+        updates.graduation_year = editedGradYear ? parseInt(editedGradYear) : null;
+      } else if (editedIsStudent && editedStudentType === 'high_school') {
+        updates.graduation_year = editedGradYear ? parseInt(editedGradYear) : null;
+        updates.university = null; // Clear university for high school students
+      } else {
+        // Not a student - clear both fields
+        updates.university = null;
+        updates.graduation_year = null;
+      }
 
       const { error } = await supabaseService.updateUserProfile(authUser.id, updates);
 
@@ -391,9 +573,22 @@ export default function ProfileScreen() {
         return;
       }
 
-      // Update local state
-      setUserProfile({ ...userProfile, ...updates });
+      // Update local state and real-time profile
+      const updatedProfile = { ...userProfile, ...updates };
+      setUserProfile(updatedProfile);
+      
+      // Update real-time profile context
+      await updateRealtimeProfile(updatedProfile);
+      
+      // Fetch fresh profile data to ensure everything is in sync
+      const { data: freshProfile } = await supabaseService.getUserProfile(authUser.id);
+      if (freshProfile) {
+        setUserProfile(freshProfile);
+      }
+      
       setShowEditProfileModal(false);
+      setShowUniversityDropdown(false);
+      setUniversitySearchQuery('');
       setUsernameAvailable(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('success', 'profile updated!');
@@ -686,7 +881,7 @@ export default function ProfileScreen() {
         { text: 'sign out', style: 'default', onPress: async () => {
           try {
             await signOut();
-            router.replace('/auth');
+            // Don't manually navigate - _layout.tsx will handle it when auth state changes
           } catch (error) {
             console.error('Sign out error:', error);
             Alert.alert('error', 'failed to sign out');
@@ -1185,11 +1380,18 @@ export default function ProfileScreen() {
                       router.push(`/wizzmo-profile?userId=${favorite.mentor_id}`);
                     }}
                   >
-                    <View style={[styles.favoriteAvatar, { backgroundColor: colors.primary }]}>
-                      <Text style={styles.favoriteInitial}>
-                        {favorite.mentors?.full_name?.charAt(0).toUpperCase() || 'W'}
-                      </Text>
-                    </View>
+                    {favorite.mentors?.avatar_url ? (
+                      <Image
+                        source={{ uri: favorite.mentors.avatar_url }}
+                        style={[styles.favoriteAvatar, { backgroundColor: colors.border }]}
+                      />
+                    ) : (
+                      <View style={[styles.favoriteAvatar, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.favoriteInitial}>
+                          {favorite.mentors?.full_name?.charAt(0).toUpperCase() || 'W'}
+                        </Text>
+                      </View>
+                    )}
                     <Text style={[styles.favoriteName, { color: colors.text }]} numberOfLines={1}>
                       {favorite.mentors?.full_name || 'Wizzmo'}
                     </Text>
@@ -1453,13 +1655,21 @@ export default function ProfileScreen() {
         visible={showEditProfileModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowEditProfileModal(false)}
+        onRequestClose={() => {
+          setShowEditProfileModal(false);
+          setShowUniversityDropdown(false);
+          setUniversitySearchQuery('');
+        }}
       >
         <View style={styles.modalContainer}>
           <TouchableOpacity
             style={styles.modalOverlay}
             activeOpacity={1}
-            onPress={() => setShowEditProfileModal(false)}
+            onPress={() => {
+              setShowEditProfileModal(false);
+              setShowUniversityDropdown(false);
+              setUniversitySearchQuery('');
+            }}
           />
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1468,7 +1678,11 @@ export default function ProfileScreen() {
             <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>edit profile</Text>
-                <TouchableOpacity onPress={() => setShowEditProfileModal(false)}>
+                <TouchableOpacity onPress={() => {
+                  setShowEditProfileModal(false);
+                  setShowUniversityDropdown(false);
+                  setUniversitySearchQuery('');
+                }}>
                   <Ionicons name="close" size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>
@@ -1491,7 +1705,7 @@ export default function ProfileScreen() {
               </View>
 
               <View style={styles.inputWrapper}>
-                <Text style={[styles.label, { color: colors.text }]}>username</Text>
+                <Text style={[styles.label, { color: colors.text }]}>username (optional)</Text>
                 <View style={styles.usernameInputContainer}>
                   <TextInput
                     style={[
@@ -1504,16 +1718,20 @@ export default function ProfileScreen() {
                         flex: 1
                       }
                     ]}
-                    placeholder="username"
+                    placeholder="username (optional)"
                     placeholderTextColor={colors.textTertiary}
                     value={editedUsername}
                     onChangeText={(text) => {
                       setEditedUsername(text);
-                      // Debounced username check
+                      // Debounced username check - only if text is not empty
                       clearTimeout((global as any).usernameTimeout);
-                      (global as any).usernameTimeout = setTimeout(() => {
-                        checkUsernameAvailability(text);
-                      }, 500);
+                      if (text.trim()) {
+                        (global as any).usernameTimeout = setTimeout(() => {
+                          checkUsernameAvailability(text);
+                        }, 500);
+                      } else {
+                        setUsernameAvailable(null);
+                      }
                     }}
                     autoCapitalize="none"
                   />
@@ -1543,29 +1761,165 @@ export default function ProfileScreen() {
                 </View>
               </View>
 
-              <View style={styles.inputWrapper}>
-                <Text style={[styles.label, { color: colors.text }]}>university</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border }]}
-                  placeholder="your university"
-                  placeholderTextColor={colors.textTertiary}
-                  value={editedUniversity}
-                  onChangeText={setEditedUniversity}
-                  autoCapitalize="words"
-                />
+              {/* Student Status - Only show for non-mentors */}
+              {userProfile?.role !== 'mentor' && userProfile?.role !== 'both' && (
+                <View style={styles.inputWrapper}>
+                  <Text style={[styles.label, { color: colors.text }]}>are you a student?</Text>
+                <View style={styles.radioGroup}>
+                  <TouchableOpacity
+                    style={[styles.radioOption, editedIsStudent === true && { backgroundColor: colors.primary + '10', borderColor: colors.primary }]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setEditedIsStudent(true);
+                      setEditedStudentType(null); // Reset student type
+                    }}
+                  >
+                    <View style={[styles.radioCircle, editedIsStudent === true && { backgroundColor: colors.primary }]}>
+                      {editedIsStudent === true && <View style={styles.radioInner} />}
+                    </View>
+                    <Text style={[styles.radioText, { color: colors.text }]}>Yes, I'm a student</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.radioOption, editedIsStudent === false && { backgroundColor: colors.primary + '10', borderColor: colors.primary }]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setEditedIsStudent(false);
+                      setEditedStudentType(null);
+                      setEditedUniversity('');
+                      setEditedGradYear('');
+                    }}
+                  >
+                    <View style={[styles.radioCircle, editedIsStudent === false && { backgroundColor: colors.primary }]}>
+                      {editedIsStudent === false && <View style={styles.radioInner} />}
+                    </View>
+                    <Text style={[styles.radioText, { color: colors.text }]}>No, I'm not a student</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
+              )}
 
-              <View style={styles.inputWrapper}>
-                <Text style={[styles.label, { color: colors.text }]}>graduation year</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border }]}
-                  placeholder="2025"
-                  placeholderTextColor={colors.textTertiary}
-                  value={editedGradYear}
-                  onChangeText={setEditedGradYear}
-                  keyboardType="number-pad"
-                />
-              </View>
+              {/* Student Type - Only show if they're a student AND not a mentor */}
+              {editedIsStudent && userProfile?.role !== 'mentor' && userProfile?.role !== 'both' && (
+                <View style={styles.inputWrapper}>
+                  <Text style={[styles.label, { color: colors.text }]}>what type of student are you?</Text>
+                  <View style={styles.radioGroup}>
+                    <TouchableOpacity
+                      style={[styles.radioOption, editedStudentType === 'high_school' && { backgroundColor: colors.primary + '10', borderColor: colors.primary }]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setEditedStudentType('high_school');
+                        setEditedUniversity(''); // Clear university for high school
+                      }}
+                    >
+                      <View style={[styles.radioCircle, editedStudentType === 'high_school' && { backgroundColor: colors.primary }]}>
+                        {editedStudentType === 'high_school' && <View style={styles.radioInner} />}
+                      </View>
+                      <Text style={[styles.radioText, { color: colors.text }]}>High School Student</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.radioOption, editedStudentType === 'college' && { backgroundColor: colors.primary + '10', borderColor: colors.primary }]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setEditedStudentType('college');
+                        // Don't clear graduation year for college - they can have both
+                      }}
+                    >
+                      <View style={[styles.radioCircle, editedStudentType === 'college' && { backgroundColor: colors.primary }]}>
+                        {editedStudentType === 'college' && <View style={styles.radioInner} />}
+                      </View>
+                      <Text style={[styles.radioText, { color: colors.text }]}>College Student</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* University - Only show for college students */}
+              {editedIsStudent && editedStudentType === 'college' && (
+                <View style={styles.inputWrapper}>
+                  <Text style={[styles.label, { color: colors.text }]}>university</Text>
+                  
+                  {/* University Dropdown */}
+                  <TouchableOpacity
+                    style={[styles.dropdownButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setShowUniversityDropdown(!showUniversityDropdown);
+                    }}
+                  >
+                    <Text style={[
+                      styles.dropdownButtonText, 
+                      { color: editedUniversity || customUniversity ? colors.text : colors.textTertiary }
+                    ]}>
+                      {editedUniversity || customUniversity || 'select your university'}
+                    </Text>
+                    <Ionicons 
+                      name={showUniversityDropdown ? 'chevron-up' : 'chevron-down'} 
+                      size={20} 
+                      color={colors.textSecondary} 
+                    />
+                  </TouchableOpacity>
+                  
+                  {/* University Dropdown Modal */}
+                  {showUniversityDropdown && (
+                    <View style={[styles.dropdownOverlay, { backgroundColor: colors.background }]}>
+                      {/* Search Input */}
+                      <TextInput
+                        style={[styles.dropdownSearch, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                        placeholder="search universities..."
+                        placeholderTextColor={colors.textTertiary}
+                        value={universitySearchQuery}
+                        onChangeText={setUniversitySearchQuery}
+                        autoCapitalize="words"
+                      />
+                      
+                      {/* Universities List */}
+                      <ScrollView style={styles.dropdownList} showsVerticalScrollIndicator={false}>
+                        {filteredUniversities.map((university, index) => (
+                          <TouchableOpacity
+                            key={university}
+                            style={[styles.dropdownItem, { borderBottomColor: colors.separator }]}
+                            onPress={() => handleUniversitySelect(university)}
+                          >
+                            <Text style={[styles.dropdownItemText, { color: colors.text }]}>
+                              {university}
+                            </Text>
+                            {(editedUniversity === university) && (
+                              <Ionicons name="checkmark" size={20} color={colors.primary} />
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                  
+                  {/* Custom University Input - Only show if 'Other' is selected */}
+                  {editedUniversity === '' && (
+                    <TextInput
+                      style={[styles.input, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border, marginTop: 8 }]}
+                      placeholder="enter your university"
+                      placeholderTextColor={colors.textTertiary}
+                      value={customUniversity}
+                      onChangeText={setCustomUniversity}
+                      autoCapitalize="words"
+                    />
+                  )}
+                </View>
+              )}
+
+              {/* Graduation Year - Show for both high school and college students */}
+              {editedIsStudent && editedStudentType && (
+                <View style={styles.inputWrapper}>
+                  <Text style={[styles.label, { color: colors.text }]}>graduation year</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border }]}
+                    placeholder="2025"
+                    placeholderTextColor={colors.textTertiary}
+                    value={editedGradYear}
+                    onChangeText={setEditedGradYear}
+                    keyboardType="number-pad"
+                  />
+                </View>
+              )}
 
               <TouchableOpacity
                 style={styles.modalButton}
@@ -2022,12 +2376,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     borderColor: '#FF4DB8',
     maxHeight: '80%',
-    minHeight: '60%',
     shadowColor: '#FF4DB8',
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 20,
+    flexShrink: 1,
   },
   modalScrollContent: {
     paddingBottom: 40,
@@ -2185,5 +2539,97 @@ const styles = StyleSheet.create({
   },
   postVideoArrow: {
     marginLeft: 12,
+  },
+
+  // Radio Button Styles
+  radioGroup: {
+    gap: 12,
+  },
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#666',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  radioText: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+
+  // University Dropdown Styles
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 48,
+  },
+  dropdownButtonText: {
+    fontSize: 16,
+    fontWeight: '400',
+    flex: 1,
+  },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    maxHeight: 300,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 1000,
+  },
+  dropdownSearch: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    fontSize: 16,
+    fontWeight: '400',
+  },
+  dropdownList: {
+    maxHeight: 240,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    fontWeight: '400',
+    flex: 1,
   },
 });

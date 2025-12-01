@@ -57,9 +57,71 @@ export default function MentorProfileScreen() {
   const [editedName, setEditedName] = useState('');
   const [editedUsername, setEditedUsername] = useState('');
   const [editedUniversity, setEditedUniversity] = useState('');
+  const [customUniversity, setCustomUniversity] = useState('');
   const [editedGradYear, setEditedGradYear] = useState('');
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [usernameChecking, setUsernameChecking] = useState(false);
+  const [showUniversityDropdown, setShowUniversityDropdown] = useState(false);
+  const [universitySearchQuery, setUniversitySearchQuery] = useState('');
+
+  // Common US universities list
+  const commonUniversities = [
+    'Harvard University',
+    'Stanford University',
+    'Massachusetts Institute of Technology',
+    'University of California, Berkeley',
+    'University of California, Los Angeles',
+    'Princeton University',
+    'Yale University',
+    'Columbia University',
+    'University of Chicago',
+    'University of Pennsylvania',
+    'Cornell University',
+    'Duke University',
+    'Northwestern University',
+    'Johns Hopkins University',
+    'Dartmouth College',
+    'Brown University',
+    'Vanderbilt University',
+    'Rice University',
+    'Washington University in St. Louis',
+    'University of Notre Dame',
+    'Georgetown University',
+    'Carnegie Mellon University',
+    'University of Virginia',
+    'University of Michigan',
+    'University of Southern California',
+    'Tufts University',
+    'Boston University',
+    'New York University',
+    'University of Rochester',
+    'Brandeis University',
+    'Case Western Reserve University',
+    'University of California, San Diego',
+    'University of California, Davis',
+    'University of California, Irvine',
+    'University of California, Santa Barbara',
+    'Georgia Institute of Technology',
+    'University of Florida',
+    'University of Texas at Austin',
+    'University of Washington',
+    'University of Wisconsin-Madison',
+    'Pennsylvania State University',
+    'Ohio State University',
+    'University of Illinois at Urbana-Champaign',
+    'University of North Carolina at Chapel Hill',
+    'University of Georgia',
+    'Texas A&M University',
+    'Purdue University',
+    'University of Minnesota',
+    'University of Maryland',
+    'Virginia Tech',
+    'Arizona State University',
+    'University of Arizona',
+    'University of Colorado Boulder',
+    'University of Connecticut',
+    'Other'
+  ];
 
   // Real questions from Supabase
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
@@ -203,9 +265,24 @@ export default function MentorProfileScreen() {
     setEditedName(userProfile?.full_name || '');
     setEditedUsername(userProfile?.username || '');
     setEditedUniversity(userProfile?.university || '');
+    setCustomUniversity('');
+    setUniversitySearchQuery('');
+    setShowUniversityDropdown(false);
     setEditedGradYear(userProfile?.graduation_year?.toString() || '');
     setShowEditProfileModal(true);
   };
+
+  const handleUniversitySelect = (university: string) => {
+    setEditedUniversity(university);
+    setShowUniversityDropdown(false);
+    setUniversitySearchQuery('');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  // Filter universities based on search query
+  const filteredUniversities = commonUniversities.filter(university =>
+    university.toLowerCase().includes(universitySearchQuery.toLowerCase())
+  );
 
   // Check username availability with debouncing
   const checkUsernameAvailability = async (username: string) => {
@@ -247,7 +324,7 @@ export default function MentorProfileScreen() {
       const updates = {
         full_name: editedName,
         username: editedUsername,
-        university: editedUniversity,
+        university: editedUniversity || customUniversity,
         graduation_year: parseInt(editedGradYear),
       };
 
@@ -1030,13 +1107,21 @@ export default function MentorProfileScreen() {
         visible={showEditProfileModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowEditProfileModal(false)}
+        onRequestClose={() => {
+          setShowEditProfileModal(false);
+          setShowUniversityDropdown(false);
+          setUniversitySearchQuery('');
+        }}
       >
         <View style={styles.modalContainer}>
           <TouchableOpacity
             style={styles.modalOverlay}
             activeOpacity={1}
-            onPress={() => setShowEditProfileModal(false)}
+            onPress={() => {
+              setShowEditProfileModal(false);
+              setShowUniversityDropdown(false);
+              setUniversitySearchQuery('');
+            }}
           />
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1045,7 +1130,11 @@ export default function MentorProfileScreen() {
             <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>edit profile</Text>
-                <TouchableOpacity onPress={() => setShowEditProfileModal(false)}>
+                <TouchableOpacity onPress={() => {
+                  setShowEditProfileModal(false);
+                  setShowUniversityDropdown(false);
+                  setUniversitySearchQuery('');
+                }}>
                   <Ionicons name="close" size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>
@@ -1122,14 +1211,69 @@ export default function MentorProfileScreen() {
 
                 <View style={styles.inputWrapper}>
                   <Text style={[styles.label, { color: colors.text }]}>university</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border }]}
-                    placeholder="your university"
-                    placeholderTextColor={colors.textTertiary}
-                    value={editedUniversity}
-                    onChangeText={setEditedUniversity}
-                    autoCapitalize="words"
-                  />
+                  
+                  {/* University Dropdown */}
+                  <TouchableOpacity
+                    style={[styles.dropdownButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setShowUniversityDropdown(!showUniversityDropdown);
+                    }}
+                  >
+                    <Text style={[styles.dropdownButtonText, { color: editedUniversity ? colors.text : colors.textTertiary }]}>
+                      {editedUniversity || 'select your university'}
+                    </Text>
+                    <Ionicons 
+                      name={showUniversityDropdown ? "chevron-up" : "chevron-down"} 
+                      size={20} 
+                      color={colors.textSecondary} 
+                    />
+                  </TouchableOpacity>
+
+                  {/* University Dropdown Modal */}
+                  {showUniversityDropdown && (
+                    <View style={[styles.dropdownOverlay, { backgroundColor: colors.background }]}>
+                      {/* Search Input */}
+                      <TextInput
+                        style={[styles.dropdownSearch, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                        placeholder="search universities..."
+                        placeholderTextColor={colors.textTertiary}
+                        value={universitySearchQuery}
+                        onChangeText={setUniversitySearchQuery}
+                        autoCapitalize="words"
+                      />
+                      
+                      {/* Universities List */}
+                      <ScrollView style={styles.dropdownList} showsVerticalScrollIndicator={false}>
+                        {filteredUniversities.map((university, index) => (
+                          <TouchableOpacity
+                            key={university}
+                            style={[styles.dropdownItem, { borderBottomColor: colors.separator }]}
+                            onPress={() => handleUniversitySelect(university)}
+                          >
+                            <Text style={[styles.dropdownItemText, { color: colors.text }]}>
+                              {university}
+                            </Text>
+                            {(editedUniversity === university) && (
+                              <Ionicons name="checkmark" size={20} color={colors.primary} />
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                  
+                  {/* Custom University Input - Only show if 'Other' is selected */}
+                  {editedUniversity === 'Other' && (
+                    <TextInput
+                      style={[styles.input, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border, marginTop: 8 }]}
+                      placeholder="enter your university"
+                      placeholderTextColor={colors.textTertiary}
+                      value={customUniversity}
+                      onChangeText={setCustomUniversity}
+                      autoCapitalize="words"
+                    />
+                  )}
                 </View>
 
                 <View style={styles.inputWrapper}>
@@ -1765,5 +1909,64 @@ const styles = StyleSheet.create({
   },
   postVideoArrow: {
     padding: 4,
+  },
+
+  // Dropdown Styles
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  dropdownButtonText: {
+    fontSize: 16,
+    fontWeight: '400',
+  },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    maxHeight: 200,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderRadius: 8,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+    zIndex: 1000,
+  },
+  dropdownSearch: {
+    borderWidth: 1,
+    borderRadius: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 16,
+    margin: 8,
+    marginBottom: 0,
+  },
+  dropdownList: {
+    flex: 1,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    fontWeight: '400',
+    flex: 1,
   },
 });

@@ -106,7 +106,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
         {
           id: 'wizzmo_annual',
           name: 'pro yearly',
-          price: '$59.99',
+          price: '$59.99 per year',
           period: '/year',
           savings: 'save $40',
           isPopular: true,

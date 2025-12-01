@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, ScrollView, TouchableOpacity, Platform, RefreshControl, ActivityIndicator, Image, Animated } from 'react-native';
+import { StyleSheet, ScrollView, TouchableOpacity, Platform, RefreshControl, ActivityIndicator, Image, Animated, Modal, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import CustomHeader from '@/components/CustomHeader';
 import WizzmoIntroCard from '@/components/WizzmoIntroCard';
 import ModeToggle from '@/components/ModeToggle';
+import StudentResolutionModal from '@/components/StudentResolutionModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import * as supabaseService from '../../lib/supabaseService';
@@ -61,8 +62,12 @@ export default function AdviceScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showWizzmoIntro, setShowWizzmoIntro] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'assigned' | 'pending' | 'unrated' | 'resolved'>('all');
   const [newActiveSession, setNewActiveSession] = useState<AdviceSession | null>(null);
   const [wizzmoProfile, setWizzmoProfile] = useState<any>(null);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showResolutionModal, setShowResolutionModal] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<AdviceSession | null>(null);
 
   // Fetch user's advice sessions
   const fetchSessions = async () => {
@@ -103,15 +108,36 @@ export default function AdviceScreen() {
         return;
       }
 
-      console.log('[AdviceScreen] Fetched sessions:', data?.length);
-      console.log('[AdviceScreen] Session statuses:', data?.map(s => ({ id: s.id.slice(0, 8), status: s.status })));
+      console.log('[AdviceScreen] ✅ Fetched sessions:', data?.length);
       console.log('[AdviceScreen] Session details:', data?.map(s => ({ 
         id: s.id.slice(0, 8), 
-        status: s.status, 
-        student_id: s.student_id?.slice(0, 8),
-        question_title: s.questions?.title 
+        status: s.status,
+        questionTitle: s.questions?.title,
+        mentorName: s.mentors?.full_name,
+        createdAt: s.created_at 
       })));
+      
+      // Log pending sessions specifically
+      const pendingSessions = data?.filter(s => s.status === 'pending') || [];
+      if (pendingSessions.length > 0) {
+        console.log('[AdviceScreen] 🟡 Found pending sessions:', pendingSessions.length);
+        pendingSessions.forEach(s => console.log(`  - ${s.id.slice(0, 8)}: ${s.questions?.title} -> ${s.mentors?.full_name}`));
+      }
+      
       const validSessions = (data || []).filter(s => s.student_id) as AdviceSession[];
+      
+      console.log('[AdviceScreen] Sessions fetched:', validSessions.length, 'sessions');
+      if (validSessions.length > 0) {
+        console.log('[AdviceScreen] First session details:', {
+          id: validSessions[0].id?.slice(0, 8),
+          status: validSessions[0].status,
+          questionTitle: validSessions[0].questions?.title,
+          questionContent: validSessions[0].questions?.content,
+          categoryName: validSessions[0].questions?.categories?.name,
+          hasQuestionData: !!validSessions[0].questions
+        });
+      }
+      
       setSessions(validSessions);
     } catch (error) {
       console.error('Error fetching sessions:', error);
@@ -123,6 +149,7 @@ export default function AdviceScreen() {
     if (!user) return;
 
     try {
+      console.log('[AdviceScreen] Fetching pending questions for user:', user.id);
       const { data, error } = await supabase
         .from('questions')
         .select(`
@@ -138,6 +165,13 @@ export default function AdviceScreen() {
         return;
       }
 
+      console.log('[AdviceScreen] Pending questions fetched:', data?.length, 'questions');
+      console.log('[AdviceScreen] First question preview:', data?.[0] ? {
+        id: data[0].id?.slice(0, 8),
+        title: data[0].title?.slice(0, 30),
+        content: data[0].content?.slice(0, 50)
+      } : 'none');
+      
       setPendingQuestions(data || []);
     } catch (error) {
       console.error('Error fetching pending questions:', error);
@@ -284,6 +318,59 @@ export default function AdviceScreen() {
     }
   };
 
+  const handleResolutionSubmit = async (rating: number, feedback: string) => {
+    if (!selectedSession || !user) return;
+    
+    try {
+      console.log('[AdviceScreen] Student submitting resolution for session:', selectedSession.id, 'Rating:', rating);
+      
+      // Update session with student's resolution data
+      const { error, data } = await supabase
+        .from('advice_sessions')
+        .update({ 
+          rating: rating, 
+          feedback: feedback,
+          student_resolved_at: new Date().toISOString() 
+        })
+        .eq('id', selectedSession.id)
+        .select();
+
+      if (error) {
+        console.error('[AdviceScreen] Error updating session with rating:', error);
+        Alert.alert('Error', 'Failed to submit rating. Please try again.');
+        return;
+      }
+
+      console.log('[AdviceScreen] ✅ Session rating submitted successfully:', data);
+      
+      // Update the local session state immediately to prevent UI lag
+      const updatedSession = data[0];
+      if (updatedSession) {
+        setSessions(prevSessions => 
+          prevSessions.map(session => 
+            session.id === updatedSession.id 
+              ? { ...session, rating: updatedSession.rating, student_resolved_at: updatedSession.student_resolved_at }
+              : session
+          )
+        );
+      }
+      
+      // Close modal
+      setShowResolutionModal(false);
+      setSelectedSession(null);
+      
+      // Also refresh from database to be sure
+      await fetchSessions();
+      
+      console.log('[AdviceScreen] Session state updated and refreshed');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+    } catch (error) {
+      console.error('[AdviceScreen] Error in resolution submission:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  };
+
 
   // Calculate unread count for a session
   const getUnreadCount = (session: AdviceSession) => {
@@ -326,10 +413,37 @@ export default function AdviceScreen() {
   };
 
   const activeSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'active'));
-  const pendingSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'pending'));
+  const assignedSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'pending')); // pending status = assigned in UI
+  
+  // Group assigned sessions by question_id for multi-mentor display
+  const groupedAssignedSessions = assignedSessions.reduce((groups: { [key: string]: AdviceSession[] }, session) => {
+    const questionId = session.question_id;
+    if (!groups[questionId]) {
+      groups[questionId] = [];
+    }
+    groups[questionId].push(session);
+    return groups;
+  }, {});
+  
+  const assignedSessionGroups = Object.values(groupedAssignedSessions);
   const resolvedSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'resolved'));
+  const unratedResolvedSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'resolved' && !s.rating));
+  const ratedResolvedSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'resolved' && s.rating));
 
-  console.log('[AdviceScreen] Filtered - Active:', activeSessions.length, 'Pending:', pendingSessions.length, 'Resolved:', resolvedSessions.length);
+  console.log('[AdviceScreen] Filtered - Active:', activeSessions.length, 'Assigned:', assignedSessions.length, 'Resolved:', resolvedSessions.length);
+  console.log('[AdviceScreen] Unrated resolved:', unratedResolvedSessions.length, 'Rated resolved:', ratedResolvedSessions.length);
+  
+  // Debug the crush question specifically
+  const crushSession = sessions.find(s => s.questions?.content?.includes('crush'));
+  if (crushSession) {
+    console.log('[AdviceScreen] Crush session debug:', {
+      id: crushSession.id.slice(0, 8),
+      status: crushSession.status,
+      rating: crushSession.rating,
+      student_resolved_at: crushSession.student_resolved_at,
+      shouldBeUnrated: crushSession.status === 'resolved' && !crushSession.rating
+    });
+  }
 
   if (loading) {
     return (
@@ -373,8 +487,32 @@ export default function AdviceScreen() {
         }
       >
         <View style={{ height: insets.top + 100 }} />
+        
+        {/* Instagram-Style Filter Button */}
+        <View style={[styles.filterContainer, { backgroundColor: colors.background }]}>
+          <TouchableOpacity
+            style={[styles.filterButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowFilterModal(true);
+            }}
+          >
+            <Ionicons name="options-outline" size={20} color={colors.text} />
+            <Text style={[styles.filterButtonText, { color: colors.text }]}>
+              {activeFilter === 'all' ? 'all chats' : 
+               activeFilter === 'active' ? 'active' :
+               activeFilter === 'assigned' ? 'assigned' :
+               activeFilter === 'pending' ? 'pending' :
+               activeFilter === 'unrated' ? 'rate mentors' :
+               'resolved'}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
         <View style={[styles.content, { backgroundColor: colors.background }]}>
         {/* Active Chats */}
+        {(activeFilter === 'all' || activeFilter === 'active') && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             active
@@ -386,7 +524,8 @@ export default function AdviceScreen() {
                 const lastMessage = getLastMessage(session);
                 const unreadCount = getUnreadCount(session);
                 const categoryName = session.questions?.categories?.name || 'chat';
-                const questionTitle = session.questions?.title || 'Question';
+                // Show actual question content, not just "Question"
+                const questionTitle = session.questions?.title || session.questions?.content || 'Question';
 
                 return (
                   <TouchableOpacity
@@ -503,9 +642,102 @@ export default function AdviceScreen() {
             </View>
           )}
         </View>
+        )}
+
+        {/* Assigned Chats */}
+        {(activeFilter === 'all' || activeFilter === 'assigned') && assignedSessions.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              assigned
+            </Text>
+
+            <View style={styles.chatsList}>
+              {assignedSessions.map((session, index) => {
+                const categoryName = session.questions?.categories?.name || 'chat';
+                const questionTitle = session.questions?.title || session.questions?.content || 'Question';
+
+                return (
+                  <TouchableOpacity
+                    key={session.id}
+                    style={[
+                      styles.chatItem,
+                      { 
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                        shadowColor: colors.text,
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.05,
+                        shadowRadius: 2,
+                        elevation: 1,
+                      },
+                      index < assignedSessions.length - 1 && { marginBottom: 8 },
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      router.push(`/chat?chatId=${session.id}`);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    {/* Left side with mentor avatar */}
+                    <View style={styles.chatLeft}>
+                      <Image
+                        source={{
+                          uri: session.mentors?.avatar_url || `https://ui-avatars.com/api/?name=Mentor&background=FF4DB8&color=fff&size=128`
+                        }}
+                        style={styles.mentorAvatar}
+                      />
+                    </View>
+
+                    {/* Main content */}
+                    <View style={styles.chatContent}>
+                      <View style={styles.chatHeader}>
+                        <View style={styles.chatTitleRow}>
+                          <Text style={[styles.mentorName, { color: colors.text }]} numberOfLines={1}>
+                            {session.mentors?.full_name || 'Your Mentor'}
+                          </Text>
+                          <View style={[styles.categoryPill, { backgroundColor: colors.primary + '20', borderColor: colors.primary + '40' }]}>
+                            <Text style={[styles.categoryText, { color: colors.primary }]}>
+                              {categoryName}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.timestamp, { color: colors.textSecondary }]}>
+                          {getTimeAgo(session.created_at)}
+                        </Text>
+                      </View>
+
+                      <Text style={[styles.questionPreview, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {questionTitle}
+                      </Text>
+
+                      <View style={styles.lastMessageRow}>
+                        <Text style={[styles.lastMessageText, { color: colors.textSecondary }]} numberOfLines={1}>
+                          Waiting for mentor to start chat...
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Right side with status */}
+                    <View style={styles.chatRight}>
+                      <View style={[styles.statusBadge, { backgroundColor: colors.text + '15' }]}>
+                        <Text style={[styles.statusText, { color: colors.text }]}>assigned</Text>
+                      </View>
+                      <Ionicons 
+                        name="chevron-forward" 
+                        size={16} 
+                        color={colors.textSecondary} 
+                        style={{ marginTop: 4 }}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* Pending Questions */}
-        {pendingQuestions.length > 0 && (
+        {(activeFilter === 'all' || activeFilter === 'pending') && pendingQuestions.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               pending
@@ -553,15 +785,112 @@ export default function AdviceScreen() {
           </View>
         )}
 
-        {/* Resolved */}
-        {resolvedSessions.length > 0 && (
+
+        {/* Resolved Sessions - Including Both Unrated and Rated */}
+        {(activeFilter === 'all' || activeFilter === 'resolved' || activeFilter === 'unrated') && (unratedResolvedSessions.length > 0 || ratedResolvedSessions.length > 0) && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               resolved
             </Text>
 
             <View style={styles.chatsList}>
-              {resolvedSessions.map((session, index) => {
+              {/* Unrated Sessions - Need Rating (only show when appropriate) */}
+              {(activeFilter === 'all' || activeFilter === 'unrated') && unratedResolvedSessions.map((session, index) => {
+                const questionTitle = session.questions?.title && session.questions.title.trim() !== ''
+                  ? session.questions.title
+                  : session.questions?.content?.substring(0, 50) || 'Chat Session';
+                const categoryName = session.questions?.categories?.name || 'General';
+                
+                return (
+                  <View
+                    key={`unrated-${session.id}`}
+                    style={[
+                      styles.chatItem,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.05,
+                        shadowRadius: 2,
+                        elevation: 1,
+                      },
+                      { marginBottom: 8, flexDirection: 'column', paddingBottom: 20 },
+                    ]}
+                  >
+                    {/* Main Chat Content - Clickable to open chat */}
+                    <TouchableOpacity
+                      style={[styles.chatContentRow, { flexDirection: 'row', alignItems: 'center' }]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push(`/chat?chatId=${session.id}`);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.chatLeft}>
+                        <Image
+                          source={{
+                            uri: session.mentors?.avatar_url || `https://ui-avatars.com/api/?name=Mentor&background=FF4DB8&color=fff&size=128`
+                          }}
+                          style={styles.mentorAvatar}
+                        />
+                      </View>
+                      <View style={[styles.chatContent, { flex: 1 }]}>
+                        <View style={styles.chatHeader}>
+                          <View style={styles.chatTitleRow}>
+                            <Text style={[styles.mentorName, { color: colors.text }]} numberOfLines={1}>
+                              {session.mentors?.full_name || 'Mentor'}
+                            </Text>
+                            <View style={[styles.categoryPill, { backgroundColor: colors.primary + '20', borderColor: colors.primary + '40' }]}>
+                              <Text style={[styles.categoryText, { color: colors.primary }]}>
+                                {categoryName}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                        <Text style={[styles.questionPreview, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {questionTitle}
+                        </Text>
+                      </View>
+                      <View style={styles.chatRight}>
+                        <Ionicons 
+                          name="chevron-forward" 
+                          size={16} 
+                          color={colors.textSecondary} 
+                          style={{ marginTop: 4 }}
+                        />
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Rating Section - Positioned below main content */}
+                    <View style={[styles.ratingSection, { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }]}>
+                      <Text style={[styles.ratingPrompt, { color: colors.text, marginBottom: 8 }]}>
+                        How was your chat with {session.mentors?.full_name}?
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.ratingButton, { backgroundColor: colors.primary + '10', borderColor: colors.primary }]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          setSelectedSession(session);
+                          setShowResolutionModal(true);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.starsRow}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Ionicons key={star} name="star-outline" size={20} color={colors.primary} style={{ marginRight: 4 }} />
+                          ))}
+                        </View>
+                        <Text style={[styles.ratingButtonText, { color: colors.primary }]}>
+                          Tap to rate
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+
+              {/* Rated Sessions - Already Completed (only show when appropriate) */}
+              {(activeFilter === 'all' || activeFilter === 'resolved') && ratedResolvedSessions.map((session, index) => {
                 const questionTitle = session.questions?.title && session.questions.title.trim() !== ''
                   ? session.questions.title
                   : session.questions?.content?.substring(0, 50) || 'Chat Session';
@@ -569,7 +898,7 @@ export default function AdviceScreen() {
 
                 return (
                   <TouchableOpacity
-                    key={session.id}
+                    key={`rated-${session.id}`}
                     style={[
                       styles.chatItem,
                       { 
@@ -581,7 +910,7 @@ export default function AdviceScreen() {
                         shadowRadius: 2,
                         elevation: 1,
                       },
-                      index < resolvedSessions.length - 1 && { marginBottom: 8 },
+                      { marginBottom: 8 },
                     ]}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -589,15 +918,40 @@ export default function AdviceScreen() {
                     }}
                     activeOpacity={0.8}
                   >
+                    <View style={styles.chatLeft}>
+                      <Image
+                        source={{
+                          uri: session.mentors?.avatar_url || `https://ui-avatars.com/api/?name=Mentor&background=FF4DB8&color=fff&size=128`
+                        }}
+                        style={styles.mentorAvatar}
+                      />
+                    </View>
                     <View style={styles.chatContent}>
-                      <Text style={[styles.mentorName, { color: colors.text }]} numberOfLines={1}>
+                      <View style={styles.chatHeader}>
+                        <View style={styles.chatTitleRow}>
+                          <Text style={[styles.mentorName, { color: colors.text }]} numberOfLines={1}>
+                            {session.mentors?.full_name || 'Mentor'}
+                          </Text>
+                          <View style={[styles.categoryPill, { backgroundColor: colors.primary + '20', borderColor: colors.primary + '40' }]}>
+                            <Text style={[styles.categoryText, { color: colors.primary }]}>
+                              {categoryName}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                      <Text style={[styles.questionPreview, { color: colors.textSecondary }]} numberOfLines={1}>
                         {questionTitle}
                       </Text>
-                      <Text style={[styles.questionPreview, { color: colors.textSecondary }]}>
-                        {categoryName}{session.rating ? ` • ${session.rating} stars` : ''}
-                      </Text>
+                      <View style={styles.lastMessageRow}>
+                        <Text style={[styles.lastMessageText, { color: colors.textSecondary }]} numberOfLines={1}>
+                          Rated {session.rating} stars
+                        </Text>
+                      </View>
                     </View>
                     <View style={styles.chatRight}>
+                      <View style={[styles.statusBadge, { backgroundColor: colors.text + '10' }]}>
+                        <Text style={[styles.statusText, { color: colors.text }]}>✓</Text>
+                      </View>
                       <Ionicons 
                         name="chevron-forward" 
                         size={16} 
@@ -622,6 +976,87 @@ export default function AdviceScreen() {
           wizzmo={wizzmoProfile}
         />
       )}
+
+      {/* Filter Modal */}
+      <Modal
+        visible={showFilterModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          {/* Modal Header */}
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity 
+              onPress={() => setShowFilterModal(false)}
+              style={styles.modalCloseButton}
+            >
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              filter chats
+            </Text>
+            <View style={{ width: 44 }} />
+          </View>
+
+          {/* Filter Options */}
+          <ScrollView style={styles.modalContent}>
+            {[
+              { key: 'all', label: 'all chats', count: sessions.length },
+              { key: 'active', label: 'active', count: activeSessions.length },
+              { key: 'assigned', label: 'assigned', count: assignedSessions.length },
+              { key: 'pending', label: 'pending', count: pendingQuestions.length },
+              { key: 'unrated', label: 'rate mentors', count: unratedResolvedSessions.length },
+              { key: 'resolved', label: 'resolved', count: ratedResolvedSessions.length },
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.key}
+                style={[
+                  styles.filterOption,
+                  { 
+                    backgroundColor: activeFilter === option.key ? colors.primary + '10' : colors.surface,
+                    borderColor: activeFilter === option.key ? colors.primary : colors.border
+                  }
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setActiveFilter(option.key as any);
+                  setShowFilterModal(false);
+                }}
+              >
+                <View style={styles.filterOptionContent}>
+                  <Text style={[
+                    styles.filterOptionLabel, 
+                    { color: activeFilter === option.key ? colors.primary : colors.text }
+                  ]}>
+                    {option.label}
+                  </Text>
+                  <Text style={[
+                    styles.filterOptionCount, 
+                    { color: colors.textSecondary }
+                  ]}>
+                    {option.count}
+                  </Text>
+                </View>
+                {activeFilter === option.key && (
+                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Student Resolution Modal */}
+      <StudentResolutionModal
+        visible={showResolutionModal}
+        onClose={() => {
+          setShowResolutionModal(false);
+          setSelectedSession(null);
+        }}
+        onSubmit={handleResolutionSubmit}
+        mentorName={selectedSession?.mentors?.full_name}
+      />
     </>
   );
 }
@@ -809,5 +1244,132 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     textTransform: 'lowercase',
+  },
+  
+  // Instagram-Style Filter Button
+  filterContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderRadius: 8,
+    gap: 8,
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+    flex: 1,
+    textAlign: 'center',
+  },
+
+  // Filter Modal Styles
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    paddingTop: 60,
+  },
+  modalCloseButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  filterOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flex: 1,
+    marginRight: 12,
+  },
+  filterOptionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  filterOptionCount: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  // Rating Section Styles
+  chatContentRow: {
+    flex: 1,
+  },
+  ratingSection: {
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  ratingPrompt: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: -0.1,
+  },
+  ratingButton: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+  },
+
+  // Multi-mentor indicator styles
+  multiMentorIndicator: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  multiMentorText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
 });
