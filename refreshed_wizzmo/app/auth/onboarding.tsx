@@ -481,7 +481,7 @@ export default function Onboarding() {
         const { error: emailUpdateError } = await supabase
           .from('users')
           .update(finalProfileData)
-          .eq('email', user.email);
+          .eq('email', user.email!);
           
         if (emailUpdateError) {
           console.log('[Onboarding] Email update failed:', emailUpdateError);
@@ -512,17 +512,17 @@ export default function Onboarding() {
         console.warn('[Onboarding] Flow error (non-blocking):', flowError);
       }
       
-      // Navigate to main app (spill tea screen)
-      console.log('[Onboarding] ✅ Navigating to main app...');
-      router.replace('/(tabs)');
+      // Navigate directly to ask screen for immediate engagement
+      console.log('[Onboarding] ✅ Navigating to ask screen for first question...');
+      router.replace('/(tabs)/ask');
 
     } catch (error: any) {
       console.error('[Onboarding] Completion error:', error);
       
-      // NEVER BLOCK: Always let user through to main app
-      console.log('[Onboarding] ⚠️ Errors occurred but allowing user to continue...');
+      // NEVER BLOCK: Always let user through to ask screen
+      console.log('[Onboarding] ⚠️ Errors occurred but allowing user to continue to ask screen...');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/ask');
       
     } finally {
       setLoading(false);
@@ -1149,7 +1149,7 @@ export default function Onboarding() {
       <View style={styles.actionButtons}>
         <TouchableOpacity 
           style={styles.startButton} 
-          onPress={() => router.replace('/(tabs)')}
+          onPress={() => router.replace('/(tabs)/ask')}
         >
           <LinearGradient
             colors={['#FFFFFF', '#F8F9FA']}

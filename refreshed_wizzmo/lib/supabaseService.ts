@@ -191,6 +191,16 @@ export async function getUserByUsername(username: string): Promise<ServiceRespon
 export async function getUserProfile(userId: string): Promise<ServiceResponse<User & { mentor_profile?: MentorProfile }>> {
   try {
     console.log('[getUserProfile] Fetching profile for user:', userId)
+    
+    // Check authentication state for debugging
+    const { data: { session }, error: authError } = await supabase.auth.getSession()
+    if (authError) {
+      console.error('[getUserProfile] Auth error:', authError)
+    } else if (!session) {
+      console.warn('[getUserProfile] No active session when fetching profile')
+    } else {
+      console.log('[getUserProfile] Active session for user:', session.user.id)
+    }
 
     // SQL: SELECT * FROM users WHERE id = $1
     const { data: user, error: userError } = await supabase
@@ -199,8 +209,16 @@ export async function getUserProfile(userId: string): Promise<ServiceResponse<Us
       .eq('id', userId)
       .single()
 
-    if (userError) throw userError
-    if (!user) throw new Error('User not found')
+    if (userError) {
+      console.error('[getUserProfile] Database error:', userError)
+      console.error('[getUserProfile] Error code:', userError.code)
+      console.error('[getUserProfile] Error message:', userError.message)
+      throw userError
+    }
+    if (!user) {
+      console.error('[getUserProfile] No user data returned for ID:', userId)
+      throw new Error('User not found')
+    }
 
     // If user is a mentor or both, fetch mentor profile
     // SQL: SELECT * FROM mentor_profiles WHERE user_id = $1

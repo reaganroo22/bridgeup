@@ -486,23 +486,36 @@ function RootLayoutNav() {
             return;
           }
 
-          // CRITICAL FIX: Handle users with completed onboarding but missing critical data
-          if (userProfile.onboarding_completed && (!userProfile.username || !userProfile.bio)) {
-            console.error('🚨 [RootLayout] CRITICAL: User has completed onboarding but missing username/bio');
-            console.error('🚨 [RootLayout] This user needs to re-complete onboarding to fix data corruption');
-            console.log('🔄 [RootLayout] Forcing re-onboarding for data integrity');
+          // Check if user has actually used the app (asked/answered questions)
+          let hasUsedApp = false;
+          try {
+            // Check if user has asked questions
+            const { data: questions } = await supabase
+              .from('questions')
+              .select('id')
+              .eq('student_id', user.id)
+              .limit(1);
             
-            // Reset onboarding completion flag to force proper re-onboarding
-            await updateUserProfile(user.id, { onboarding_completed: false });
+            // Check if user has mentor activity
+            const { data: sessions } = await supabase
+              .from('advice_sessions')
+              .select('id')
+              .eq('mentor_id', user.id)
+              .limit(1);
             
-            // Route to appropriate onboarding based on role
-            const hasMentorProfile = userProfile?.mentor_profile || userProfile?.role === 'mentor' || userProfile?.role === 'both';
-            if (hasMentorProfile && !isMentorOnboarding) {
-              safeNavigate('/auth/mentor-onboarding', 'fixing corrupted mentor data');
-            } else if (!hasMentorProfile && !inOnboarding) {
-              safeNavigate('/auth/onboarding', 'fixing corrupted student data');
-            }
-            return;
+            hasUsedApp = (questions && questions.length > 0) || (sessions && sessions.length > 0);
+            console.log('[RootLayout] User has used app:', hasUsedApp);
+          } catch (error) {
+            console.warn('[RootLayout] Could not check app usage:', error);
+          }
+          
+          // If user has used the app, skip onboarding regardless of missing data
+          if (hasUsedApp && userProfile.onboarding_completed) {
+            console.log('✅ [RootLayout] Existing user with app activity - skipping onboarding validation');
+            // Allow them to proceed even with null username/bio
+          } else if (userProfile.onboarding_completed && (!userProfile.username || !userProfile.bio)) {
+            console.log('🔄 [RootLayout] New user with missing data - allowing completion anyway');
+            // Don't force re-onboarding, just let them proceed
           }
 
           console.log('✅ [RootLayout] Profile fetched successfully');
@@ -565,12 +578,22 @@ function RootLayoutNav() {
           // Note: Mentor application check is now handled above in checkMentorApplication
           
           if (!userProfile?.onboarding_completed) {
-            if (hasMentorProfile && !isMentorOnboarding) {
-              // Approved mentor needs mentor onboarding
-              safeNavigate('/auth/mentor-onboarding', 'mentor needs onboarding');
-            } else if (!hasMentorProfile && !inOnboarding) {
-              // Student needs regular onboarding
-              safeNavigate('/auth/onboarding', 'student needs onboarding');
+            // Check if this is an existing user who somehow lost their onboarding flag
+            if (hasUsedApp) {
+              console.log('🔄 [RootLayout] Existing user missing onboarding flag - auto-completing');
+              await updateUserProfile(user.id, { onboarding_completed: true });
+              // Continue to app - don't force onboarding for existing users
+            } else {
+              // New user - show appropriate onboarding
+              if (hasMentorProfile && !isMentorOnboarding) {
+                // Approved mentor needs mentor onboarding
+                safeNavigate('/auth/mentor-onboarding', 'mentor needs onboarding');
+                return;
+              } else if (!hasMentorProfile && !inOnboarding) {
+                // Student needs regular onboarding
+                safeNavigate('/auth/onboarding', 'student needs onboarding');
+                return;
+              }
             }
           } else {
             // Onboarding completed - but check for mentor onboarding requirement

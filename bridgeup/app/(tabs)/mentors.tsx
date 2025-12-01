@@ -853,12 +853,12 @@ export default function MentorsScreen() {
               <Text style={[styles.sectionTitle, { color: colors.text }]}>topics</Text>
               <View style={styles.topicGrid}>
                 {[
-                  'Dating & Relationships', 'Breakups & Moving On', 'Roommate Issues', 
-                  'Friend Drama', 'Confidence & Self-Esteem', 'Stress & Mental Health',
-                  'Social Anxiety', 'Long Distance', 'Toxic Relationships', 'First Dates',
-                  'Communication Skills', 'Body Image', 'Academic Help', 'Career Advice',
-                  'Family Issues', 'Money & Budgeting', 'Greek Life', 'Transfer Life',
-                  'Future Planning', 'Work-Life Balance', 'Independence', 'Making Friends'
+                  'College Applications', 'Essays', 'SAT/ACT Prep', 'Financial Aid', 
+                  'Scholarships', 'College Selection', 'Admissions Interviews', 'Letters of Recommendation',
+                  'Extracurriculars', 'AP Classes', 'Standardized Tests', 'Early Decision/Action',
+                  'College Visits', 'Personal Statement', 'Academic Planning', 'Major Selection',
+                  'Campus Life', 'Dorm Applications', 'Transfer Applications', 'Gap Year',
+                  'College Prep', 'Application Strategy'
                 ].map((topic) => (
                 <TouchableOpacity 
                   key={topic}

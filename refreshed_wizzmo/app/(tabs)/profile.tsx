@@ -1046,9 +1046,11 @@ export default function ProfileScreen() {
                 <Text style={[styles.profileUsername, { color: colors.textSecondary }]}>
                   @{userProfile?.username || 'you'}
                 </Text>
-                <Text style={[styles.profileUniversity, { color: colors.textSecondary }]}>
-                  {userProfile?.university || 'your university'} {userProfile?.graduation_year ? `• class of ${userProfile.graduation_year}` : ''}
-                </Text>
+                {userProfile?.university && (
+                  <Text style={[styles.profileUniversity, { color: colors.textSecondary }]}>
+                    {userProfile.university} {userProfile?.graduation_year ? `• class of ${userProfile.graduation_year}` : ''}
+                  </Text>
+                )}
               </View>
 
               <View style={styles.bioContainer}>

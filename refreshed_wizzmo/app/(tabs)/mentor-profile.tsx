@@ -716,9 +716,11 @@ export default function MentorProfileScreen() {
                 <Text style={[styles.profileUsername, { color: colors.textSecondary }]}>
                   @{userProfile?.username || 'you'}
                 </Text>
-                <Text style={[styles.profileUniversity, { color: colors.textSecondary }]}>
-                  {userProfile?.university || 'your university'} {userProfile?.graduation_year ? `• class of ${userProfile.graduation_year}` : ''}
-                </Text>
+                {userProfile?.university && (
+                  <Text style={[styles.profileUniversity, { color: colors.textSecondary }]}>
+                    {userProfile.university} {userProfile?.graduation_year ? `• class of ${userProfile.graduation_year}` : ''}
+                  </Text>
+                )}
                 <View style={[styles.verifiedBadge, { backgroundColor: colors.surface }]}>
                   <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
                   <Text style={[styles.verifiedText, { color: colors.text }]}>verified wizzmo</Text>
