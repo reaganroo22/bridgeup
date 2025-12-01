@@ -112,7 +112,7 @@ export default function OAuthSignIn() {
           console.log('[OAuthSignIn] Creating new user profile for OAuth user');
           
           // Create user profile with OAuth data using the new function
-          const { error: profileError } = await supabaseService.createOAuthUserProfile(
+          const { data: createdProfile, error: profileError } = await supabaseService.createOAuthUserProfile(
             data.user.id,
             userData.email,
             userData.full_name,
@@ -121,7 +121,12 @@ export default function OAuthSignIn() {
 
           if (profileError) {
             console.error('[OAuthSignIn] Error creating profile:', profileError);
+            // Continue anyway - the profile might exist from account linking
+          } else if (createdProfile) {
+            console.log('[OAuthSignIn] Profile created successfully:', createdProfile.email);
           }
+        } else {
+          console.log('[OAuthSignIn] Profile already exists for user:', existingProfile.email);
         }
 
         // Check onboarding status and redirect accordingly

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Modal,
@@ -15,11 +15,12 @@ import * as Haptics from 'expo-haptics';
 import { useSubscription, SubscriptionPlan } from '@/contexts/SubscriptionContext';
 
 interface PaywallVariantAProps {
-  visible: boolean;
+  visible?: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function PaywallVariantA({ visible, onClose }: PaywallVariantAProps) {
+export default function PaywallVariantA({ visible = true, onClose, onSuccess }: PaywallVariantAProps) {
   const { purchasePackage, offerings } = useSubscription();
   
   // Debug RevenueCat offerings
@@ -33,6 +34,16 @@ export default function PaywallVariantA({ visible, onClose }: PaywallVariantAPro
   }
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('wizzmo_monthly'); // Default to monthly
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [showCloseButton, setShowCloseButton] = useState(false);
+
+  // Show close button after 7 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowCloseButton(true);
+    }, 7000); // 7 seconds
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const handlePurchase = async (plan: SubscriptionPlan) => {
     setIsPurchasing(true);
@@ -58,7 +69,7 @@ export default function PaywallVariantA({ visible, onClose }: PaywallVariantAPro
 
       const success = await purchasePackage(selectedPackage);
       if (success) {
-        onClose();
+        onSuccess ? onSuccess() : onClose();
         Alert.alert('Welcome to Wizzmo Pro! 💕', 'You now have unlimited access to dating advice from college girls!');
       }
     } catch (error) {
@@ -77,9 +88,11 @@ export default function PaywallVariantA({ visible, onClose }: PaywallVariantAPro
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          {showCloseButton && (
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Scrollable Content */}

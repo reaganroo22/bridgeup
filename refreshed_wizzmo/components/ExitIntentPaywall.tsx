@@ -24,8 +24,8 @@ export default function ExitIntentPaywall({ visible, onClose, onFinalExit }: Exi
   const { purchasePackage, offerings } = useSubscription();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [timeLeft, setTimeLeft] = useState(10 * 60); // 10 minutes
-  const [promoPrice, setPromoPrice] = useState('$4.99');
-  const [regularPrice, setRegularPrice] = useState('$9.99');
+  const [promoPrice, setPromoPrice] = useState('$9.99');
+  const [regularPrice, setRegularPrice] = useState('$21.99');
   
   const fadeAnim1 = useRef(new Animated.Value(0)).current;
   const fadeAnim2 = useRef(new Animated.Value(0)).current;

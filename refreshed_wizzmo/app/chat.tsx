@@ -1909,8 +1909,8 @@ export default function ChatScreen() {
   const otherPersonName = user?.id === session.student_id
     ? session.mentors?.full_name || 'Mentor'
     : (session.students?.full_name?.trim() || 
-       session.students?.username || 
-       session.students?.email?.split('@')[0] || 
+       (session.students as any)?.username || 
+       (session.students as any)?.email?.split('@')[0] || 
        'Student');
 
   return (

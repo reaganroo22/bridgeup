@@ -20,11 +20,14 @@ import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserMode } from '@/contexts/UserModeContext';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
 import * as supabaseService from '@/lib/supabaseService';
+import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const topics = [
   { id: 'dating', name: 'Dating', emoji: '💕' },
@@ -103,6 +106,9 @@ const bearImages = {
 
 export default function MentorOnboarding() {
   const { user } = useAuth();
+  const { switchMode } = useUserMode();
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [accessLoading, setAccessLoading] = useState(true);
   
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -136,6 +142,57 @@ export default function MentorOnboarding() {
   const [usernameStatus, setUsernameStatus] = useState<'available' | 'taken' | 'checking' | 'error' | null>(null);
   const [usernameTimeout, setUsernameTimeout] = useState<NodeJS.Timeout | null>(null);
 
+  // PROGRESS SAVING: Auto-save mentor form progress
+  const saveMentorProgress = async () => {
+    if (!user) return;
+    try {
+      const progress = {
+        currentStep,
+        formData: {
+          ...formData,
+          profilePhoto: null, // Don't save photo in storage
+          introVideo: null,   // Don't save video in storage
+        },
+        timestamp: Date.now()
+      };
+      await AsyncStorage.setItem(`mentor_onboarding_progress_${user.id}`, JSON.stringify(progress));
+    } catch (error) {
+      console.warn('[MentorOnboarding] Could not save progress:', error);
+    }
+  };
+
+  // PROGRESS LOADING: Restore mentor form progress on mount
+  useEffect(() => {
+    const loadMentorProgress = async () => {
+      if (!user) return;
+      try {
+        const saved = await AsyncStorage.getItem(`mentor_onboarding_progress_${user.id}`);
+        if (saved) {
+          const progress = JSON.parse(saved);
+          // Only restore if recent (within 24 hours)
+          if (Date.now() - progress.timestamp < 24 * 60 * 60 * 1000) {
+            console.log('[MentorOnboarding] Restoring saved progress...');
+            setCurrentStep(progress.currentStep || 1);
+            setFormData(prev => ({
+              ...prev,
+              ...progress.formData,
+              profilePhoto: null, // Reset media
+              introVideo: null,   // Reset media
+            }));
+          }
+        }
+      } catch (error) {
+        console.warn('[MentorOnboarding] Could not load progress:', error);
+      }
+    };
+    loadMentorProgress();
+  }, [user]);
+
+  // AUTO-SAVE: Save progress whenever form data changes
+  useEffect(() => {
+    saveMentorProgress();
+  }, [currentStep, formData]);
+
   // Bear state transition animation
 
   // Custom function to handle step changes and scroll to top
@@ -160,10 +217,66 @@ export default function MentorOnboarding() {
     setCurrentBearState(initialState);
   }, [currentStep]);
 
+  // SECURITY: Verify mentor application approval before allowing access
+  useEffect(() => {
+    const verifyMentorAccess = async () => {
+      if (!user?.email) {
+        setAccessLoading(false);
+        return;
+      }
+
+      try {
+        console.log('[MentorOnboarding] 🔒 VERIFYING ACCESS for:', user.email);
+        
+        // Check if user has approved mentor application
+        const { data: application, error } = await supabase
+          .from('mentor_applications')
+          .select('application_status')
+          .eq('email', user.email.toLowerCase())
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('[MentorOnboarding] 🚫 Database error checking application:', error);
+          setAccessDenied(true);
+          setAccessLoading(false);
+          return;
+        }
+
+        // No application found
+        if (error && error.code === 'PGRST116') {
+          console.log('[MentorOnboarding] 🚫 NO APPLICATION FOUND - ACCESS DENIED');
+          setAccessDenied(true);
+          setAccessLoading(false);
+          return;
+        }
+
+        // Application not approved
+        if (application?.application_status !== 'approved') {
+          console.log('[MentorOnboarding] 🚫 APPLICATION NOT APPROVED - ACCESS DENIED');
+          console.log('[MentorOnboarding] Status:', application?.application_status);
+          setAccessDenied(true);
+          setAccessLoading(false);
+          return;
+        }
+
+        console.log('[MentorOnboarding] ✅ ACCESS GRANTED - Approved application found');
+        setAccessDenied(false);
+        setAccessLoading(false);
+
+      } catch (error) {
+        console.error('[MentorOnboarding] 💥 Unexpected access verification error:', error);
+        setAccessDenied(true);
+        setAccessLoading(false);
+      }
+    };
+
+    verifyMentorAccess();
+  }, [user?.email]);
+
   // Load existing mentor application data
   useEffect(() => {
     const loadMentorApplicationData = async () => {
-      if (!user?.email) return;
+      if (!user?.email || accessDenied || accessLoading) return;
 
       try {
         // Check for existing mentor application
@@ -304,7 +417,12 @@ export default function MentorOnboarding() {
         }
         return true;
       case 7:
-        // Media uploads are optional for now
+        // PROFILE PHOTO REQUIRED for mentors, intro video optional
+        if (!formData.profilePhoto) {
+          Alert.alert('Profile photo required', 'Please upload a profile photo to help students connect with you');
+          return false;
+        }
+        // Intro video is optional
         return true;
       default:
         return true;
@@ -340,65 +458,177 @@ export default function MentorOnboarding() {
     }
 
     setLoading(true);
+    
     try {
-      // Update user profile with all mentor data
-      const { error: userError } = await supabaseService.updateUserProfile(user.id, {
-        username: formData.username.trim(),
-        full_name: formData.fullName.trim(),
-        university: formData.university.trim(),
-        graduation_year: parseInt(formData.graduationYear),
-        bio: formData.bio.trim(),
+      console.log('[MentorOnboarding] Starting bulletproof completion...');
+      
+      // BULLETPROOF: Handle all optional fields gracefully
+      const mentorProfileData = {
+        username: formData.username?.trim() || `mentor_${user.id.slice(0, 8)}`,
+        full_name: formData.fullName?.trim() || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Mentor',
+        university: formData.university?.trim() || null,
+        graduation_year: formData.graduationYear ? parseInt(formData.graduationYear) : null,
+        bio: formData.bio?.trim() || formData.motivation?.trim() || null,
+        major: formData.major?.trim() || null,
         onboarding_completed: true,
-        role: 'mentor', // Set user role to mentor
-        // Mentor-specific fields
-        major: formData.major.trim() || null,
+        role: 'mentor',
+        // Profile photo is required for mentors
         avatar_url: formData.profilePhoto?.uri || null,
-        // Store as JSON in user fields or add to schema
-        mentor_motivation: formData.motivation.trim(),
-        mentor_languages: formData.languages.trim(),
-        mentor_social_links: formData.socialLinks.trim() || null,
-        mentor_session_formats: JSON.stringify(formData.selectedFormats),
-        mentor_topics: JSON.stringify(formData.selectedTopics),
-        mentor_weekly_hours: formData.weeklyHours,
-      });
-
-      if (userError) {
-        console.error('[MentorOnboarding] User profile error:', userError);
-        Alert.alert('Error', 'Failed to update profile. Please try again.');
-        return;
-      }
-
-      // Create basic mentor profile record for status tracking
-      const { error: mentorError } = await supabaseService.updateMentorProfile(user.id, {
-        availability_status: 'available',
-        verification_status: 'pending',
-        is_verified: false,
-      });
-
-      if (mentorError) {
-        console.error('[MentorOnboarding] Mentor profile error:', mentorError);
-        Alert.alert('Error', 'Failed to update mentor profile. Please try again.');
-        return;
-      }
-
-      // Create mentor expertise entries
-      if (formData.selectedTopics.length > 0) {
-        const { error: expertiseError } = await supabaseService.createMentorExpertise(
-          user.id,
-          formData.selectedTopics
-        );
+        age: formData.age ? parseInt(formData.age) : null,
+        gender: formData.gender || null,
+      };
+      
+      let profileSuccess = false;
+      let mentorSuccess = false;
+      let expertiseSuccess = false;
+      
+      // ATTEMPT 1: Try service function for user profile
+      try {
+        console.log('[MentorOnboarding] Attempt 1: Using service function');
+        console.log('[MentorOnboarding] 🎯 CRITICAL: Setting role to MENTOR in profile data:', mentorProfileData.role);
+        const { error: userError } = await supabaseService.updateUserProfile(user.id, mentorProfileData);
         
-        if (expertiseError) {
-          console.error('[MentorOnboarding] Expertise error:', expertiseError);
-          // Don't fail onboarding for this
+        if (!userError) {
+          console.log('[MentorOnboarding] ✅ User profile updated successfully with role: mentor');
+          profileSuccess = true;
+        } else {
+          console.warn('[MentorOnboarding] Service function failed:', userError);
+        }
+      } catch (serviceError) {
+        console.warn('[MentorOnboarding] Service function error:', serviceError);
+      }
+      
+      // FALLBACK 1: Direct database upsert if service failed
+      if (!profileSuccess) {
+        try {
+          console.log('[MentorOnboarding] Fallback 1: Direct upsert');
+          const { error: directError } = await supabase
+            .from('users')
+            .upsert({
+              id: user.id,
+              email: user.email,
+              ...mentorProfileData,
+              updated_at: new Date().toISOString(),
+            }, {
+              onConflict: 'id',
+              ignoreDuplicates: false
+            });
+          
+          if (!directError) {
+            console.log('[MentorOnboarding] ✅ Direct upsert successful');
+            profileSuccess = true;
+          } else {
+            console.warn('[MentorOnboarding] Direct upsert failed:', directError);
+          }
+        } catch (directError) {
+          console.warn('[MentorOnboarding] Direct upsert error:', directError);
         }
       }
-
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      handleStepChange(8); // Success screen
+      
+      // If profile creation still failed, it's a real error
+      if (!profileSuccess) {
+        throw new Error('Could not create user profile after multiple attempts');
+      }
+      
+      // ATTEMPT 2: Create mentor profile record (separate table) - SAVE ALL FORM DATA
+      try {
+        console.log('[MentorOnboarding] Creating mentor profile record with ALL form data');
+        const { error: mentorError } = await supabaseService.updateMentorProfile(user.id, {
+          availability_status: 'available',
+          verification_status: 'pending',
+          is_verified: false,
+          bio: formData.bio?.trim() || formData.motivation?.trim() || null,
+          session_formats_offered: formData.selectedFormats || [],
+          weekly_hour_commitment: formData.weeklyHours ? parseInt(formData.weeklyHours) : 3,
+          languages_spoken: formData.languages || 'English',
+          social_media_links: formData.socialMediaLinks || null,
+          experience_description: formData.motivation?.trim() || null,
+          profile_photo_url: formData.profilePhoto?.uri || null,
+          intro_video_url: formData.introVideo?.uri || null,
+          major: formData.major?.trim() || null,
+        });
+        
+        if (!mentorError) {
+          console.log('[MentorOnboarding] ✅ Mentor profile created');
+          mentorSuccess = true;
+        } else {
+          console.warn('[MentorOnboarding] Mentor profile creation failed:', mentorError);
+        }
+      } catch (mentorError) {
+        console.warn('[MentorOnboarding] Mentor profile error:', mentorError);
+      }
+      
+      // ATTEMPT 3: Create mentor expertise (non-critical)
+      if (formData.selectedTopics && formData.selectedTopics.length > 0) {
+        try {
+          console.log('[MentorOnboarding] Creating expertise records');
+          const { error: expertiseError } = await supabaseService.createMentorExpertise(
+            user.id,
+            formData.selectedTopics
+          );
+          
+          if (!expertiseError) {
+            console.log('[MentorOnboarding] ✅ Expertise created');
+            expertiseSuccess = true;
+          } else {
+            console.warn('[MentorOnboarding] Expertise creation failed:', expertiseError);
+          }
+        } catch (expertiseError) {
+          console.warn('[MentorOnboarding] Expertise error:', expertiseError);
+        }
+      }
+      
+      // Clear saved progress since onboarding completed
+      try {
+        await AsyncStorage.removeItem(`mentor_onboarding_progress_${user.id}`);
+        console.log('[MentorOnboarding] Progress data cleared');
+      } catch (cleanupError) {
+        console.warn('[MentorOnboarding] Could not clear progress:', cleanupError);
+      }
+      
+      // SUCCESS: If user profile was created (critical), proceed
+      if (profileSuccess) {
+        console.log('[MentorOnboarding] ✅ COMPLETION SUCCESSFUL', {
+          profile: profileSuccess,
+          mentor: mentorSuccess,
+          expertise: expertiseSuccess
+        });
+        
+        // Force reload user context to pick up new role
+        console.log('[MentorOnboarding] 🔄 Forcing user context refresh for role update');
+        
+        // CRITICAL: Force immediate role verification
+        setTimeout(async () => {
+          const { data: verifyProfile } = await supabaseService.getUserProfile(user.id);
+          console.log('[MentorOnboarding] 🔍 Role verification after completion:', verifyProfile?.role);
+        }, 1000);
+        
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        handleStepChange(8); // Success screen
+        return;
+      }
+      
+      // FAILURE: Critical profile creation failed
+      console.error('[MentorOnboarding] ❌ COMPLETION FAILED - Could not create user profile');
+      Alert.alert(
+        'Almost there!', 
+        'We saved most of your information. Please try completing your profile from the settings page.',
+        [
+          { text: 'Go to App', onPress: () => router.replace('/(tabs)/') },
+          { text: 'Try Again', style: 'cancel' }
+        ]
+      );
+      
     } catch (error) {
-      console.error('[MentorOnboarding] Unexpected error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      console.error('[MentorOnboarding] Unexpected completion error:', error);
+      Alert.alert(
+        'Connection Issue',
+        'Please check your internet connection and try again.',
+        [
+          { text: 'Go to App', onPress: () => router.replace('/(tabs)/') },
+          { text: 'Retry', style: 'cancel' }
+        ]
+      );
     } finally {
       setLoading(false);
     }
@@ -907,7 +1137,7 @@ export default function MentorOnboarding() {
       </Text>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>profile photo (optional)</Text>
+        <Text style={styles.inputLabel}>profile photo (required)</Text>
         <Text style={styles.inputSubtitle}>add a welcoming photo of yourself</Text>
         <TouchableOpacity style={styles.uploadButton} onPress={handleProfilePhotoUpload}>
           <LinearGradient
@@ -971,7 +1201,27 @@ export default function MentorOnboarding() {
       <View style={styles.actionButtons}>
         <TouchableOpacity 
           style={styles.continueButton} 
-          onPress={() => router.replace('/(tabs)/')}
+          onPress={async () => {
+            console.log('[MentorOnboarding] 🚀 Start Mentoring pressed - navigating with mentor role');
+            
+            try {
+              // Force switch to mentor mode to trigger context refresh
+              console.log('[MentorOnboarding] 🔄 Force switching to mentor mode');
+              await switchMode('mentor');
+              
+              // Small delay to ensure context and database sync
+              setTimeout(() => {
+                console.log('[MentorOnboarding] ➡️ Navigating to main app as mentor');
+                router.replace('/(tabs)/');
+              }, 1000);
+            } catch (error) {
+              console.warn('[MentorOnboarding] Could not switch mode, navigating anyway:', error);
+              // Fallback navigation even if mode switch fails
+              setTimeout(() => {
+                router.replace('/(tabs)/');
+              }, 500);
+            }
+          }}
         >
           <LinearGradient
             colors={['#FFFFFF', '#F8F9FA']}
@@ -991,6 +1241,7 @@ export default function MentorOnboarding() {
           <Text style={styles.secondaryButtonText}>share with friends</Text>
           <Ionicons name="share-outline" size={18} color="rgba(255,255,255,0.8)" />
         </TouchableOpacity>
+
       </View>
     </View>
   );
@@ -1010,6 +1261,50 @@ export default function MentorOnboarding() {
   };
 
   const stepInfo = getStepInfo();
+
+  // Show loading screen while checking access
+  if (accessLoading) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient colors={['#FF4DB8', '#8B5CF6']} style={styles.gradientBackground}>
+          <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color="#FFFFFF" />
+            <Text style={[styles.stepTitle, { textAlign: 'center', marginTop: 20 }]}>
+              verifying access...
+            </Text>
+          </View>
+        </LinearGradient>
+      </View>
+    );
+  }
+
+  // Show access denied screen if no approved application
+  if (accessDenied) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient colors={['#FF4DB8', '#8B5CF6']} style={styles.gradientBackground}>
+          <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
+            <Ionicons name="shield-checkmark-outline" size={64} color="#FFFFFF" style={{ marginBottom: 24 }} />
+            <Text style={[styles.stepTitle, { textAlign: 'center', marginBottom: 16 }]}>
+              access restricted
+            </Text>
+            <Text style={[styles.stepDescription, { textAlign: 'center', marginBottom: 32 }]}>
+              mentor onboarding requires an approved application
+            </Text>
+            <TouchableOpacity
+              style={styles.nextButton}
+              onPress={() => router.replace('/(tabs)/')}
+            >
+              <LinearGradient colors={['#FFFFFF', '#F8F9FA']} style={styles.nextGradient}>
+                <Text style={styles.nextButtonText}>back to app</Text>
+                <Ionicons name="arrow-forward" size={20} color="#FF4DB8" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

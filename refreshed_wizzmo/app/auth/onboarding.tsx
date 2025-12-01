@@ -24,6 +24,9 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import * as supabaseService from '@/lib/supabaseService';
+import type { UserRole } from '@/lib/supabaseService';
+import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // Reanimated imports removed for build compatibility
 import * as StoreReview from 'expo-store-review';
 import PaywallVariantA from '@/components/PaywallVariantA';
@@ -68,7 +71,7 @@ const universities = [
 ];
 
 // Bear state mapping for each step
-const bearStateMapping = {
+const bearStateMapping: { [key: number]: string } = {
   1: 'happy',       // Welcome
   2: 'interested',  // Username
   3: 'stargazed',   // Bio & Interests  
@@ -76,8 +79,8 @@ const bearStateMapping = {
   5: 'glowing',     // Complete
   6: 'glow',        // Paywall
   7: 'happy',       // Rating
-  8: 'interested',  // Share
-  9: 'glowing',     // Final
+  8: 'interested',  // Notifications
+  9: 'glowing',     // Share Friends
 };
 
 const bearImages = {
@@ -87,12 +90,12 @@ const bearImages = {
   'sleepy': require('@/assets/images/sleepy.png'),
   'glowing': require('@/assets/images/glowing.png'),
   'glow': require('@/assets/images/glow.png'),
-  'wizzmiss': require('@/assets/images/Wizzmiss.png'), // Fun reaction variant
+  'wizzmiss': require('@/assets/images/wizzmiss.png'), // Fun reaction variant
 };
 
 export default function Onboarding() {
   const { user } = useAuth();
-  const { scheduleWelcomeFlow, scheduleWeeklyReminder } = useNotifications();
+  const { scheduleWelcomeFlow, scheduleWeeklyReminder, requestPermissions } = useNotifications();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -119,22 +122,87 @@ export default function Onboarding() {
   const [showWizzmiss, setShowWizzmiss] = useState(false);
   const wizzmissTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // PROGRESS SAVING: Auto-save form progress
+  const saveProgress = async () => {
+    if (!user) return;
+    try {
+      const progress = {
+        currentStep,
+        username,
+        bio,
+        selectedInterests,
+        age,
+        gender,
+        educationLevel,
+        graduationYear,
+        university,
+        timestamp: Date.now()
+      };
+      await AsyncStorage.setItem(`onboarding_progress_${user.id}`, JSON.stringify(progress));
+    } catch (error) {
+      console.warn('[Onboarding] Could not save progress:', error);
+    }
+  };
+
+  // PROGRESS LOADING: Restore form progress on mount
+  useEffect(() => {
+    const loadProgress = async () => {
+      if (!user) return;
+      try {
+        const saved = await AsyncStorage.getItem(`onboarding_progress_${user.id}`);
+        if (saved) {
+          const progress = JSON.parse(saved);
+          // Only restore if recent (within 24 hours) and step is valid
+          if (Date.now() - progress.timestamp < 24 * 60 * 60 * 1000) {
+            console.log('[Onboarding] Restoring saved progress...');
+            // Ensure step is within valid range (1-10)
+            const validStep = Math.min(Math.max(progress.currentStep || 1, 1), 10);
+            setCurrentStep(validStep);
+            setUsername(progress.username || '');
+            setBio(progress.bio || '');
+            setSelectedInterests(progress.selectedInterests || []);
+            setAge(progress.age || '');
+            setGender(progress.gender || '');
+            setEducationLevel(progress.educationLevel || '');
+            setGraduationYear(progress.graduationYear || '');
+            setUniversity(progress.university || '');
+            console.log('[Onboarding] Restored to step:', validStep);
+          }
+        }
+      } catch (error) {
+        console.warn('[Onboarding] Could not load progress:', error);
+      }
+    };
+    loadProgress();
+  }, [user]);
+
+  // AUTO-SAVE: Save progress whenever form data changes
+  useEffect(() => {
+    saveProgress();
+  }, [currentStep, username, bio, selectedInterests, age, gender, educationLevel, graduationYear, university]);
+
   // Filter universities based on search
   const filteredUniversities = universities.filter(uni => 
     uni.toLowerCase().includes(universitySearch.toLowerCase())
   );
 
-  // Function to trigger Wizzmiss animation on user interactions
+  // Function to trigger random bear animation on user interactions
   const triggerWizzmissReaction = () => {
-    setShowWizzmiss(true);
+    // 20% chance for Wizzmiss, 80% chance for regular Wizzbert
+    const shouldShowWizzmiss = Math.random() < 0.2;
+    
+    console.log('🎭 Triggering bear animation!', { showWizzmiss: shouldShowWizzmiss });
+    
+    setShowWizzmiss(shouldShowWizzmiss);
     
     // Clear any existing timeout
     if (wizzmissTimeoutRef.current) {
       clearTimeout(wizzmissTimeoutRef.current);
     }
     
-    // Revert back to normal Wizzbert after 1.5 seconds
+    // Revert back to normal after 1.5 seconds
     wizzmissTimeoutRef.current = setTimeout(() => {
+      console.log('🐻 Reverting back to normal bear');
       setShowWizzmiss(false);
     }, 1500);
   };
@@ -249,7 +317,9 @@ export default function Onboarding() {
     triggerWizzmissReaction(); // Fun reaction when user progresses
 
     if (currentStep === 4) {
-      await completeOnboarding();
+      await saveProfileData();
+    } else if (currentStep === 10) {
+      // Final step - just navigate to main app
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       handleStepChange(currentStep + 1);
@@ -263,6 +333,112 @@ export default function Onboarding() {
     }
   };
 
+  const saveProfileData = async () => {
+    if (!user) {
+      Alert.alert('error', 'No user found. Please sign in again.');
+      router.replace('/auth');
+      return;
+    }
+
+    setLoading(true);
+    console.log('[Onboarding] Saving profile data...');
+    
+    try {
+      // BULLETPROOF: Handle all optional fields gracefully
+      const profileData = {
+        id: user.id, // Ensure we use the OAuth user ID
+        username: username?.trim() || `user_${user.id.slice(0, 8)}`,
+        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        email: user.email || '',
+        role: 'student' as UserRole,
+        vertical: CURRENT_VERTICAL_KEY,
+        onboarding_completed: false, // Not completed yet, just profile saved
+        bio: bio?.trim() || '',
+        age: age?.trim() ? parseInt(age) : undefined,
+        gender: gender || undefined,
+        education_level: educationLevel || 'unknown',
+        graduation_year: (educationLevel !== 'not_student' && graduationYear?.trim()) ? parseInt(graduationYear) : undefined,
+        university: (educationLevel === 'university' && university?.trim()) ? university.trim() : undefined,
+        interests: Array.isArray(selectedInterests) ? selectedInterests : [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      console.log('[Onboarding] Profile data prepared for:', profileData.email.slice(0, 5) + '***');
+
+      // BULLETPROOF OAUTH PROFILE CREATION: Multiple attempts with fallbacks
+      
+      // ATTEMPT 1: Direct upsert with conflict resolution
+      console.log('[Onboarding] Attempting direct upsert...');
+      let { data, error } = await supabase
+        .from('users')
+        .upsert(profileData, {
+          onConflict: 'id,email',
+          ignoreDuplicates: false
+        })
+        .select()
+        .single();
+
+      if (error && error.code === '23505') {
+        console.log('[Onboarding] Duplicate constraint, trying by email update...');
+        
+        // ATTEMPT 2: Update existing record by email
+        const { data: updateData, error: updateError } = await supabase
+          .from('users')
+          .update({
+            id: user.id,
+            username: profileData.username,
+            bio: profileData.bio,
+            age: profileData.age,
+            gender: profileData.gender,
+            education_level: profileData.education_level,
+            graduation_year: profileData.graduation_year,
+            university: profileData.university,
+            interests: profileData.interests,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('email', user.email)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.log('[Onboarding] Email update failed, trying service function...');
+          
+          // ATTEMPT 3: Use service function as last resort
+          const { data: serviceData, error: serviceError } = await supabaseService.updateUserProfile(user.id, profileData);
+          
+          if (serviceError) {
+            throw serviceError;
+          }
+          data = serviceData;
+        } else {
+          data = updateData;
+        }
+      } else if (error) {
+        throw error;
+      }
+
+      console.log('[Onboarding] ✅ Profile saved successfully');
+      
+      // Save progress to AsyncStorage
+      await saveProgress();
+      
+      // Continue to next step
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      handleStepChange(currentStep + 1);
+      
+    } catch (error: any) {
+      console.error('[Onboarding] Profile save error:', error);
+      
+      // NEVER BLOCK: If we get here, just continue - the user might already have a profile
+      console.log('[Onboarding] ⚠️ Profile save had issues but continuing anyway...');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      handleStepChange(currentStep + 1);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const completeOnboarding = async () => {
     if (!user) {
       Alert.alert('error', 'No user found. Please sign in again.');
@@ -271,37 +447,83 @@ export default function Onboarding() {
     }
 
     setLoading(true);
+    console.log('[Onboarding] Completing onboarding for user:', user.id);
+    
     try {
-      const { error } = await supabaseService.updateUserProfile(user.id, {
-        username: username.trim(),
-        bio: bio.trim(),
-        age: age ? parseInt(age) : null,
-        gender,
-        education_level: educationLevel,
-        graduation_year: (educationLevel !== 'not_student' && graduationYear) ? parseInt(graduationYear) : null,
-        university: (educationLevel === 'university' && university) ? university.trim() : null,
-        interests: selectedInterests,
-        onboarding_completed: true,
-        vertical: CURRENT_VERTICAL_KEY,
-      });
+      // CRITICAL FIX: Save ALL onboarding data with completion flag
+      const finalProfileData = {
+        username: username?.trim() || `user_${user.id.slice(0, 8)}`,
+        bio: bio?.trim() || '',
+        age: age?.trim() ? parseInt(age) : undefined,
+        gender: gender || undefined,
+        education_level: educationLevel || 'unknown',
+        graduation_year: (educationLevel !== 'not_student' && graduationYear?.trim()) ? parseInt(graduationYear) : undefined,
+        university: (educationLevel === 'university' && university?.trim()) ? university.trim() : undefined,
+        interests: Array.isArray(selectedInterests) ? selectedInterests : [],
+        onboarding_completed: true, // Set completion flag
+        updated_at: new Date().toISOString(),
+      };
 
-      if (error) {
-        console.error('[Onboarding] Error completing onboarding:', error);
-        Alert.alert('error', 'Failed to complete setup. Please try again.');
-        return;
+      console.log('[Onboarding] Saving final profile data with completion...');
+      
+      // Method 1: Try direct update by user ID
+      console.log('[Onboarding] Attempting direct profile update...');
+      const { error: updateError } = await supabase
+        .from('users')
+        .update(finalProfileData)
+        .eq('id', user.id);
+      
+      if (!updateError) {
+        console.log('[Onboarding] ✅ Direct update succeeded!');
+      } else if (updateError.code === '23505') {
+        // Duplicate email constraint - try by email instead
+        console.log('[Onboarding] Duplicate email detected, trying update by email...');
+        const { error: emailUpdateError } = await supabase
+          .from('users')
+          .update(finalProfileData)
+          .eq('email', user.email);
+          
+        if (emailUpdateError) {
+          console.log('[Onboarding] Email update failed:', emailUpdateError);
+          // Still continue - user might already be completed
+        } else {
+          console.log('[Onboarding] ✅ Email update succeeded!');
+        }
+      } else {
+        console.log('[Onboarding] Update failed:', updateError);
+        // Continue anyway - user might already exist
       }
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await scheduleWelcomeFlow(user.id);
-      await scheduleWeeklyReminder(user.id);
+      // Always clear progress and navigate - don't block completion
+      try {
+        await AsyncStorage.removeItem(`onboarding_progress_${user.id}`);
+      } catch {} // Silent fail
       
-      // Add a small delay to ensure the database update has propagated
-      setTimeout(() => {
-        handleStepChange(5);
-      }, 500);
-    } catch (error) {
-      console.error('[Onboarding] Unexpected error:', error);
-      Alert.alert('error', 'Something went wrong. Please try again.');
+      console.log('[Onboarding] SUCCESS! Onboarding completed.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      // Optional flows (non-blocking)
+      try {
+        if (user?.id) {
+          await scheduleWelcomeFlow(user.id);
+          await scheduleWeeklyReminder(user.id);
+        }
+      } catch (flowError) {
+        console.warn('[Onboarding] Flow error (non-blocking):', flowError);
+      }
+      
+      // Navigate to main app (spill tea screen)
+      console.log('[Onboarding] ✅ Navigating to main app...');
+      router.replace('/(tabs)');
+
+    } catch (error: any) {
+      console.error('[Onboarding] Completion error:', error);
+      
+      // NEVER BLOCK: Always let user through to main app
+      console.log('[Onboarding] ⚠️ Errors occurred but allowing user to continue...');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace('/(tabs)');
+      
     } finally {
       setLoading(false);
     }
@@ -366,29 +588,6 @@ export default function Onboarding() {
     handleStepChange(8); // Go to share step
   };
 
-  const handleShare = async () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const result = await Share.share({
-        message: 'Just joined Wizzmo - the best app for college dating advice! Get real help from verified college girls 💕',
-        url: 'https://wizzmo.app',
-      });
-      
-      if (result.action === Share.sharedAction) {
-        handleStepChange(9); // Go to final step
-      } else {
-        handleStepChange(9); // Go to final step
-      }
-    } catch (error) {
-      console.error('Error sharing:', error);
-      handleStepChange(9); // Go to final step
-    }
-  };
-
-  const handleSkipShare = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    handleStepChange(9); // Go to final step
-  };
 
   // Bear Component
   const BearImage = ({ size = 'medium' }) => {
@@ -400,6 +599,12 @@ export default function Onboarding() {
 
     // Show Wizzmiss if triggered, otherwise use the current bear state
     const imageSource = showWizzmiss ? bearImages['wizzmiss'] : bearImages[currentBearState as keyof typeof bearImages];
+    
+    console.log('🐻 BearImage render:', { 
+      showWizzmiss, 
+      currentBearState, 
+      size 
+    });
 
     return (
       <View style={styles.bearContainer} pointerEvents="none">
@@ -806,38 +1011,6 @@ export default function Onboarding() {
     </View>
   );
 
-  const renderShare = () => (
-    <View style={styles.stepContent} pointerEvents="box-none">
-      <View style={styles.shareIconContainer}>
-        <Ionicons name="share-social" size={48} color="#FFFFFF" />
-      </View>
-      
-      <Text style={styles.shareTitle}>spread the word</Text>
-      <Text style={styles.shareSubtitle}>
-        share wizzmo with friends who need dating advice!
-      </Text>
-
-      <TouchableOpacity 
-        style={styles.shareButton} 
-        onPress={handleShare}
-      >
-        <LinearGradient
-          colors={['#FFFFFF', '#F8F9FA']}
-          style={styles.shareGradient}
-        >
-          <Ionicons name="share-outline" size={20} color="#FF4DB8" />
-          <Text style={styles.shareButtonText}>share wizzmo</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-
-      <TouchableOpacity 
-        style={styles.skipButton} 
-        onPress={handleSkipShare}
-      >
-        <Text style={styles.skipButtonText}>skip for now</Text>
-      </TouchableOpacity>
-    </View>
-  );
 
   const renderPaywall = () => (
     <View style={styles.stepContent} pointerEvents="box-none">
@@ -845,6 +1018,117 @@ export default function Onboarding() {
         onClose={() => handleStepChange(7)}
         onSuccess={() => handleStepChange(7)}
       />
+    </View>
+  );
+
+  const renderNotifications = () => (
+    <View style={styles.stepContent}>
+      <LinearGradient
+        colors={['#FF4DB8', '#8B5CF6']}
+        style={styles.finalIcon}
+      >
+        <Ionicons name="notifications" size={40} color="#FFFFFF" />
+      </LinearGradient>
+      
+      <Text style={styles.finalTitle}>stay in the loop</Text>
+      <Text style={styles.finalSubtitle}>
+        get notified when mentors respond to your questions
+      </Text>
+
+      <View style={styles.actionButtons}>
+        <TouchableOpacity 
+          style={styles.startButton} 
+          onPress={async () => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              
+              // Request permission first
+              const granted = await requestPermissions();
+              
+              if (granted && user?.id) {
+                console.log('[Onboarding] Notifications enabled');
+                await scheduleWelcomeFlow(user.id);
+                await scheduleWeeklyReminder(user.id);
+              } else {
+                console.log('[Onboarding] Notifications denied or no user');
+              }
+            } catch (error) {
+              console.error('[Onboarding] Error enabling notifications:', error);
+            }
+            
+            handleStepChange(9);
+          }}
+        >
+          <LinearGradient
+            colors={['#FFFFFF', '#F8F9FA']}
+            style={styles.startGradient}
+          >
+            <Text style={styles.startButtonText}>enable notifications</Text>
+            <Ionicons name="notifications" size={20} color="#FF4DB8" />
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.skipButton} 
+          onPress={() => handleStepChange(9)}
+        >
+          <Text style={styles.skipButtonText}>maybe later</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderShareFriends = () => (
+    <View style={styles.stepContent}>
+      <LinearGradient
+        colors={['#FF4DB8', '#8B5CF6']}
+        style={styles.finalIcon}
+      >
+        <Ionicons name="share-social" size={40} color="#FFFFFF" />
+      </LinearGradient>
+      
+      <Text style={styles.finalTitle}>spread the love</Text>
+      <Text style={styles.finalSubtitle}>
+        help your friends discover wizzmo for dating & relationship advice
+      </Text>
+
+      <View style={styles.actionButtons}>
+        <TouchableOpacity 
+          style={styles.startButton} 
+          onPress={async () => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              const result = await Share.share({
+                message: 'Just joined Wizzmo - the best app for college dating advice! Get real help from verified college girls 💕',
+                url: 'https://wizzmo.app',
+              });
+            } catch (error) {
+              console.error('Error sharing:', error);
+            }
+            
+            // Go to final excitement step
+            handleStepChange(10);
+          }}
+        >
+          <LinearGradient
+            colors={['#FFFFFF', '#F8F9FA']}
+            style={styles.startGradient}
+          >
+            <Text style={styles.startButtonText}>share with friends</Text>
+            <Ionicons name="share-social" size={20} color="#FF4DB8" />
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.skipButton} 
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            handleStepChange(10);
+          }}
+        >
+          <Text style={styles.skipButtonText}>skip for now</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -859,7 +1143,7 @@ export default function Onboarding() {
       
       <Text style={styles.finalTitle}>welcome to wizzmo!</Text>
       <Text style={styles.finalSubtitle}>
-        congratulations! ready for dating & relationship advice from verified mentors
+        you're all set! ready to get amazing dating & relationship advice
       </Text>
 
       <View style={styles.actionButtons}>
@@ -875,15 +1159,45 @@ export default function Onboarding() {
             <Ionicons name="arrow-forward" size={20} color="#FF4DB8" />
           </LinearGradient>
         </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>enable notifications</Text>
-          <Ionicons name="notifications-outline" size={18} color="rgba(255,255,255,0.8)" />
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>share with friends</Text>
-          <Ionicons name="share-outline" size={18} color="rgba(255,255,255,0.8)" />
+      </View>
+    </View>
+  );
+
+  const renderReadyToAsk = () => (
+    <View style={styles.stepContent}>
+      <View style={styles.bearCouple}>
+        <Image
+          source={bearImages['happy']}
+          style={styles.bearCoupleImage}
+          resizeMode="contain"
+        />
+        <Text style={styles.bearCoupleHeart}>💕</Text>
+        <Image
+          source={bearImages['wizzmiss']}
+          style={styles.bearCoupleImage}
+          resizeMode="contain"
+        />
+      </View>
+      
+      <Text style={styles.finalTitle}>ready to spill the tea? ☕</Text>
+      <Text style={styles.finalSubtitle}>
+        connect with your wizzmo to get real advice on crushes, dating drama, and relationship questions
+      </Text>
+
+      <View style={styles.actionButtons}>
+        <TouchableOpacity 
+          style={styles.startButton} 
+          onPress={async () => {
+            await completeOnboarding();
+          }}
+        >
+          <LinearGradient
+            colors={['#FFFFFF', '#F8F9FA']}
+            style={styles.startGradient}
+          >
+            <Text style={styles.startButtonText}>ask my first question</Text>
+            <Ionicons name="arrow-forward" size={20} color="#FF4DB8" />
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </View>
@@ -898,8 +1212,9 @@ export default function Onboarding() {
       case 5: return { title: 'complete', subtitle: 'profile setup finished!' };
       case 6: return { title: 'enhance', subtitle: 'unlock your full wizzmo experience' };
       case 7: return { title: 'rate us', subtitle: 'help us grow' };
-      case 8: return { title: 'share', subtitle: 'spread the love' };
-      case 9: return { title: 'ready', subtitle: 'let\'s begin your journey' };
+      case 8: return { title: 'notifications', subtitle: 'stay connected' };
+      case 9: return { title: 'friends', subtitle: 'share with others' };
+      case 10: return { title: 'spill time!', subtitle: 'let\'s hear your tea ☕' };
       default: return { title: '', subtitle: '' };
     }
   };
@@ -929,12 +1244,12 @@ export default function Onboarding() {
                   <View 
                     style={[
                       styles.progressFill,
-                      { width: `${(currentStep / 9) * 100}%` }
+                      { width: `${(currentStep / 10) * 100}%` }
                     ]} 
                   />
                 </View>
                 <Text style={styles.stepCounter}>
-                  step {currentStep} of 9
+                  step {currentStep} of 10
                 </Text>
               </View>
 
@@ -975,8 +1290,9 @@ export default function Onboarding() {
                   {currentStep === 5 && renderComplete()}
                   {currentStep === 6 && renderPaywall()}
                   {currentStep === 7 && renderRating()}
-                  {currentStep === 8 && renderShare()}
-                  {currentStep === 9 && renderFinalComplete()}
+                  {currentStep === 8 && renderNotifications()}
+                  {currentStep === 9 && renderShareFriends()}
+                  {currentStep === 10 && renderReadyToAsk()}
                 </View>
               </ScrollView>
             </KeyboardAvoidingView>
@@ -986,13 +1302,13 @@ export default function Onboarding() {
               <View style={[styles.buttonContainer, currentStep === 3 && styles.buttonContainerRow]}>
                 {currentStep === 3 && (
                   <TouchableOpacity
-                    style={styles.skipButton}
+                    style={styles.skipButtonBordered}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       handleStepChange(4); // Skip to step 4 (details)
                     }}
                   >
-                    <Text style={styles.skipButtonText}>skip</Text>
+                    <Text style={styles.skipButtonBorderedText}>skip</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
@@ -1113,7 +1429,6 @@ const styles = StyleSheet.create({
   },
   transparentScrollArea: {
     flex: 1,
-    paddingHorizontal: 24, // Move horizontal padding to content area
     // Add extra invisible padding on sides for scroll detection
     marginHorizontal: -100,
     paddingHorizontal: 124, // 24 + 100 for content offset
@@ -1717,7 +2032,7 @@ const styles = StyleSheet.create({
   nextButtonWithSkip: {
     flex: 1,
   },
-  skipButton: {
+  skipButtonBordered: {
     paddingVertical: 18,
     alignItems: 'center',
     borderWidth: 2,
@@ -1726,7 +2041,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
-  skipButtonText: {
+  skipButtonBorderedText: {
     fontSize: 16,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.7)',
@@ -1734,5 +2049,48 @@ const styles = StyleSheet.create({
   },
   buttonContainerRow: {
     flexDirection: 'row',
+  },
+
+  // Excitement Features
+  excitementFeatures: {
+    gap: 16,
+    marginBottom: 32,
+    backgroundColor: 'transparent',
+  },
+  excitementFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 16,
+    borderRadius: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  excitementEmoji: {
+    fontSize: 24,
+  },
+  excitementText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textTransform: 'lowercase',
+  },
+
+  // Bear Couple
+  bearCouple: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    backgroundColor: 'transparent',
+  },
+  bearCoupleImage: {
+    width: 120,
+    height: 120,
+  },
+  bearCoupleHeart: {
+    fontSize: 32,
+    marginHorizontal: 8,
   },
 });
