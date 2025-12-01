@@ -31,11 +31,6 @@ export default function OAuthSignIn() {
   const [loading, setLoading] = useState<string | null>(null);
   const [hasNavigated, setHasNavigated] = useState(false);
 
-  // Demo mode credentials
-  const DEMO_CREDENTIALS = {
-    email: 'demo@wizzmo.app',
-    password: 'demo123456'
-  };
   
   // Animation values
   const logoScale = useRef(new Animated.Value(1)).current;
@@ -141,46 +136,6 @@ export default function OAuthSignIn() {
     }
   };
 
-  const handleDemoSignIn = async () => {
-    if (loading) return;
-
-    setLoading('demo');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    try {
-      console.log('[OAuthSignIn] Starting demo sign-in');
-      
-      // Ensure we start with a clean auth state
-      await supabase.auth.signOut({ scope: 'local' });
-      
-      // Sign in with demo credentials
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: DEMO_CREDENTIALS.email,
-        password: DEMO_CREDENTIALS.password,
-      });
-
-      if (error) {
-        console.error('[OAuthSignIn] Demo sign-in error:', error);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert('Demo sign in failed', 'Unable to access demo account. Please try OAuth instead.');
-        return;
-      }
-
-      if (data?.user) {
-        console.log('[OAuthSignIn] Demo sign-in successful');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        
-        // Navigate directly to app since demo account is pre-configured
-        router.replace('/(tabs)/');
-      }
-    } catch (error) {
-      console.error('[OAuthSignIn] Demo sign-in error:', error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Demo error', 'Something went wrong with demo mode. Please try OAuth instead.');
-    } finally {
-      setLoading(null);
-    }
-  };
 
   const checkOnboardingStatus = async (userId: string) => {
     if (hasNavigated) return; // Prevent double navigation
@@ -374,30 +329,6 @@ export default function OAuthSignIn() {
                 { provider: 'google', label: 'Continue with Google' }
               ].map(renderOAuthButton)}
               
-              {/* Demo Mode Button */}
-              <TouchableOpacity
-                style={[
-                  styles.oauthButton,
-                  styles.demoButton,
-                  {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                    opacity: loading && loading !== 'demo' ? 0.5 : 1,
-                  }
-                ]}
-                onPress={handleDemoSignIn}
-                disabled={loading !== null}
-                activeOpacity={0.8}
-              >
-                {loading === 'demo' ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Ionicons name="play-circle-outline" size={20} color="#FFFFFF" />
-                )}
-                <Text style={[styles.oauthButtonText, { color: '#FFFFFF' }]}>
-                  {loading === 'demo' ? 'signing in...' : 'Demo Mode (Screenshots)'}
-                </Text>
-              </TouchableOpacity>
             </View>
 
             {/* Info Text */}
@@ -493,9 +424,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: -0.2,
-  },
-  demoButton: {
-    marginTop: 8,
   },
   infoContainer: {
     justifyContent: 'center',
