@@ -345,7 +345,17 @@ function RootLayoutNav() {
       return;
     }
 
-    // Add small delay to prevent rapid-fire during app reload
+    // CRITICAL: For unauthenticated users, navigate immediately without delay
+    if (!user && !loading) {
+      console.log('[RootLayout] 🚫 NO USER - IMMEDIATE NAVIGATION TO AUTH');
+      if (segments[0] !== 'auth') {
+        console.log('[RootLayout] 🔄 Emergency redirect to /auth for unauthenticated user');
+        router.replace('/auth');
+      }
+      return;
+    }
+
+    // Add small delay only for authenticated users to prevent rapid-fire during app reload
     const navigationTimeout = setTimeout(() => {
       console.log('[RootLayout] === NAVIGATION DEBUG ===');
       console.log('[RootLayout] Current segments:', segments);
@@ -377,13 +387,16 @@ function RootLayoutNav() {
     });
 
     const handleNavigation = async () => {
+      // CRITICAL: Unauthenticated users MUST go directly to auth - NO other checks
       if (!user) {
-        // No user - go to auth
+        console.log('[RootLayout] 🚫 NO USER - FORCING IMMEDIATE AUTH REDIRECT');
         if (!inAuthGroup) {
+          console.log('[RootLayout] 🔄 Redirecting unauthenticated user to /auth');
           safeNavigate('/auth', 'user logged out');
         } else {
-          console.log('[RootLayout] ✅ User already in auth group, skipping navigation');
+          console.log('[RootLayout] ✅ User already in auth group, staying in auth');
         }
+        return; // CRITICAL: Stop all processing for unauthenticated users
       } else {
         // User exists - check onboarding
         try {
@@ -398,38 +411,22 @@ function RootLayoutNav() {
             if (profileError) {
               console.error('❌ [RootLayout] Profile fetch error:', profileError);
               
-              // Check if this is a "no rows" error (user hasn't completed onboarding)
+              // Check if this is a "no rows" error (new user - normal case)
               if (profileError.code === 'PGRST116') {
-                console.log('🚨 [RootLayout] CRITICAL: Auth user exists but no profile found (PGRST116)');
-                console.log('🚨 [RootLayout] User ID:', user.id);
-                console.log('🚨 [RootLayout] User Email:', user.email);
+                console.log('🆕 [RootLayout] NEW USER: Auth user exists but no profile found');
+                console.log('🆕 [RootLayout] This is normal for new users - directing to onboarding');
+                console.log('🆕 [RootLayout] User ID:', user.id);
+                console.log('🆕 [RootLayout] User Email:', user.email);
                 
-                // Try to create missing OAuth profile as emergency fallback
-                try {
-                  console.log('🔄 [RootLayout] Attempting emergency profile creation...');
-                  const { data: createdProfile, error: createError } = await supabaseService.createOAuthUserProfile(
-                    user.id,
-                    user.email || '',
-                    user.user_metadata?.full_name || '',
-                    user.user_metadata?.avatar_url || ''
-                  );
-                  
-                  if (createError) {
-                    console.error('❌ [RootLayout] Emergency profile creation failed:', createError);
-                  } else if (createdProfile) {
-                    console.log('✅ [RootLayout] Emergency profile created successfully - refreshing navigation');
-                    // Refresh and try navigation again
-                    router.replace('/auth');
-                    return;
-                  }
-                } catch (emergencyError) {
-                  console.error('💥 [RootLayout] Emergency profile creation exception:', emergencyError);
-                }
-                
-                console.log('📋 [RootLayout] Profile creation failed, redirecting to auth');
-                // Only navigate to onboarding if we're not already in auth flow
-                if (!inAuthGroup) {
-                  safeNavigate('/auth', 'user needs profile creation');
+                // NEW USER FLOW: Go directly to onboarding (not emergency creation)
+                if (!inOnboarding && !inAuthGroup) {
+                  console.log('🔄 [RootLayout] New user → Redirecting to onboarding');
+                  safeNavigate('/auth/onboarding', 'new user needs onboarding');
+                } else if (inAuthGroup && !inOnboarding) {
+                  console.log('🔄 [RootLayout] New user in auth group → Redirecting to onboarding');
+                  safeNavigate('/auth/onboarding', 'new user needs onboarding');
+                } else {
+                  console.log('✅ [RootLayout] New user already in onboarding flow');
                 }
               } else {
                 // Other database error - go to auth as fallback
@@ -451,37 +448,21 @@ function RootLayoutNav() {
             return;
           }
           
-          // Handle new user case (no profile exists yet) - try to create profile first
+          // Handle new user case (no profile exists yet) - this should be rare since we handle PGRST116 above
           if (!userProfile) {
-            console.log('🚨 [RootLayout] CRITICAL: Auth user exists but no profile found');
-            console.log('🚨 [RootLayout] User ID:', user.id);
-            console.log('🚨 [RootLayout] User Email:', user.email);
+            console.log('🆕 [RootLayout] No profile found after error handling - directing to onboarding');
+            console.log('🆕 [RootLayout] User ID:', user.id);
+            console.log('🆕 [RootLayout] User Email:', user.email);
             
-            // Try to create missing OAuth profile as emergency fallback
-            try {
-              console.log('🔄 [RootLayout] Attempting emergency profile creation...');
-              const { data: createdProfile, error: createError } = await supabaseService.createOAuthUserProfile(
-                user.id,
-                user.email || '',
-                user.user_metadata?.full_name || '',
-                user.user_metadata?.avatar_url || ''
-              );
-              
-              if (createError) {
-                console.error('❌ [RootLayout] Emergency profile creation failed:', createError);
-              } else if (createdProfile) {
-                console.log('✅ [RootLayout] Emergency profile created successfully');
-                // Refresh and try navigation again
-                router.replace('/auth');
-                return;
-              }
-            } catch (emergencyError) {
-              console.error('💥 [RootLayout] Emergency profile creation exception:', emergencyError);
-            }
-            
-            console.log('📋 [RootLayout] No profile exists, redirecting to auth');
-            if (!inAuthGroup) {
-              safeNavigate('/auth', 'user needs profile creation');
+            // Direct new users to onboarding (normal flow)
+            if (!inOnboarding && !inAuthGroup) {
+              console.log('🔄 [RootLayout] No profile user → Redirecting to onboarding');
+              safeNavigate('/auth/onboarding', 'no profile user needs onboarding');
+            } else if (inAuthGroup && !inOnboarding) {
+              console.log('🔄 [RootLayout] No profile user in auth → Redirecting to onboarding');
+              safeNavigate('/auth/onboarding', 'no profile user needs onboarding');
+            } else {
+              console.log('✅ [RootLayout] No profile user already in onboarding flow');
             }
             return;
           }

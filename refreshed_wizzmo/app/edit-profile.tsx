@@ -164,13 +164,13 @@ export default function EditProfileScreen() {
         setBio(profile.bio || '');
         setUniversity(profile.university || '');
         setGraduationYear(profile.graduation_year?.toString() || '');
-        setMajor(profile.major || '');
         setUserRole(profile.role || 'student');
 
         // If user is a mentor, fetch mentor-specific data
         if (profile.role === 'mentor' || profile.role === 'both') {
           if (profile.mentor_profile) {
             setAvailabilityStatus(profile.mentor_profile.availability_status || 'available');
+            setMajor(profile.mentor_profile.major || '');
           }
 
           // Fetch all categories
@@ -194,6 +194,9 @@ export default function EditProfileScreen() {
               setSelectedCategories(expertiseData.map(e => e.category_id));
             }
           }
+        } else {
+          // For students, clear the major field since they don't have mentor_profile
+          setMajor('');
         }
       }
     } catch (error) {
@@ -258,54 +261,38 @@ export default function EditProfileScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      // Update user profile using proper service function
-      const profileUpdates: any = {
+      // Update user profile using service function - always include fields being edited
+      const profileUpdates = {
         full_name: fullName.trim(),
-        username: newUsername,
-        bio: bio.trim() || undefined,
-        university: university.trim() || undefined,
+        username: newUsername.trim(), 
+        bio: bio.trim() || null,
+        university: university.trim() || null,
         graduation_year: graduationYear ? parseInt(graduationYear) : null,
       };
 
-      // Update profile with all fields including major using direct supabase call
-      // This ensures all fields are updated atomically and handles any constraint issues
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          ...profileUpdates,
-          major: major.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', authUser.id);
+      console.log('[EditProfile] Updating user profile with data:', profileUpdates);
+
+      const { error: updateError } = await supabaseService.updateUserProfile(authUser.id, profileUpdates);
 
       if (updateError) {
-        console.error('[EditProfile] Error updating profile:', updateError);
-        
-        // If constraint error, try using the bulletproof service function
-        if (updateError.code === '23505') {
-          console.log('[EditProfile] Constraint error, using service function fallback');
-          const { error: serviceError } = await supabaseService.updateUserProfile(authUser.id, {
-            ...profileUpdates,
-          });
-          
-          if (serviceError) {
-            console.error('[EditProfile] Service function also failed:', serviceError);
-            Alert.alert('error', 'failed to update profile. please try again.');
-            return;
-          }
-        } else {
-          Alert.alert('error', 'failed to update profile. please try again.');
-          return;
-        }
+        console.error('[EditProfile] Error updating user profile:', updateError);
+        Alert.alert('error', 'failed to update profile. please try again.');
+        return;
       }
 
-      // If mentor, update mentor-specific fields
+      console.log('[EditProfile] ✅ User profile updated successfully');
+
+      // If mentor, update mentor-specific fields including major
       if (userRole === 'mentor' || userRole === 'both') {
-        console.log('[EditProfile] Updating mentor profile for availability:', availabilityStatus);
+        console.log('[EditProfile] Updating mentor profile for availability and major:', {
+          availability_status: availabilityStatus,
+          major: major.trim() || null
+        });
         
         // Update mentor profile using proper service function
         const { error: mentorError } = await supabaseService.updateMentorProfile(authUser.id, {
           availability_status: availabilityStatus,
+          major: major.trim() || null,
         });
 
         if (mentorError) {
@@ -551,22 +538,24 @@ export default function EditProfileScreen() {
             />
           </View>
 
-          {/* Major */}
-          <View style={styles.fieldGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>major</Text>
-            <TextInput
-              style={[styles.input, {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
-                color: colors.text
-              }]}
-              value={major}
-              onChangeText={setMajor}
-              placeholder="Computer Science"
-              placeholderTextColor={colors.textTertiary}
-              autoCapitalize="words"
-            />
-          </View>
+          {/* Major - Only for mentors */}
+          {(userRole === 'mentor' || userRole === 'both') && (
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.label, { color: colors.text }]}>major</Text>
+              <TextInput
+                style={[styles.input, {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                  color: colors.text
+                }]}
+                value={major}
+                onChangeText={setMajor}
+                placeholder="Computer Science"
+                placeholderTextColor={colors.textTertiary}
+                autoCapitalize="words"
+              />
+            </View>
+          )}
 
           {/* Role/Mentor Interest Section */}
           <View style={[styles.divider, { borderTopColor: colors.border }]}>

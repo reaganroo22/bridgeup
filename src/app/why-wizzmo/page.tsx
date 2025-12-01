@@ -84,7 +84,7 @@ export default function WhyWizzmoPage() {
               className="block"
             >
               <Image 
-                src="/app-store-badge.svg" 
+                src="/app store.png" 
                 alt="Download on App Store" 
                 width={200} 
                 height={60} 
@@ -99,7 +99,7 @@ export default function WhyWizzmoPage() {
               className="block"
             >
               <Image 
-                src="/google-play-badge.svg" 
+                src="/google play.png" 
                 alt="Get it on Google Play" 
                 width={200} 
                 height={60} 

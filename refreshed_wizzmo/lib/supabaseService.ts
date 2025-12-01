@@ -53,6 +53,7 @@ export interface MentorProfile {
   average_rating: number
   total_helpful_votes: number
   response_time_avg: number | null
+  major: string | null
   created_at: string
   updated_at: string
 }
@@ -271,32 +272,43 @@ export async function updateUserProfile(
   try {
     console.log('[updateUserProfile] Updating user:', userId, updates)
 
-    // BULLETPROOF APPROACH: Use upsert with ID conflict resolution
-    const { data: upsertData, error: upsertError } = await supabase
+    // SAFE APPROACH: Only update provided fields, don't overwrite with empty values
+    const updateData: any = {
+      updated_at: new Date().toISOString(),
+    };
+
+    // Only include fields that are actually provided
+    if (updates.full_name !== undefined) updateData.full_name = updates.full_name;
+    if (updates.username !== undefined) updateData.username = updates.username;
+    if (updates.bio !== undefined) updateData.bio = updates.bio;
+    if (updates.avatar_url !== undefined) updateData.avatar_url = updates.avatar_url;
+    if (updates.university !== undefined) updateData.university = updates.university;
+    if (updates.graduation_year !== undefined) updateData.graduation_year = updates.graduation_year;
+    if (updates.education_level !== undefined) updateData.education_level = updates.education_level;
+    if (updates.age !== undefined) updateData.age = updates.age;
+    if (updates.gender !== undefined) updateData.gender = updates.gender;
+    if (updates.interests !== undefined) updateData.interests = updates.interests;
+    if (updates.onboarding_completed !== undefined) updateData.onboarding_completed = updates.onboarding_completed;
+    if (updates.vertical !== undefined) updateData.vertical = updates.vertical;
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.role !== undefined) updateData.role = updates.role;
+
+    console.log('[updateUserProfile] Actual update data being sent:', updateData);
+
+    const { data: updateResult, error: updateError } = await supabase
       .from('users')
-      .upsert({
-        id: userId,
-        email: updates.email || '',
-        full_name: updates.full_name || '',
-        username: updates.username || '',
-        role: updates.role || 'student', // Use provided role or default to student
-        vertical: updates.vertical || CURRENT_VERTICAL_KEY,
-        ...updates,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'id', // Use ID as primary conflict resolution
-        ignoreDuplicates: false
-      })
+      .update(updateData)
+      .eq('id', userId)
       .select()
       .single()
 
-    if (!upsertError && upsertData) {
-      console.log('[updateUserProfile] Profile upserted successfully')
-      return { data: upsertData, error: null }
+    if (!updateError && updateResult) {
+      console.log('[updateUserProfile] Profile updated successfully')
+      return { data: updateResult, error: null }
     }
 
     // If there's still an email constraint issue, handle it
-    if (upsertError?.code === '23505') {
+    if (updateError?.code === '23505') {
       console.log('[updateUserProfile] Email constraint violation, using RPC function as fallback')
       
       if (updates.email) {
@@ -375,7 +387,7 @@ export async function updateUserProfile(
     }
 
     // Last resort error
-    throw upsertError || new Error('Profile update failed for unknown reason')
+    throw updateError || new Error('Profile update failed for unknown reason')
     
   } catch (error) {
     console.error('[updateUserProfile] Error:', error)
@@ -3787,12 +3799,24 @@ export async function getMentorApplicationByEmail(email: string): Promise<Servic
       return { data: null, error: null }
     }
 
+    // Get mentor profile if user is a mentor to get major field
+    let major = '';
+    if (userData.role === 'mentor' || userData.role === 'both') {
+      const { data: mentorProfile } = await supabase
+        .from('mentor_profiles')
+        .select('major')
+        .eq('user_id', userData.id)
+        .single();
+      
+      major = mentorProfile?.major || '';
+    }
+
     // Transform user data into application format for pre-population
     const applicationData = {
       full_name: userData.full_name,
       university: userData.university,
       graduation_year: userData.graduation_year,
-      major: userData.major,
+      major: major,
       motivation: userData.bio, // Use bio field since mentor_motivation doesn't exist
       topics_comfortable_with: [], // Will be empty for now
       session_formats: [], // Will be empty for now 
@@ -3807,5 +3831,136 @@ export async function getMentorApplicationByEmail(email: string): Promise<Servic
   } catch (error) {
     console.error('[getMentorApplicationByEmail] Error:', error)
     return { data: null, error: null } // Return null instead of error for graceful handling
+  }
+}
+
+/**
+ * Update mentor's last activity timestamp for "online now" tracking
+ * @param userId - User UUID of the mentor
+ * @returns Success status
+ */
+export async function updateMentorActivity(userId: string): Promise<ServiceResponse<boolean>> {
+  try {
+    console.log('[updateMentorActivity] Updating activity for mentor:', userId);
+    
+    const { error } = await supabase
+      .from('mentor_profiles')
+      .update({ 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('[updateMentorActivity] Error:', error);
+      throw error;
+    }
+
+    console.log('[updateMentorActivity] ✅ Activity updated');
+    return { data: true, error: null };
+    
+  } catch (error) {
+    console.error('[updateMentorActivity] Error:', error);
+    return { data: false, error: error as Error };
+  }
+}
+
+/**
+ * Get mentors who are currently online (active within last 15 minutes)
+ * @param page - Page number for pagination
+ * @param limit - Number of mentors per page
+ * @returns Online mentors
+ */
+export async function getOnlineMentors(
+  page: number = 0, 
+  limit: number = 20
+): Promise<ServiceResponse<{ mentors: any[]; hasMore: boolean }>> {
+  try {
+    console.log('[getOnlineMentors] Loading online mentors, page:', page);
+    
+    const offset = page * limit;
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    
+    // Query for mentors who were active recently
+    const { data: mentorsData, error } = await supabase
+      .from('users')
+      .select(`
+        id,
+        full_name,
+        username, 
+        avatar_url,
+        university,
+        graduation_year,
+        role,
+        onboarding_completed,
+        created_at,
+        mentor_profiles (
+          id,
+          availability_status,
+          is_verified,
+          verification_status,
+          major,
+          bio,
+          total_questions_answered,
+          average_rating,
+          total_helpful_votes,
+          updated_at
+        )
+      `)
+      .in('role', ['mentor', 'both']) 
+      .eq('onboarding_completed', true)
+      .not('mentor_profiles', 'is', null)
+      .eq('mentor_profiles.availability_status', 'available') // Only available mentors
+      .gte('mentor_profiles.updated_at', fifteenMinutesAgo) // Active within 15 minutes
+      .in('mentor_profiles.verification_status', ['verified', 'pending'])
+      .order('mentor_profiles.updated_at', { ascending: false }) // Most recently active first
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error('[getOnlineMentors] Database error:', error);
+      throw error;
+    }
+
+    // Filter and transform the data
+    const onlineMentors = (mentorsData || [])
+      .filter(mentor => {
+        const profile = mentor.mentor_profiles?.[0];
+        
+        // Check if this is a test account
+        const isTestAccount = (
+          mentor.email?.includes('@example.com') ||
+          mentor.email?.includes('@test.com') ||
+          mentor.full_name?.toLowerCase().includes('test') ||
+          mentor.university?.toLowerCase().includes('test university') ||
+          mentor.username?.toLowerCase().includes('test')
+        );
+        
+        return (
+          !isTestAccount && // Exclude test accounts
+          mentor.full_name && 
+          mentor.university && 
+          profile && 
+          profile.availability_status === 'available'
+        );
+      })
+      .map(mentor => ({
+        ...mentor,
+        mentor_profile: mentor.mentor_profiles[0]
+      }));
+
+    const hasMore = mentorsData?.length === limit;
+    
+    console.log('[getOnlineMentors] ✅ Found', onlineMentors.length, 'online mentors');
+    
+    return { 
+      data: { 
+        mentors: onlineMentors, 
+        hasMore 
+      }, 
+      error: null 
+    };
+    
+  } catch (error) {
+    console.error('[getOnlineMentors] Error:', error);
+    return { data: { mentors: [], hasMore: false }, error: error as Error };
   }
 }

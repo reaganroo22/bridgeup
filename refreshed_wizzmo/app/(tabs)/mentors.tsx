@@ -229,8 +229,15 @@ export default function MentorsScreen() {
 
   // Reset pagination when filters change
   useEffect(() => {
-    if (searchTerm || hasActiveFilters()) {
-      // When filters are applied, work with current loaded mentors
+    // For availability filter, we need to reload from database (different query)
+    // For other filters, we can work with current loaded mentors
+    if (activeFilters.availability) {
+      // Availability filter requires reloading with getOnlineMentors()
+      setCurrentPage(0);
+      setHasMoreMentors(true);
+      loadMentors(0, false);
+    } else if (searchTerm || hasActiveFilters()) {
+      // When other filters are applied, work with current loaded mentors
       applyFilters();
     } else {
       // When filters are cleared, reload from beginning
@@ -255,9 +262,11 @@ export default function MentorsScreen() {
         setLoadingMore(true);
       }
       
-      // Load real mentors from database with pagination
+      // Use getOnlineMentors when availability filter is active, otherwise use getAllMentors
       console.log(`[MentorsScreen] Loading mentors page ${page}...`);
-      const { data, error } = await supabaseService.getAllMentors(page, MENTORS_PER_PAGE);
+      const { data, error } = activeFilters.availability 
+        ? await supabaseService.getOnlineMentors(page, MENTORS_PER_PAGE)
+        : await supabaseService.getAllMentors(page, MENTORS_PER_PAGE);
       
       if (error) {
         console.error('[MentorsScreen] Error loading mentors:', error);
@@ -267,35 +276,18 @@ export default function MentorsScreen() {
       } else if (data) {
         // Transform database data to match our interface
         const transformedMentors = (data.mentors || []).map((mentor, index) => {
-          // Production-ready availability status based on real user activity
-          const getProductionAvailabilityStatus = () => {
-            const now = new Date();
-            const lastSeen = mentor.mentor_profile?.last_seen ? new Date(mentor.mentor_profile.last_seen) : null;
-            const manualStatus = mentor.mentor_profile?.manual_availability_status;
+          // Simple availability status based on mentor's current setting
+          const getAvailabilityStatus = (): 'available' | 'busy' | 'offline' => {
+            // Use the mentor's set availability status from their profile
+            const status = mentor.mentor_profile?.availability_status;
             
-            // If mentor manually set their status, respect that first
-            if (manualStatus && ['available', 'busy', 'offline'].includes(manualStatus)) {
-              // But only if it's not too old (within last 24 hours)
-              const statusUpdated = mentor.mentor_profile?.status_updated_at ? new Date(mentor.mentor_profile.status_updated_at) : null;
-              if (statusUpdated && (now.getTime() - statusUpdated.getTime()) < 24 * 60 * 60 * 1000) {
-                return manualStatus as 'available' | 'busy' | 'offline';
-              }
+            // If they have an explicit status set, use it
+            if (status && ['available', 'busy', 'offline'].includes(status)) {
+              return status as 'available' | 'busy' | 'offline';
             }
             
-            // Auto-determine based on activity
-            if (!lastSeen) {
-              return 'offline' as const; // Never seen = offline
-            }
-            
-            const minutesSinceLastSeen = (now.getTime() - lastSeen.getTime()) / (1000 * 60);
-            
-            if (minutesSinceLastSeen < 5) {
-              return 'available' as const; // Active within 5 minutes = available
-            } else if (minutesSinceLastSeen < 30) {
-              return 'busy' as const; // Active within 30 minutes = busy
-            } else {
-              return 'offline' as const; // More than 30 minutes = offline
-            }
+            // Default to available if verified, offline if not
+            return mentor.mentor_profile?.is_verified ? 'available' : 'offline';
           };
           
           return {
@@ -306,7 +298,7 @@ export default function MentorsScreen() {
             university: mentor.university,
             major: mentor.major,
             graduation_year: mentor.graduation_year,
-            availability_status: getProductionAvailabilityStatus(),
+            availability_status: getAvailabilityStatus(),
             specialties: mentor.expertise || [],
             session_formats: ['text chat'],
             response_time: mentor.mentor_profile?.avg_response_time_minutes ? 
@@ -379,9 +371,8 @@ export default function MentorsScreen() {
     }
 
     // Apply availability filter
-    if (activeFilters.availability) {
-      filtered = filtered.filter(mentor => mentor.availability_status === 'available');
-    }
+    // Note: When availability filter is active, we already load only online mentors from getOnlineMentors()
+    // so no need to filter again locally - the database query handles this
 
     // Apply topic filters (from Google Form topics)
     if (activeFilters.topics.length > 0) {

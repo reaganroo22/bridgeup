@@ -100,41 +100,80 @@ export type Database = {
         Row: {
           availability_status: string | null
           average_rating: number | null
+          avg_response_time_minutes: number | null
+          bio: string | null
+          college_girl_perspective: boolean | null
           created_at: string | null
+          experience_description: string | null
           id: string
+          intro_video_url: string | null
           is_verified: boolean | null
+          languages_spoken: string | null
+          major: string | null
+          profile_photo_url: string | null
           response_time_avg: number | null
+          response_time_commitment_hours: number | null
+          session_formats_offered: string[] | null
+          social_media_links: string | null
           total_helpful_votes: number | null
           total_questions_answered: number | null
           updated_at: string | null
           user_id: string
           verification_status: string | null
+          vertical: string | null
+          weekly_hour_commitment: number | null
         }
         Insert: {
           availability_status?: string | null
           average_rating?: number | null
+          avg_response_time_minutes?: number | null
+          bio?: string | null
+          college_girl_perspective?: boolean | null
           created_at?: string | null
+          experience_description?: string | null
           id?: string
+          intro_video_url?: string | null
           is_verified?: boolean | null
+          languages_spoken?: string | null
+          major?: string | null
+          profile_photo_url?: string | null
           response_time_avg?: number | null
+          response_time_commitment_hours?: number | null
+          session_formats_offered?: string[] | null
+          social_media_links?: string | null
           total_helpful_votes?: number | null
           total_questions_answered?: number | null
           updated_at?: string | null
           user_id: string
           verification_status?: string | null
+          vertical?: string | null
+          weekly_hour_commitment?: number | null
         }
         Update: {
           availability_status?: string | null
           average_rating?: number | null
+          avg_response_time_minutes?: number | null
+          bio?: string | null
+          college_girl_perspective?: boolean | null
           created_at?: string | null
+          experience_description?: string | null
           id?: string
+          intro_video_url?: string | null
           is_verified?: boolean | null
+          languages_spoken?: string | null
+          major?: string | null
+          profile_photo_url?: string | null
           response_time_avg?: number | null
+          response_time_commitment_hours?: number | null
+          session_formats_offered?: string[] | null
+          social_media_links?: string | null
           total_helpful_votes?: number | null
           total_questions_answered?: number | null
           updated_at?: string | null
           user_id?: string
           verification_status?: string | null
+          vertical?: string | null
+          weekly_hour_commitment?: number | null
         }
       }
       messages: {

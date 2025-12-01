@@ -1,19 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Configure route as dynamic
+export const dynamic = 'force-dynamic';
+
 // Supabase configuration
 const supabaseUrl = 'https://miygmdboiesbxwlqgnsx.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1peWdtZGJvaWVzYnh3bHFnbnN4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTkwNjY1MywiZXhwIjoyMDc1NDgyNjUzfQ._CA9e584ZPcUZeVT_oq_uDJFv-QQU0Pk8vMD6f72d2s';
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Add GET endpoint for testing
+export async function GET() {
+  console.log('[API] GET request to mentor-application endpoint');
+  return NextResponse.json({ 
+    message: 'Mentor application API endpoint is working',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV 
+  });
+}
+
 export async function POST(request: NextRequest) {
-  console.log('[API] Mentor application endpoint called');
+  console.log('[API] === MENTOR APPLICATION POST ENDPOINT CALLED ===');
   
   try {
-    console.log('[API] Parsing request body...');
+    console.log('[API] 1. Parsing request body...');
     const body = await request.json();
-    console.log('[API] Request body parsed successfully');
+    console.log('[API] 2. Request body parsed successfully:', JSON.stringify(body, null, 2));
     
     // Extract form data
     const {
@@ -30,8 +43,12 @@ export async function POST(request: NextRequest) {
       referral
     } = body;
 
+    console.log('[API] 3. Validating required fields...');
+    console.log('[API] Field check:', { firstName: !!firstName, lastName: !!lastName, email: !!email, university: !!university, year: !!year, major: !!major, whyJoin: !!whyJoin, experience: !!experience, topics: topics?.length });
+    
     // Validate required fields
     if (!firstName || !lastName || !email || !university || !year || !major || !whyJoin || !experience || !topics?.length) {
+      console.log('[API] ❌ Validation failed - missing required fields');
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -67,12 +84,15 @@ export async function POST(request: NextRequest) {
       submitted_at: new Date().toISOString()
     };
 
+    console.log('[API] 4. Checking for existing applications...');
     // Check if email already has an application
-    const { data: existingApplication } = await supabase
+    const { data: existingApplication, error: checkError } = await supabase
       .from('mentor_applications')
       .select('id, application_status')
       .eq('email', applicationData.email)
       .single();
+    
+    console.log('[API] 5. Existing application check result:', { existingApplication, checkError: checkError?.code });
 
     if (existingApplication) {
       return NextResponse.json(
