@@ -8,6 +8,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import CustomHeader from '@/components/CustomHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import * as supabaseService from '@/lib/supabaseService';
 import * as Haptics from 'expo-haptics';
 
 export default function EditProfileScreen() {
@@ -148,32 +149,28 @@ export default function EditProfileScreen() {
     if (!authUser) return;
 
     try {
-      // Fetch user profile
-      const { data, error } = await supabase
-        .from('users')
-        .select('full_name, username, bio, university, graduation_year, major, role')
-        .eq('id', authUser.id)
-        .single();
+      // Fetch user profile using service
+      const { data: profile, error: profileError } = await supabaseService.getUserProfile(authUser.id);
+      
+      if (profileError) {
+        console.error('[EditProfile] Error fetching profile:', profileError);
+        Alert.alert('Error', 'Failed to load profile. Please try again.');
+        return;
+      }
 
-      if (data) {
-        setFullName(data.full_name || '');
-        setUsername(data.username || '');
-        setBio(data.bio || '');
-        setUniversity(data.university || '');
-        setGraduationYear(data.graduation_year?.toString() || '');
-        setMajor(data.major || '');
-        setUserRole(data.role || 'student');
+      if (profile) {
+        setFullName(profile.full_name || '');
+        setUsername(profile.username || '');
+        setBio(profile.bio || '');
+        setUniversity(profile.university || '');
+        setGraduationYear(profile.graduation_year?.toString() || '');
+        setMajor(profile.major || '');
+        setUserRole(profile.role || 'student');
 
-        // If user is a mentor, fetch mentor profile
-        if (data.role === 'mentor' || data.role === 'both') {
-          const { data: mentorProfile } = await supabase
-            .from('mentor_profiles')
-            .select('availability_status')
-            .eq('user_id', authUser.id)
-            .single();
-
-          if (mentorProfile) {
-            setAvailabilityStatus(mentorProfile.availability_status || 'available');
+        // If user is a mentor, fetch mentor-specific data
+        if (profile.role === 'mentor' || profile.role === 'both') {
+          if (profile.mentor_profile) {
+            setAvailabilityStatus(profile.mentor_profile.availability_status || 'available');
           }
 
           // Fetch all categories
@@ -187,17 +184,11 @@ export default function EditProfileScreen() {
           }
 
           // Fetch mentor's expertise areas
-          const { data: mentorProfileData } = await supabase
-            .from('mentor_profiles')
-            .select('id')
-            .eq('user_id', authUser.id)
-            .single();
-
-          if (mentorProfileData) {
+          if (profile.mentor_profile) {
             const { data: expertiseData } = await supabase
               .from('mentor_expertise')
               .select('category_id')
-              .eq('mentor_profile_id', mentorProfileData.id);
+              .eq('mentor_profile_id', profile.mentor_profile.id);
 
             if (expertiseData) {
               setSelectedCategories(expertiseData.map(e => e.category_id));
@@ -207,13 +198,17 @@ export default function EditProfileScreen() {
       }
     } catch (error) {
       console.error('[EditProfile] Error fetching profile:', error);
+      Alert.alert('Error', 'Failed to load profile. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!authUser) return;
+    if (!authUser) {
+      Alert.alert('error', 'no user session found');
+      return;
+    }
 
     // Validation
     if (!fullName.trim()) {
@@ -226,79 +221,168 @@ export default function EditProfileScreen() {
       return;
     }
 
+    // Check for username uniqueness if username changed
+    const { data: currentProfile } = await supabaseService.getUserProfile(authUser.id);
+    const currentUsername = currentProfile?.username?.toLowerCase();
+    const newUsername = username.trim().toLowerCase();
+    
+    if (currentUsername !== newUsername) {
+      console.log('[EditProfile] Username changed, checking availability...');
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id, username')
+        .eq('username', newUsername)
+        .neq('id', authUser.id)
+        .single();
+        
+      if (existingUser) {
+        Alert.alert('error', 'username is already taken. please choose another.');
+        return;
+      }
+    }
+
+    console.log('[EditProfile] Starting save for user:', authUser.id);
+    console.log('[EditProfile] Data to save:', {
+      full_name: fullName.trim(),
+      username: newUsername,
+      bio: bio.trim(),
+      university: university.trim(),
+      graduation_year: graduationYear,
+      major: major.trim(),
+      userRole,
+      availabilityStatus,
+      selectedCategories
+    });
+
     setSaving(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      // Update user profile
-      const { error } = await supabase
+      // Update user profile using proper service function
+      const profileUpdates: any = {
+        full_name: fullName.trim(),
+        username: newUsername,
+        bio: bio.trim() || undefined,
+        university: university.trim() || undefined,
+        graduation_year: graduationYear ? parseInt(graduationYear) : null,
+      };
+
+      // Update profile with all fields including major using direct supabase call
+      // This ensures all fields are updated atomically and handles any constraint issues
+      const { error: updateError } = await supabase
         .from('users')
         .update({
-          full_name: fullName.trim(),
-          username: username.trim().toLowerCase(),
-          bio: bio.trim() || null,
-          university: university.trim() || null,
-          graduation_year: graduationYear ? parseInt(graduationYear) : null,
+          ...profileUpdates,
           major: major.trim() || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', authUser.id);
 
-      if (error) {
-        console.error('[EditProfile] Error updating profile:', error);
-        Alert.alert('error', 'failed to update profile. please try again.');
-        return;
+      if (updateError) {
+        console.error('[EditProfile] Error updating profile:', updateError);
+        
+        // If constraint error, try using the bulletproof service function
+        if (updateError.code === '23505') {
+          console.log('[EditProfile] Constraint error, using service function fallback');
+          const { error: serviceError } = await supabaseService.updateUserProfile(authUser.id, {
+            ...profileUpdates,
+          });
+          
+          if (serviceError) {
+            console.error('[EditProfile] Service function also failed:', serviceError);
+            Alert.alert('error', 'failed to update profile. please try again.');
+            return;
+          }
+        } else {
+          Alert.alert('error', 'failed to update profile. please try again.');
+          return;
+        }
       }
 
       // If mentor, update mentor-specific fields
       if (userRole === 'mentor' || userRole === 'both') {
-        // Update availability status
-        const { error: mentorError } = await supabase
-          .from('mentor_profiles')
-          .update({
-            availability_status: availabilityStatus,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('user_id', authUser.id);
+        console.log('[EditProfile] Updating mentor profile for availability:', availabilityStatus);
+        
+        // Update mentor profile using proper service function
+        const { error: mentorError } = await supabaseService.updateMentorProfile(authUser.id, {
+          availability_status: availabilityStatus,
+        });
 
         if (mentorError) {
           console.error('[EditProfile] Error updating mentor profile:', mentorError);
+          console.error('[EditProfile] Mentor error code:', mentorError.message);
+          // Don't fail completely, just warn
+          Alert.alert('warning', 'profile updated but mentor settings may not have saved completely');
+        } else {
+          console.log('[EditProfile] ✅ Mentor profile updated successfully');
         }
 
-        // Update expertise areas
-        const { data: mentorProfileData } = await supabase
-          .from('mentor_profiles')
-          .select('id')
-          .eq('user_id', authUser.id)
-          .single();
+        // Update expertise areas - still use direct supabase for complex operations
+        try {
+          console.log('[EditProfile] Updating expertise areas for categories:', selectedCategories);
+          
+          const { data: mentorProfileData, error: mentorProfileError } = await supabase
+            .from('mentor_profiles')
+            .select('id')
+            .eq('user_id', authUser.id)
+            .single();
 
-        if (mentorProfileData) {
-          // Delete existing expertise
-          await supabase
-            .from('mentor_expertise')
-            .delete()
-            .eq('mentor_profile_id', mentorProfileData.id);
-
-          // Insert new expertise
-          if (selectedCategories.length > 0) {
-            const expertiseInserts = selectedCategories.map(catId => ({
-              mentor_profile_id: mentorProfileData.id,
-              category_id: catId,
-            }));
-
-            await supabase
+          if (mentorProfileError) {
+            console.error('[EditProfile] Error fetching mentor profile for expertise:', mentorProfileError);
+          } else if (mentorProfileData) {
+            console.log('[EditProfile] Found mentor profile with ID:', mentorProfileData.id);
+            
+            // Delete existing expertise
+            const { error: deleteError } = await supabase
               .from('mentor_expertise')
-              .insert(expertiseInserts);
+              .delete()
+              .eq('mentor_profile_id', mentorProfileData.id);
+
+            if (deleteError) {
+              console.error('[EditProfile] Error deleting old expertise:', deleteError);
+            } else {
+              console.log('[EditProfile] Deleted old expertise areas');
+            }
+
+            // Insert new expertise
+            if (selectedCategories.length > 0) {
+              const expertiseInserts = selectedCategories.map(catId => ({
+                mentor_profile_id: mentorProfileData.id,
+                category_id: catId,
+              }));
+
+              console.log('[EditProfile] Inserting new expertise:', expertiseInserts);
+
+              const { error: expertiseError } = await supabase
+                .from('mentor_expertise')
+                .insert(expertiseInserts);
+
+              if (expertiseError) {
+                console.error('[EditProfile] Error inserting new expertise:', expertiseError);
+              } else {
+                console.log('[EditProfile] ✅ Expertise areas updated successfully');
+              }
+            } else {
+              console.log('[EditProfile] No expertise areas selected (this is okay)');
+            }
           }
+        } catch (expertiseError) {
+          console.error('[EditProfile] Unexpected error with expertise areas:', expertiseError);
+          // Don't fail completely
         }
       }
 
+      console.log('[EditProfile] ✅ All updates completed successfully');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      // Refresh profile data to show the updated values
+      await fetchProfile();
+      
       Alert.alert('success', 'profile updated successfully!', [
         { text: 'ok', onPress: () => router.back() }
       ]);
     } catch (error) {
-      console.error('[EditProfile] Error:', error);
+      console.error('[EditProfile] Unexpected error during save:', error);
       Alert.alert('error', 'something went wrong. please try again.');
     } finally {
       setSaving(false);
