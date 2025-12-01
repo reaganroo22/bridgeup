@@ -345,10 +345,30 @@ export default function BecomeAWizzmoPage() {
         }),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+      
       if (response.ok) {
         setSubmitted(true);
       } else {
-        const errorData = await response.json();
+        // Check if response is JSON or HTML
+        const contentType = response.headers.get('content-type');
+        let errorData;
+        
+        try {
+          if (contentType && contentType.includes('application/json')) {
+            errorData = await response.json();
+          } else {
+            // If it's HTML, get text and show a different error
+            const htmlText = await response.text();
+            console.error('Received HTML response:', htmlText.substring(0, 500));
+            throw new Error('Server returned HTML instead of JSON. The API endpoint may not be working properly.');
+          }
+        } catch (parseError) {
+          console.error('Error parsing response:', parseError);
+          throw new Error(`Server error (status ${response.status}). Could not parse response.`);
+        }
+        
         console.error('API Error:', errorData);
         throw new Error(errorData.error || 'Submission failed');
       }
@@ -400,9 +420,9 @@ export default function BecomeAWizzmoPage() {
             </div>
             
             <div className="space-y-4 text-white/90">
-              <p className="text-lg">💕 help fellow georgetown women</p>
+              <p className="text-lg">💕 help fellow georgetown students</p>
               <p className="text-lg">🌟 build leadership skills</p> 
-              <p className="text-lg">🤝 join the hoya community</p>
+              <p className="text-lg">🤝 join the wizzmo community</p>
             </div>
             
             <div className="mt-8 p-4 bg-white/20 rounded-lg">

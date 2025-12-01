@@ -8,8 +8,12 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJ
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function POST(request: NextRequest) {
+  console.log('[API] Mentor application endpoint called');
+  
   try {
+    console.log('[API] Parsing request body...');
     const body = await request.json();
+    console.log('[API] Request body parsed successfully');
     
     // Extract form data
     const {
@@ -88,9 +92,13 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Supabase error:', error);
+      console.error('[API] Supabase error:', error);
       return NextResponse.json(
-        { error: 'Failed to submit application' },
+        { 
+          error: 'Failed to submit application', 
+          details: error.message,
+          supabaseError: error 
+        },
         { status: 500 }
       );
     }
@@ -108,9 +116,13 @@ export async function POST(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('API error:', error);
+    console.error('[API] Critical error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     );
   }
