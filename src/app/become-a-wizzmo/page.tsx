@@ -11,9 +11,26 @@ export default function BecomeAWizzmoPage() {
     university: '',
     classYear: '',
     whyMentor: '',
+    instagram: '',
     confirmAdvice: false,
     confirmWoman: false
   });
+
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const heightDiff = window.innerHeight < window.screen.height * 0.75;
+      setKeyboardOpen(heightDiff);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const gradYears = [
+    '2024', '2025', '2026', '2027', '2028', '2029', '2030', '2031', '2032'
+  ];
 
   const universities = [
     'Georgetown University',
@@ -287,14 +304,21 @@ export default function BecomeAWizzmoPage() {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     
+    let processedValue = value;
+    
+    // Auto-add @ for Instagram handle
+    if (name === 'instagram') {
+      processedValue = value.startsWith('@') ? value : `@${value}`;
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : processedValue
     }));
   };
 
   const canSubmit = formData.firstName && formData.lastName && formData.email && 
-                   formData.university && formData.classYear && formData.whyMentor && formData.confirmAdvice && formData.confirmWoman;
+                   formData.university && formData.classYear && formData.whyMentor && formData.instagram && formData.confirmAdvice && formData.confirmWoman;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -307,16 +331,16 @@ export default function BecomeAWizzmoPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          whyJoin: formData.whyMentor,
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          email: formData.email.trim(),
+          whyJoin: formData.whyMentor.trim(),
           university: formData.university,
-          year: formData.classYear,
+          year: formData.classYear.toString(),
           major: 'To be determined during onboarding',
-          experience: formData.whyMentor,
+          experience: formData.whyMentor.trim(),
           topics: ['General College Advice'],
-          instagram: '',
+          instagram: formData.instagram.trim(),
           referral: ''
         }),
       });
@@ -357,7 +381,7 @@ export default function BecomeAWizzmoPage() {
             <Image src="/icon.png" alt="Wizzmo" width={96} height={96} className="rounded-2xl" />
           </div>
           <h1 className="text-4xl font-bold text-white mb-4">🎉 You're In! 🎉</h1>
-          <p className="text-white/90 text-lg">We'll get back to you ASAP!</p>
+          <p className="text-white/90 text-lg">We'll get back to you ASAP! Download the app with the email you provided.</p>
         </div>
       </div>
     );
@@ -391,8 +415,8 @@ export default function BecomeAWizzmoPage() {
         </div>
 
         {/* Right Side - Form */}
-        <div className="h-full overflow-y-auto px-6 py-4 lg:py-12 lg:px-8 flex flex-col" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <div className="sm:mx-auto sm:w-full sm:max-w-md flex-1 pb-safe-bottom">
+        <div className="h-full overflow-y-auto px-6 py-4 lg:py-12 lg:px-8 flex flex-col bg-white" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: keyboardOpen ? '800px' : '50px' }}>
+          <div className="sm:mx-auto sm:w-full sm:max-w-md flex-1 bg-white" style={{ minHeight: keyboardOpen ? '200vh' : '100vh' }}>
             
             {/* Mobile header */}
             <div className="lg:hidden text-center mb-6">
@@ -463,16 +487,20 @@ export default function BecomeAWizzmoPage() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Class Year</label>
-                  <input
-                    type="text"
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Grad Year</label>
+                  <select
                     name="classYear"
                     value={formData.classYear}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white"
-                    placeholder="2025"
+                    className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white appearance-none select-arrow"
                     required
-                  />
+                    style={{ fontSize: '16px' }}
+                  >
+                    <option value="">Select Year</option>
+                    {gradYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -487,6 +515,20 @@ export default function BecomeAWizzmoPage() {
                   rows={4}
                   className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white resize-none min-h-[100px]"
                   placeholder="I'd make a good mentor because..."
+                  required
+                  style={{ fontSize: '16px' }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Instagram Handle <span className="text-gray-500">(for verification)</span></label>
+                <input
+                  type="text"
+                  name="instagram"
+                  value={formData.instagram}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white"
+                  placeholder="@your_instagram"
                   required
                   style={{ fontSize: '16px' }}
                 />
@@ -534,6 +576,16 @@ export default function BecomeAWizzmoPage() {
             <p className="text-gray-500 text-center text-xs mt-6">
               We'll get back to you ASAP!
             </p>
+            
+            {/* Dynamic white space based on keyboard state */}
+            {keyboardOpen && (
+              <>
+                <div className="h-96 bg-white"></div>
+                <div className="h-96 bg-white"></div>
+                <div className="h-96 bg-white"></div>
+                <div className="h-96 bg-white"></div>
+              </>
+            )}
           </div>
         </div>
 
