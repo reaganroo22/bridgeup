@@ -105,7 +105,7 @@ const bearImages = {
 };
 
 export default function MentorOnboarding() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { switchMode } = useUserMode();
   const [accessDenied, setAccessDenied] = useState(false);
   const [accessLoading, setAccessLoading] = useState(true);
@@ -279,46 +279,91 @@ export default function MentorOnboarding() {
       if (!user?.email || accessDenied || accessLoading) return;
 
       try {
-        // Check for existing mentor application
-        const { data: application } = await supabaseService.getMentorApplicationByEmail(user.email);
+        // Check for existing mentor application directly from mentor_applications table
+        console.log('[MentorOnboarding] Loading mentor application data for email:', user.email);
+        const { data: mentorApplication, error: appError } = await supabase
+          .from('mentor_applications')
+          .select('*')
+          .eq('email', user.email.toLowerCase())
+          .single();
         
-        if (application) {
+        if (!appError && mentorApplication) {
+          console.log('[MentorOnboarding] Found mentor application data:', mentorApplication);
           // Preload application data into form
           setFormData(prev => ({
             ...prev,
-            fullName: application.full_name || user.user_metadata?.full_name || '',
-            university: application.university || '',
-            graduationYear: application.graduation_year?.toString() || '',
-            major: application.major || '',
-            motivation: application.motivation || '',
-            selectedTopics: application.topics_comfortable_with || [],
-            selectedFormats: application.session_formats || [],
-            weeklyHours: application.hours_per_week || '',
-            languages: application.languages || 'English',
+            fullName: (mentorApplication.first_name && mentorApplication.last_name ? `${mentorApplication.first_name} ${mentorApplication.last_name}` : '') || user.user_metadata?.full_name || '',
+            university: mentorApplication.university || '',
+            graduationYear: mentorApplication.graduation_year?.toString() || '',
+            major: mentorApplication.major || '',
+            motivation: mentorApplication.why_join || '', // Load "Why do I want to be a mentor" text from correct field
+            selectedTopics: mentorApplication.topics_comfortable_with || [],
+            selectedFormats: mentorApplication.session_formats || [],
+            weeklyHours: mentorApplication.hours_per_week?.toString() || '',
+            languages: mentorApplication.languages || 'English',
           }));
 
           // Set university search text for dropdown
-          if (application.university) {
-            setUniversitySearchText(application.university);
+          if (mentorApplication.university) {
+            setUniversitySearchText(mentorApplication.university);
+          }
+          
+          console.log('[MentorOnboarding] ✅ Application data loaded successfully');
+        } else {
+          console.log('[MentorOnboarding] No mentor application found for user, proceeding with empty form');
+        }
+
+        // ALSO try to get the legacy data using the service function as fallback
+        const { data: legacyApplication } = await supabaseService.getMentorApplicationByEmail(user.email);
+        if (legacyApplication && !mentorApplication) {
+          console.log('[MentorOnboarding] Using legacy application data as fallback');
+          setFormData(prev => ({
+            ...prev,
+            fullName: legacyApplication.full_name || user.user_metadata?.full_name || '',
+            university: legacyApplication.university || '',
+            graduationYear: legacyApplication.graduation_year?.toString() || '',
+            major: legacyApplication.major || '',
+            motivation: legacyApplication.motivation || '', // Add missing motivation field
+            selectedTopics: legacyApplication.topics_comfortable_with || [],
+            selectedFormats: legacyApplication.session_formats || [],
+            weeklyHours: legacyApplication.hours_per_week || '',
+            languages: legacyApplication.languages || 'English',
+          }));
+
+          if (legacyApplication.university) {
+            setUniversitySearchText(legacyApplication.university);
           }
         }
 
-        // Also try to load existing user profile data
+        // CRITICAL: Load existing user profile data (especially for "both" users)
         const { data: userProfile } = await supabaseService.getUserProfile(user.id);
         if (userProfile) {
+          console.log('[MentorOnboarding] Loading existing user profile data:', {
+            role: userProfile.role,
+            fullName: userProfile.full_name,
+            university: userProfile.university,
+            bio: userProfile.bio,
+            graduation_year: userProfile.graduation_year
+          });
+
           setFormData(prev => {
             // Set university search text if needed
             if (!prev.university && userProfile.university) {
               setUniversitySearchText(userProfile.university);
             }
 
-            return {
+            // For "both" users, preserve ALL existing student data
+            const preservedData = {
               ...prev,
               fullName: prev.fullName || userProfile.full_name || '',
               university: prev.university || userProfile.university || '',
               graduationYear: prev.graduationYear || userProfile.graduation_year?.toString() || '',
-              bio: userProfile.bio || '',
+              bio: prev.bio || userProfile.bio || '', // Preserve existing bio
+              major: prev.major || userProfile.major || '', // Preserve major if exists
             };
+
+            console.log('[MentorOnboarding] ✅ Merged form data with existing profile');
+            return preservedData;
           });
         }
       } catch (error) {
@@ -462,6 +507,38 @@ export default function MentorOnboarding() {
     try {
       console.log('[MentorOnboarding] Starting bulletproof completion...');
       
+      // DYNAMIC: Determine the final role based on user's current situation
+      console.log('[MentorOnboarding] 🔍 Determining final role for user...');
+      
+      // Get current user profile to check existing role
+      let finalRole = 'mentor'; // Default for pure mentor onboarding
+      let preserveExistingData = false;
+      
+      try {
+        const { data: currentProfile } = await supabaseService.getUserProfile(user.id);
+        if (currentProfile?.role === 'both') {
+          console.log('[MentorOnboarding] 🎯 User has "both" role - will preserve existing student data');
+          finalRole = 'both';
+          preserveExistingData = true;
+        } else if (currentProfile?.role === 'student' && currentProfile?.onboarding_completed) {
+          console.log('[MentorOnboarding] 🎯 Converting existing student to both role to preserve data');
+          finalRole = 'both';
+          preserveExistingData = true;
+        } else if (currentProfile?.role === 'student' && !currentProfile?.onboarding_completed) {
+          console.log('[MentorOnboarding] 🎯 New user with student role - converting to pure mentor');
+          finalRole = 'mentor';
+          preserveExistingData = false;
+        } else if (currentProfile?.role === 'mentor') {
+          console.log('[MentorOnboarding] 🎯 Already pure mentor - maintaining mentor role');
+          finalRole = 'mentor';
+          preserveExistingData = false;
+        }
+      } catch (error) {
+        console.warn('[MentorOnboarding] Could not check current role, defaulting to mentor:', error);
+      }
+
+      console.log('[MentorOnboarding] Final role will be:', finalRole, '| Preserve data:', preserveExistingData);
+
       // BULLETPROOF: Handle all optional fields gracefully
       const mentorProfileData = {
         username: formData.username?.trim() || `mentor_${user.id.slice(0, 8)}`,
@@ -471,12 +548,15 @@ export default function MentorOnboarding() {
         bio: formData.bio?.trim() || formData.motivation?.trim() || null,
         major: formData.major?.trim() || null,
         onboarding_completed: true,
-        role: 'mentor',
+        role: finalRole, // Use determined role instead of hardcoded 'mentor'
+        role_selection_completed: true, // CRITICAL: Mark role selection as completed
         // Profile photo is required for mentors
         avatar_url: formData.profilePhoto?.uri || null,
         age: formData.age ? parseInt(formData.age) : null,
         gender: formData.gender || null,
       };
+
+      console.log('[MentorOnboarding] 🎯 Profile data to save:', mentorProfileData);
       
       let profileSuccess = false;
       let mentorSuccess = false;
@@ -593,6 +673,10 @@ export default function MentorOnboarding() {
           mentor: mentorSuccess,
           expertise: expertiseSuccess
         });
+        
+        // CRITICAL: Set flag for UserModeContext to force mentor mode
+        console.log('[MentorOnboarding] 🎯 Setting recent mentor onboarding flag for mode forcing');
+        await AsyncStorage.setItem(`recent_mentor_onboarding_${user.id}`, 'true');
         
         // Force reload user context to pick up new role
         console.log('[MentorOnboarding] 🔄 Forcing user context refresh for role update');
@@ -1324,6 +1408,17 @@ export default function MentorOnboarding() {
                 </TouchableOpacity>
               )}
               
+              {/* Test Sign Out Button */}
+              <TouchableOpacity
+                style={styles.signOutButton}
+                onPress={async () => {
+                  await signOut();
+                  router.replace('/auth');
+                }}
+              >
+                <Text style={styles.signOutText}>Sign Out</Text>
+              </TouchableOpacity>
+              
               <View style={styles.progressContainer}>
                 <View style={styles.progressTrack}>
                   <View 
@@ -1917,5 +2012,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FF453A',
     textTransform: 'lowercase',
+  },
+  
+  // Test Sign Out Button
+  signOutButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
+  },
+  signOutText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

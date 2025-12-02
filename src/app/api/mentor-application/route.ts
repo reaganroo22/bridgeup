@@ -64,22 +64,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prepare application data for database
+    // Prepare application data for database (FIXED: Only use fields that exist after cleanup)
     const applicationData = {
       email: email.toLowerCase().trim(),
-      full_name: `${firstName.trim()} ${lastName.trim()}`,
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
       university: university.trim(),
-      graduation_year: parseInt(year) || new Date().getFullYear(),
-      age_confirmed: 'Yes',
-      comfortable_college_girl: whyJoin.trim(),
-      topics: Array.isArray(topics) ? topics : [topics || 'General College Advice'],
-      boundaries_will_not_cover: null,
-      experience: experience.trim(),
-      formats: ['Text'],
-      availability: 'Flexible',
-      languages: 'English',
-      social_links: instagram ? `https://instagram.com/${instagram.replace('@', '')}` : null,
-      agreement: ['Terms accepted'],
+      graduation_year: year.toString(), // Keep as string to match database
+      why_join: whyJoin.trim(),
+      instagram: instagram || null,
+      confirm_woman: true, // Assuming they confirmed during form
+      confirm_advice: true, // Assuming they confirmed during form
+      major: major || null,
+      referral: referral || null,
       application_status: 'pending',
       submitted_at: new Date().toISOString()
     };

@@ -39,6 +39,16 @@ export default function HomeScreen() {
   const { userProfile, getPersonalizedGreeting, isHighSchool, isUniversity, isGraduate } = useUserProfile();
   const { currentMode } = useUserMode();
   const isMentor = currentMode === 'mentor';
+  
+  // DEBUG: Log mode detection for troubleshooting
+  useEffect(() => {
+    console.log('[HomeScreen] 🔍 Mode Detection Debug:', {
+      currentMode,
+      isMentor,
+      userProfileRole: userProfile?.role,
+      userEmail: user?.email?.slice(0, 10) + '...'
+    });
+  }, [currentMode, isMentor, userProfile?.role, user?.email]);
   const [currentTime, setCurrentTime] = useState(new Date());
   
   // Mentor-specific state

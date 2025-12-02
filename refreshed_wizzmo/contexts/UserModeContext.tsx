@@ -120,6 +120,18 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
         
         const savedMode = await AsyncStorage.getItem(`user_mode_${user.id}`);
         
+        // CRITICAL FIX: Check if this is a newly completed mentor onboarding
+        // If user has 'both' role and recently completed mentor onboarding, force mentor mode
+        const recentMentorOnboarding = await AsyncStorage.getItem(`recent_mentor_onboarding_${user.id}`);
+        
+        if (recentMentorOnboarding && userRole === 'both') {
+          console.log('🔧 [UserMode] 🎯 RECENT MENTOR ONBOARDING - forcing mentor mode regardless of saved preference');
+          setCurrentMode('mentor');
+          await AsyncStorage.setItem(`user_mode_${user.id}`, 'mentor');
+          await AsyncStorage.removeItem(`recent_mentor_onboarding_${user.id}`); // Clean up flag
+          return;
+        }
+        
         if (savedMode && availableModes.includes(savedMode as UserMode)) {
           setCurrentMode(savedMode as UserMode);
           console.log(`🔧 [UserMode] Loaded saved mode: ${savedMode}`);

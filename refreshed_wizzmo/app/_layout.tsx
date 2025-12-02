@@ -257,8 +257,11 @@ function RootLayoutNav() {
             console.log('🎯 [checkMentorApplication] First time login → Auto-upgrade role → Mentor onboarding');
             
             // Auto-upgrade role for new users with approved applications
-            const newRole = userProfile.role === 'student' ? 'both' : 'mentor';
-            console.log('🚀 [checkMentorApplication] Auto-upgrading new user to role:', newRole);
+            // CRITICAL FIX: First-time mentors should get pure 'mentor' role, not 'both'
+            // Only existing students who applied should get 'both' to preserve their data
+            const hasUsedAppAsStudent = userProfile.onboarding_completed; // Already checked false above, but being explicit
+            const newRole = hasUsedAppAsStudent ? 'both' : 'mentor';
+            console.log('🚀 [checkMentorApplication] Auto-upgrading new user to role:', newRole, '(hasUsedAppAsStudent:', hasUsedAppAsStudent, ')');
             
             const { error: updateError } = await updateUserProfile(user.id, { 
               role: newRole,
@@ -285,6 +288,33 @@ function RootLayoutNav() {
         // Handle other application statuses (rejected, etc.)
         if (application.application_status === 'rejected') {
           console.log('❌ [checkMentorApplication] === APPLICATION REJECTED ===');
+          
+          // CRITICAL FIX: Reset role to student and clear role selection for rejected applications
+          // This ensures new users can go through student onboarding properly
+          if (userProfile.role === 'both' || userProfile.role === 'mentor') {
+            console.log('🔧 [checkMentorApplication] Rejected user has non-student role, resetting to student');
+            
+            try {
+              const { error: resetError } = await updateUserProfile(user.id, {
+                role: 'student',
+                role_selection_completed: false
+              });
+              
+              if (!resetError) {
+                console.log('✅ [checkMentorApplication] Role reset to student for rejected application');
+                return { 
+                  ...userProfile, 
+                  role: 'student', 
+                  role_selection_completed: false 
+                };
+              } else {
+                console.error('❌ [checkMentorApplication] Failed to reset role:', resetError);
+              }
+            } catch (error) {
+              console.error('❌ [checkMentorApplication] Error resetting role:', error);
+            }
+          }
+          
           console.log('❌ [checkMentorApplication] User can continue as normal student');
           return userProfile;
         }
@@ -390,6 +420,23 @@ function RootLayoutNav() {
       // CRITICAL: Unauthenticated users MUST go directly to auth - NO other checks
       if (!user) {
         console.log('[RootLayout] 🚫 NO USER - FORCING IMMEDIATE AUTH REDIRECT');
+        
+        // Clear only onboarding-related cache for logged out users
+        try {
+          console.log('[RootLayout] 🧹 Clearing onboarding cache for logged out user');
+          const allKeys = await AsyncStorage.getAllKeys();
+          const onboardingKeys = allKeys.filter(key => 
+            key.includes('onboarding') || 
+            key.includes('role_selection') ||
+            key.includes('user_mode')
+          );
+          if (onboardingKeys.length > 0) {
+            await AsyncStorage.multiRemove(onboardingKeys);
+          }
+        } catch (error) {
+          console.warn('[RootLayout] Could not clear onboarding cache:', error);
+        }
+        
         if (!inAuthGroup) {
           console.log('[RootLayout] 🔄 Redirecting unauthenticated user to /auth');
           safeNavigate('/auth', 'user logged out');
@@ -414,11 +461,50 @@ function RootLayoutNav() {
               // Check if this is a "no rows" error (new user - normal case)
               if (profileError.code === 'PGRST116') {
                 console.log('🆕 [RootLayout] NEW USER: Auth user exists but no profile found');
-                console.log('🆕 [RootLayout] This is normal for new users - directing to onboarding');
                 console.log('🆕 [RootLayout] User ID:', user.id);
                 console.log('🆕 [RootLayout] User Email:', user.email);
                 
-                // NEW USER FLOW: Go directly to onboarding (not emergency creation)
+                // Define navigation flags for new user case  
+                const isPendingApproval = segments[1] === 'pending-approval';
+                const isRoleSelection = segments[1] === 'role-selection';
+                
+                // CRITICAL: Check for mentor application BEFORE directing to onboarding
+                console.log('🔍 [RootLayout] === CHECKING MENTOR APPLICATION FOR NEW USER ===');
+                try {
+                  const { data: application, error: appError } = await supabase
+                    .from('mentor_applications')
+                    .select('*')
+                    .eq('email', user.email.toLowerCase())
+                    .single();
+
+                  if (application) {
+                    console.log('🎯 [RootLayout] === NEW USER WITH MENTOR APPLICATION ===');
+                    console.log('🎯 [RootLayout] Application status:', application.application_status);
+                    
+                    if (application.application_status === 'pending') {
+                      console.log('🎯 [RootLayout] === CASE 1: NEW USER + PENDING APPLICATION ===');
+                      console.log('🎯 [RootLayout] Redirecting to pending approval screen');
+                      if (!isPendingApproval) {
+                        safeNavigate('/auth/pending-approval', 'Case 1: new user with pending application');
+                      } else {
+                        console.log('✅ [RootLayout] Already on pending approval screen');
+                      }
+                      return;
+                    } else if (application.application_status === 'approved') {
+                      console.log('🎯 [RootLayout] === CASE 4: NEW USER + APPROVED APPLICATION ===');
+                      console.log('🎯 [RootLayout] Will auto-upgrade during onboarding');
+                      // Continue to onboarding, but the checkMentorApplication will handle auto-upgrade
+                    }
+                  } else {
+                    console.log('✅ [RootLayout] === CASE 6: NEW USER WITHOUT APPLICATION ===');
+                    console.log('✅ [RootLayout] Normal new user flow');
+                  }
+                } catch (mentorCheckError) {
+                  console.warn('⚠️ [RootLayout] Could not check mentor application:', mentorCheckError);
+                  // Continue to onboarding as fallback
+                }
+                
+                // NEW USER FLOW: Go to onboarding (after mentor check)
                 if (!inOnboarding && !inAuthGroup) {
                   console.log('🔄 [RootLayout] New user → Redirecting to onboarding');
                   safeNavigate('/auth/onboarding', 'new user needs onboarding');
@@ -541,11 +627,26 @@ function RootLayoutNav() {
           }
           
           // CRITICAL FIX: Handle 'both' role users without completed role selection
-          if (userProfile.role === 'both' && !userProfile.role_selection_completed && !isRoleSelection) {
+          // Check if role_selection_completed field exists (in case migration not run)
+          const hasRoleSelectionField = userProfile.hasOwnProperty('role_selection_completed');
+          console.log('🔍 [RootLayout] role_selection_completed field exists:', hasRoleSelectionField);
+          
+          if (userProfile.role === 'both' && hasRoleSelectionField && !userProfile.role_selection_completed && !isRoleSelection) {
             console.log('🚨 [RootLayout] CRITICAL: User has "both" role but role selection not completed');
             console.log('🔄 [RootLayout] This indicates incomplete role selection process - forcing completion');
             safeNavigate('/auth/role-selection', 'both role needs completion');
             return;
+          }
+          
+          // SAFETY CHECK: If role_selection_completed field doesn't exist, try to set it
+          if (!hasRoleSelectionField && (userProfile.role === 'mentor' || userProfile.role === 'both')) {
+            console.log('⚠️ [RootLayout] role_selection_completed field missing - attempting to add via update');
+            try {
+              await updateUserProfile(user.id, { role_selection_completed: true });
+              console.log('✅ [RootLayout] Added missing role_selection_completed field');
+            } catch (updateError) {
+              console.warn('❌ [RootLayout] Could not add role_selection_completed field:', updateError);
+            }
           }
           
           if (userProfile?.needsRoleSelection && isRoleSelection) {
