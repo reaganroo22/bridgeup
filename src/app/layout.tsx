@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   icons: {
     icon: '/wizzmo.svg',
     shortcut: '/wizzmo.svg',
-    apple: '/wizzmo.png',
+    apple: '/wizzmo_santa.png',
   },
   openGraph: {
     title: "Wizzmo",
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     siteName: "Wizzmo",
     images: [
       {
-        url: `${siteUrl}/wizzmo.png`,
+        url: `${siteUrl}/wizzmo_santa.png`,
         width: 1200,
         height: 1200,
         alt: "Wizzmo Bear",
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Wizzmo",
     description: "Get personalized college advice from students who've been there",
-    images: [`${siteUrl}/wizzmo.png`],
+    images: [`${siteUrl}/wizzmo_santa.png`],
   },
   appleWebApp: {
     capable: true,
