@@ -11,11 +11,11 @@ export default function SafetyPage() {
       {/* Hero Section */}
       <section className="pt-32 pb-20 bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6]">
         <div className="container mx-auto px-5 text-center">
-          <h1 className="font-display font-black text-white leading-none lowercase text-[3rem] md:text-[5rem] tracking-tighter mb-6">
-            safety & trust
+          <h1 className="font-black text-white leading-none lowercase text-[3rem] md:text-[5rem] tracking-tighter mb-6">
+            actually safe space
           </h1>
           <p className="text-white/90 text-lg md:text-xl max-w-2xl mx-auto">
-            Creating a safe space for honest advice and genuine connections.
+            Real advice from verified college girls in a truly safe environment.
           </p>
         </div>
       </section>
@@ -24,56 +24,56 @@ export default function SafetyPage() {
       <section className="py-20">
         <div className="container mx-auto px-5">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-[3rem] md:text-[4rem] font-bold lowercase text-white text-center mb-16">how we keep you safe</h2>
+            <h2 className="text-[3rem] md:text-[4rem] font-black lowercase text-white text-center mb-16">what makes it actually safe</h2>
 
             <div className="grid gap-8">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+              <div className="bg-white/5 border-4 border-white/20 rounded-none p-8">
                 <div className="flex items-start gap-4">
                   <div className="text-3xl">🔒</div>
                   <div>
-                    <h3 className="text-xl font-bold text-white mb-3 lowercase">anonymous by design</h3>
+                    <h3 className="text-xl font-black text-white mb-3 lowercase">totally anonymous</h3>
                     <p className="text-white/80 leading-relaxed">
-                      Your questions are completely anonymous. We've built our system from the ground up to protect your identity
-                      while still connecting you with relevant advice. No one can trace questions back to you.
+                      Ask anything without your name attached. Your secrets stay secret. We've designed our system to protect your identity
+                      completely while still connecting you with relevant advice. Zero personal info required.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+              <div className="bg-white/5 border-4 border-white/20 rounded-none p-8">
                 <div className="flex items-start gap-4">
                   <div className="text-3xl">✅</div>
                   <div>
-                    <h3 className="text-xl font-bold text-white mb-3 lowercase">verified mentors only</h3>
+                    <h3 className="text-xl font-black text-white mb-3 lowercase">verified college girls only</h3>
                     <p className="text-white/80 leading-relaxed">
-                      Every mentor goes through a verification process to confirm they're real college students. We check student IDs,
-                      university emails, and conduct background reviews to ensure our community is authentic and trustworthy.
+                      Every mentor is verified as a real college student. We verify through university emails and backgrounds
+                      to ensure our community is authentic and trustworthy. No fake profiles, no catfish, no grown men pretending to be college girls.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+              <div className="bg-white/5 border-4 border-white/20 rounded-none p-8">
+                <div className="flex items-start gap-4">
+                  <div className="text-3xl">🚫</div>
+                  <div>
+                    <h3 className="text-xl font-black text-white mb-3 lowercase">zero tolerance for bs</h3>
+                    <p className="text-white/80 leading-relaxed">
+                      We kick out toxic people fast. Instant bans for harassment, inappropriate content, or harmful advice.
+                      This isn't Reddit. We actively monitor and moderate to maintain a positive environment.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/5 border-4 border-white/20 rounded-none p-8">
                 <div className="flex items-start gap-4">
                   <div className="text-3xl">🛡️</div>
                   <div>
-                    <h3 className="text-xl font-bold text-white mb-3 lowercase">24/7 content moderation</h3>
+                    <h3 className="text-xl font-black text-white mb-3 lowercase">secure by default</h3>
                     <p className="text-white/80 leading-relaxed">
-                      Our team monitors all interactions to prevent harassment, inappropriate content, and harmful advice.
-                      We use both automated systems and human reviewers to maintain a positive environment.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-                <div className="flex items-start gap-4">
-                  <div className="text-3xl">📱</div>
-                  <div>
-                    <h3 className="text-xl font-bold text-white mb-3 lowercase">secure platform</h3>
-                    <p className="text-white/80 leading-relaxed">
-                      We use industry-standard encryption, secure servers, and regular security audits to protect your data.
-                      Your personal information is never shared without your explicit consent.
+                      Industry-standard encryption, secure servers, and regular security audits protect your data.
+                      Your personal information is never shared without explicit consent. Privacy first, always.
                     </p>
                   </div>
                 </div>
@@ -133,7 +133,7 @@ export default function SafetyPage() {
             <h2 className="text-[3rem] md:text-[4rem] font-bold lowercase text-white text-center mb-16">reporting & support</h2>
 
             <div className="grid md:grid-cols-2 gap-8">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+              <div className="bg-white/5 border-4 border-white/20 rounded-none p-8">
                 <h3 className="text-xl font-bold text-white mb-4 lowercase">report inappropriate content</h3>
                 <p className="text-white/80 leading-relaxed mb-4">
                   If you see content that violates our guidelines, please report it immediately. Every report is reviewed
@@ -144,7 +144,7 @@ export default function SafetyPage() {
                 </button>
               </div>
 
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+              <div className="bg-white/5 border-4 border-white/20 rounded-none p-8">
                 <h3 className="text-xl font-bold text-white mb-4 lowercase">need help?</h3>
                 <p className="text-white/80 leading-relaxed mb-4">
                   Our support team is here to help with any safety concerns, technical issues, or questions about using Wizzmo safely.
@@ -161,40 +161,6 @@ export default function SafetyPage() {
         </div>
       </section>
 
-      {/* Crisis Resources */}
-      <section className="py-20 bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6]">
-        <div className="container mx-auto px-5">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-[3rem] md:text-[4rem] font-bold lowercase text-white mb-8">need immediate help?</h2>
-            <p className="text-white/90 text-lg leading-relaxed mb-8">
-              While Wizzmo provides peer support, some situations require professional help. If you're experiencing
-              a crisis or emergency, please reach out to these resources immediately:
-            </p>
-
-            <div className="grid md:grid-cols-3 gap-6 text-left">
-              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6">
-                <h3 className="text-lg font-bold text-white mb-2">Crisis Text Line</h3>
-                <p className="text-white/90 font-mono text-lg">Text HOME to 741741</p>
-              </div>
-
-              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6">
-                <h3 className="text-lg font-bold text-white mb-2">National Suicide Prevention Lifeline</h3>
-                <p className="text-white/90 font-mono text-lg">988</p>
-              </div>
-
-              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6">
-                <h3 className="text-lg font-bold text-white mb-2">Emergency Services</h3>
-                <p className="text-white/90 font-mono text-lg">911</p>
-              </div>
-            </div>
-
-            <p className="text-white/80 text-sm mt-8">
-              Remember: Wizzmo mentors are peers, not licensed professionals. For serious mental health concerns,
-              academic issues, or legal matters, please consult appropriate professionals.
-            </p>
-          </div>
-        </div>
-      </section>
 
       <Footer />
     </main>

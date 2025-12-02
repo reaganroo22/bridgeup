@@ -10,15 +10,15 @@ export default function FAQPage() {
   const faqs = [
     {
       question: "What is Wizzmo?",
-      answer: "Wizzmo is a college advice app that connects students anonymously with verified college mentors. Whether you need help with dating, academics, roommate issues, or social situations, our community of real college students is here to help with honest, experience-based advice."
+      answer: "Ask a girl. Get real advice. Wizzmo connects you anonymously with verified college girls who share honest, experience-based advice about dating, relationships, roommates, academics, and anything else college life throws at you."
     },
     {
       question: "Is it really anonymous?",
-      answer: "Yes! Your questions are completely anonymous. We've designed our system so that mentors can see your question and provide relevant advice, but they cannot identify who asked it. Your privacy and anonymity are our top priorities."
+      answer: "Totally anonymous. Ask anything without your name attached. Your secrets stay secret. We've built the system so mentors can help you without knowing who you are. Zero personal info required."
     },
     {
       question: "Who are the mentors?",
-      answer: "All our mentors are verified college students. We check student IDs, university emails, and conduct background reviews to ensure they're real students from accredited colleges and universities. They're your peers who have been through similar experiences."
+      answer: "Verified college girls only. Every mentor is a real college student. We verify through university emails and backgrounds to ensure authenticity. No fake profiles, no catfish, no grown men pretending to be college girls."
     },
     {
       question: "What topics can I ask about?",
@@ -66,7 +66,7 @@ export default function FAQPage() {
     },
     {
       question: "How do you verify mentors?",
-      answer: "Our verification process includes checking student IDs, university email addresses, and sometimes additional documentation. We also review social media profiles and conduct background checks when necessary. This ensures our mentors are real, current college students."
+      answer: "Our verification process includes university email verification and background reviews. We also check social profiles to ensure our mentors are real, current college students. We keep our verification process secure and streamlined."
     }
   ];
 
@@ -81,11 +81,11 @@ export default function FAQPage() {
       {/* Hero Section */}
       <section className="pt-32 pb-20 bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6]">
         <div className="container mx-auto px-5 text-center">
-          <h1 className="font-display font-black text-white leading-none lowercase text-[3rem] md:text-[5rem] tracking-tighter mb-6">
-            frequently asked questions
+          <h1 className="font-black text-white leading-none lowercase text-[3rem] md:text-[5rem] tracking-tighter mb-6">
+            faq
           </h1>
           <p className="text-white/90 text-lg md:text-xl max-w-2xl mx-auto">
-            Everything you need to know about using Wizzmo safely and effectively.
+            ask a girl. get real answers. here's everything you need to know.
           </p>
         </div>
       </section>

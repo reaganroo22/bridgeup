@@ -25,33 +25,36 @@ const Navigation = () => {
   }, []);
 
   return (
-    <header className={`fixed top-2 left-4 right-4 md:top-4 md:left-8 md:right-8 lg:left-16 lg:right-16 xl:left-24 xl:right-24 z-50 transition-all duration-500 rounded-full ${
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
       scrolled
-        ? 'bg-background/98 backdrop-blur-xl border border-white/30 shadow-2xl shadow-purple-500/20'
-        : 'bg-background/70 backdrop-blur-sm border border-white/10 shadow-xl shadow-black/30'
+        ? 'bg-[#FF4DB8]/95 backdrop-blur-lg border-b-4 border-[#8B5CF6] shadow-lg'
+        : 'bg-gradient-to-r from-[#FF4DB8] to-[#8B5CF6] shadow-2xl'
     }`}>
-      <div className={`flex items-center justify-between px-8 md:px-16 lg:px-20 transition-all duration-500 ${
-        scrolled ? 'h-12' : 'h-20'
+      <div className={`flex items-center justify-between px-6 md:px-8 lg:px-12 transition-all duration-300 ${
+        scrolled ? 'h-16' : 'h-20'
       }`}>
-        <Link href="/">
+        <Link href="/" className="flex items-center gap-3">
           <Image
-            src="/wizzmo-logo.svg"
-            alt="Wizzmo Logo"
-            width={87}
+            src="/wizzmo.png"
+            alt="Wizzmo Bear"
+            width={48}
             height={48}
-            className={`w-auto transition-all duration-500 hover:scale-110 ${
-              scrolled ? 'h-6' : 'h-12'
+            className={`transition-all duration-300 hover:scale-110 ${
+              scrolled ? 'w-10 h-10' : 'w-12 h-12'
             }`}
             priority
           />
+          <span className="text-white font-black text-2xl tracking-tight lowercase">
+            wizzmo
+          </span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-x-8">
+        <nav className="hidden md:flex items-center gap-x-6">
           {navItems.map((item) => (
             <a
               key={item.name}
               href={item.href}
-              className="text-foreground/80 font-medium text-[16px] transition-all duration-300 hover:text-foreground hover:scale-110 hover:bg-white/5 px-3 py-2 rounded-lg"
+              className="text-white/90 font-bold text-sm uppercase tracking-wide transition-all duration-200 hover:text-white hover:scale-105 px-3 py-2 border-2 border-transparent hover:border-white/30 rounded-none"
               target={item.href.startsWith('http') ? '_blank' : undefined}
               rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
             >
@@ -60,28 +63,51 @@ const Navigation = () => {
           ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-x-5">
+        <div className="hidden md:flex items-center gap-x-3">
           <a
-            href="#cta"
-            className="transition-all duration-300 hover:scale-110 hover:shadow-lg animate-pulse hover:animate-none"
+            href="https://apps.apple.com/app/wizzmo"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-all duration-300 hover:scale-105"
           >
             <Image
-              src="/app-store-badges.svg"
-              alt="Download Wizzmo"
-              width={140}
-              height={22}
+              src="/app store.png"
+              alt="Download on App Store"
+              width={120}
+              height={36}
               className="drop-shadow-md"
             />
           </a>
+          <button
+            onClick={() => {
+              const modal = document.createElement('div');
+              modal.className = 'fixed inset-0 bg-black/80 flex items-center justify-center z-50';
+              modal.innerHTML = `
+                <div class="bg-white p-8 rounded-none border-4 border-black max-w-md mx-4 text-center">
+                  <h2 class="text-2xl font-black lowercase mb-4">coming soon!</h2>
+                  <p class="text-gray-700 mb-6">we're working hard to bring wizzmo to android. stay tuned! 🚀</p>
+                  <button onclick="this.parentElement.parentElement.remove()" class="bg-black text-white px-6 py-3 font-black uppercase tracking-wide hover:bg-gray-800 transition-colors">
+                    got it
+                  </button>
+                </div>
+              `;
+              document.body.appendChild(modal);
+            }}
+            className="transition-all duration-300 hover:scale-105"
+          >
+            <Image
+              src="/google play.png"
+              alt="Get it on Google Play"
+              width={120}
+              height={36}
+              className="drop-shadow-md"
+            />
+          </button>
         </div>
 
         <div className="md:hidden">
-          <button aria-label="Open menu" className="p-2">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 12H21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M3 6H21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M3 18H21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+          <button aria-label="Download App" className="bg-white text-[#FF4DB8] px-4 py-2 font-black text-sm uppercase tracking-wide border-2 border-white hover:bg-transparent hover:text-white transition-colors">
+            Download
           </button>
         </div>
       </div>
