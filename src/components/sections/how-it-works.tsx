@@ -29,7 +29,7 @@ const HowItWorksSection = () => {
         {/* Main Content - Simple 1,2,3 flow */}
         <div className="relative z-30 flex flex-col items-center text-center space-y-16">
           <div className="relative">
-            <h2 className="text-[3.5rem] md:text-[5rem] font-black lowercase tracking-tighter text-white">
+            <h2 className="text-[2.5rem] sm:text-[3.5rem] md:text-[4.5rem] lg:text-[5rem] font-black lowercase tracking-tighter text-white">
               how it works
             </h2>
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-24 h-1 bg-[#FF4DB8]"></div>

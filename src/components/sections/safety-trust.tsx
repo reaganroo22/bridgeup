@@ -23,7 +23,7 @@ const SafetyTrustSection = () => {
 
       {/* Safety mentor photo - top right enhanced */}
       <div
-        className="pointer-events-none absolute top-[10%] right-[3%] w-32 h-32 md:w-44 md:h-44 lg:w-52 lg:h-52 transition-transform duration-300 ease-out z-10"
+        className="pointer-events-none absolute top-[8%] right-[1%] w-28 h-28 sm:w-36 sm:h-36 md:w-48 md:h-48 lg:w-56 lg:h-56 transition-transform duration-300 ease-out z-10"
         style={{
           transform: `translate(${mousePosition.x * -0.2}px, ${mousePosition.y * 0.15}px) rotate(8deg)`,
         }}
@@ -36,24 +36,24 @@ const SafetyTrustSection = () => {
             height={256}
             className="object-contain w-full h-full"
           />
-          <div className="absolute -top-2 -left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-black border-2 border-white">
+          <div className="absolute -top-1 -left-1 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black border-1 border-white">
             🛡️ SAFE
           </div>
-          <div className="absolute -bottom-1 -right-1 bg-[#FF4DB8] text-white text-xs px-2 py-1 rounded-full font-black border-2 border-white">
+          <div className="absolute -bottom-0.5 -right-0.5 bg-[#FF4DB8] text-white text-[10px] px-1.5 py-0.5 rounded-full font-black border-1 border-white">
             ✓ TRUSTED
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto text-center relative">
-        <div className="relative">
-          <h2 className="font-black text-[3.5rem] md:text-[5.5rem] leading-none lowercase tracking-tighter text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+      <div className="container mx-auto relative">
+        <div className="relative text-left lg:text-center">
+          <h2 className="font-black text-[2.5rem] sm:text-[3.5rem] md:text-[4.5rem] lg:text-[5.5rem] leading-none lowercase tracking-tighter text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
             actually safe space
           </h2>
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#FF4DB8]"></div>
+          <div className="absolute -bottom-2 left-0 lg:left-1/2 lg:-translate-x-1/2 w-32 h-1 bg-[#FF4DB8]"></div>
         </div>
 
-        <p className="mt-8 max-w-3xl mx-auto text-white/90 text-xl font-bold leading-relaxed">
+        <p className="mt-8 max-w-3xl lg:mx-auto text-white/90 text-xl font-bold leading-relaxed text-left lg:text-center">
           Real advice from verified college girls. Here's what keeps it safe.
         </p>
 

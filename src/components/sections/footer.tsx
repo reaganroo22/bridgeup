@@ -5,13 +5,17 @@ const Footer = () => {
   return (
     <footer id="footer" className="w-full bg-black py-20">
       <div className="container flex flex-col items-center justify-center gap-10">
-        <Link href="/">
+        <Link href="/" className="flex items-center gap-3">
           <Image
-            src="/wizzmo-logo.svg"
-            alt="Wizzmo Logo"
-            width={104}
-            height={40}
+            src="/wizzmo.png"
+            alt="Wizzmo Bear"
+            width={48}
+            height={48}
+            className="transition-all duration-300 hover:scale-110"
           />
+          <span className="text-white font-black text-3xl tracking-tight lowercase">
+            wizzmo
+          </span>
         </Link>
         <nav className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4">
           <Link href="/about" className="text-base font-medium text-white transition-colors hover:text-white/80">

@@ -12,7 +12,7 @@ export default function AboutPage() {
       {/* Hero Section */}
       <section className="pt-32 pb-20 bg-gradient-to-br from-[#FF4DB8] to-[#8B5CF6] relative overflow-hidden">
         <div className="container mx-auto px-5 text-center relative z-10">
-          <h1 className="font-display font-black text-white leading-none lowercase text-[3rem] md:text-[5rem] tracking-tighter mb-6">
+          <h1 className="font-black text-white leading-none lowercase text-[3rem] md:text-[5rem] tracking-tighter mb-6">
             about wizzmo
           </h1>
           <p className="text-white/90 text-lg md:text-xl max-w-2xl mx-auto">
@@ -25,7 +25,7 @@ export default function AboutPage() {
       <section className="py-20">
         <div className="container mx-auto px-5">
           <div className="max-w-4xl mx-auto text-center mb-16">
-            <h2 className="text-[3rem] md:text-[4rem] font-bold lowercase text-white mb-8">our mission</h2>
+            <h2 className="text-[3rem] md:text-[4rem] font-black lowercase text-white mb-8">our mission</h2>
             <p className="text-white/80 text-lg md:text-xl leading-relaxed">
               College can be overwhelming. Between dating drama, academic stress, roommate conflicts, and social pressures,
               students need real advice from people who truly understand. That's where Wizzmo comes in.
@@ -34,7 +34,7 @@ export default function AboutPage() {
 
           <div className="grid md:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
             <div>
-              <h3 className="text-2xl md:text-3xl font-bold text-white mb-6 lowercase">real advice, real experiences</h3>
+              <h3 className="text-2xl md:text-3xl font-black text-white mb-6 lowercase">real advice, real experiences</h3>
               <p className="text-white/80 leading-relaxed mb-6">
                 Wizzmo connects you with verified college students who've been through it all. Our mentors aren't professionals
                 with textbook answers—they're your peers who understand the unique challenges of college life today.
@@ -61,25 +61,25 @@ export default function AboutPage() {
           <h2 className="text-[3rem] md:text-[4rem] font-bold lowercase text-white text-center mb-16">how we're different</h2>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            <div className="bg-background border border-white/10 rounded-2xl p-8 text-center">
+            <div className="bg-background border-4 border-white/20 rounded-none p-8 text-center">
               <div className="text-4xl mb-4">✨</div>
-              <h3 className="text-xl font-bold text-white mb-4 lowercase">verified mentors</h3>
+              <h3 className="text-xl font-black text-white mb-4 lowercase">verified mentors</h3>
               <p className="text-white/80">
                 All our advice-givers are verified college students. No fake profiles, no random internet strangers—just real students helping real students.
               </p>
             </div>
 
-            <div className="bg-background border border-white/10 rounded-2xl p-8 text-center">
+            <div className="bg-background border-4 border-white/20 rounded-none p-8 text-center">
               <div className="text-4xl mb-4">🎯</div>
-              <h3 className="text-xl font-bold text-white mb-4 lowercase">relevant topics</h3>
+              <h3 className="text-xl font-black text-white mb-4 lowercase">relevant topics</h3>
               <p className="text-white/80">
                 From dating and relationships to academics and social life, we focus on what actually matters to college students right now.
               </p>
             </div>
 
-            <div className="bg-background border border-white/10 rounded-2xl p-8 text-center">
+            <div className="bg-background border-4 border-white/20 rounded-none p-8 text-center">
               <div className="text-4xl mb-4">💕</div>
-              <h3 className="text-xl font-bold text-white mb-4 lowercase">kind community</h3>
+              <h3 className="text-xl font-black text-white mb-4 lowercase">kind community</h3>
               <p className="text-white/80">
                 We're building a supportive space where kindness comes first. No trolling, no judgment—just genuine help and encouragement.
               </p>

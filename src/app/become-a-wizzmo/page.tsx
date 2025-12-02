@@ -456,7 +456,7 @@ export default function BecomeAWizzmoPage() {
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white"
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C147E9] focus:border-[#C147E9] text-base text-gray-900 bg-white"
                     placeholder="First name"
                     required
                   />
@@ -469,7 +469,7 @@ export default function BecomeAWizzmoPage() {
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white"
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C147E9] focus:border-[#C147E9] text-base text-gray-900 bg-white"
                     placeholder="Last name"
                     required
                   />
@@ -483,7 +483,7 @@ export default function BecomeAWizzmoPage() {
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white"
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C147E9] focus:border-[#C147E9] text-base text-gray-900 bg-white"
                   placeholder="your.email@gmail.com"
                   required
                 />
@@ -496,7 +496,7 @@ export default function BecomeAWizzmoPage() {
                     name="university"
                     value={formData.university}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white appearance-none select-arrow"
+                    className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C147E9] focus:border-[#C147E9] text-base text-gray-900 bg-white appearance-none select-arrow"
                     required
                   >
                     <option value="">Select University</option>
@@ -512,7 +512,7 @@ export default function BecomeAWizzmoPage() {
                     name="classYear"
                     value={formData.classYear}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white appearance-none select-arrow"
+                    className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C147E9] focus:border-[#C147E9] text-base text-gray-900 bg-white appearance-none select-arrow"
                     required
                     style={{ fontSize: '16px' }}
                   >
@@ -533,7 +533,7 @@ export default function BecomeAWizzmoPage() {
                   value={formData.whyMentor}
                   onChange={handleInputChange}
                   rows={4}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white resize-none min-h-[100px]"
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C147E9] focus:border-[#C147E9] text-base text-gray-900 bg-white resize-none min-h-[100px]"
                   placeholder="I'd make a good mentor because..."
                   required
                   style={{ fontSize: '16px' }}
@@ -547,7 +547,7 @@ export default function BecomeAWizzmoPage() {
                   name="instagram"
                   value={formData.instagram}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4DB8] focus:border-[#FF4DB8] text-base text-gray-900 bg-white"
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C147E9] focus:border-[#C147E9] text-base text-gray-900 bg-white"
                   placeholder="@your_instagram"
                   required
                   style={{ fontSize: '16px' }}
@@ -561,7 +561,7 @@ export default function BecomeAWizzmoPage() {
                     name="confirmWoman"
                     checked={formData.confirmWoman}
                     onChange={handleInputChange}
-                    className="mt-1 w-4 h-4 text-[#FF4DB8] border-gray-300 rounded focus:ring-[#FF4DB8]"
+                    className="mt-1 w-4 h-4 text-[#C147E9] border-gray-300 rounded focus:ring-[#C147E9]"
                     required
                   />
                   <label className="text-sm text-gray-700">
@@ -575,7 +575,7 @@ export default function BecomeAWizzmoPage() {
                     name="confirmAdvice"
                     checked={formData.confirmAdvice}
                     onChange={handleInputChange}
-                    className="mt-1 w-4 h-4 text-[#FF4DB8] border-gray-300 rounded focus:ring-[#FF4DB8]"
+                    className="mt-1 w-4 h-4 text-[#C147E9] border-gray-300 rounded focus:ring-[#C147E9]"
                     required
                   />
                   <label className="text-sm text-gray-700">
@@ -587,7 +587,7 @@ export default function BecomeAWizzmoPage() {
               <button
                 type="submit"
                 disabled={!canSubmit || submitting}
-                className="w-full bg-[#FF4DB8] text-white py-4 rounded-lg font-semibold text-lg hover:bg-[#FF6BCC] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-[#C147E9] text-white py-4 rounded-lg font-semibold text-lg hover:bg-[#D15EF0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Submitting...' : 'Submit Application'}
               </button>

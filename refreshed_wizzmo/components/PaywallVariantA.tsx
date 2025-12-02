@@ -8,6 +8,7 @@ import {
   Text,
   View,
   ScrollView,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -98,11 +99,58 @@ export default function PaywallVariantA({ visible = true, onClose, onSuccess }: 
         {/* Scrollable Content */}
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
+            {/* Multiple Mentor Photos for Emotional Connection */}
+            <View style={styles.mentorPhotoSection}>
+              <View style={styles.mentorGrid}>
+                <View style={styles.mentorRow}>
+                  <View style={styles.mentorPhotoContainer}>
+                    <Image 
+                      source={require('@/assets/images/girl1.png')} 
+                      style={[styles.mentorPhoto, styles.mentorPhoto1]}
+                    />
+                    <View style={styles.mentorBadge}>
+                      <Text style={styles.badgeText}>verified</Text>
+                    </View>
+                  </View>
+                  <View style={styles.mentorPhotoContainer}>
+                    <Image 
+                      source={require('@/assets/images/girl2.png')} 
+                      style={[styles.mentorPhoto, styles.mentorPhoto2]}
+                    />
+                    <View style={[styles.mentorBadge, styles.liveBadge]}>
+                      <Text style={styles.badgeText}>online</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.mentorRow}>
+                  <View style={styles.mentorPhotoContainer}>
+                    <Image 
+                      source={require('@/assets/images/girl4.jpeg')} 
+                      style={[styles.mentorPhoto, styles.mentorPhoto3]}
+                    />
+                    <View style={styles.mentorBadge}>
+                      <Text style={styles.badgeText}>expert</Text>
+                    </View>
+                  </View>
+                  <View style={styles.mentorPhotoContainer}>
+                    <Image 
+                      source={require('@/assets/images/girl5.jpeg')} 
+                      style={[styles.mentorPhoto, styles.mentorPhoto4]}
+                    />
+                    <View style={[styles.mentorBadge, styles.activeBadge]}>
+                      <Text style={styles.badgeText}>active</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+              <Text style={styles.mentorCount}>200+ verified college mentors ready to help</Text>
+            </View>
+
             {/* Title */}
             <View style={styles.titleSection}>
-              <Text style={styles.title}>unlock unlimited spill 💅</Text>
+              <Text style={styles.title}>get real advice from real girls 💕</Text>
               <Text style={styles.subtitle}>
-                ask for life/dating advice from college girls who actually know what they're talking about
+                join thousands of college girls getting life-changing advice from verified mentors who actually get it
               </Text>
             </View>
 
@@ -244,6 +292,75 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   
+  // Multiple Mentor Photos
+  mentorPhotoSection: {
+    alignItems: 'center',
+    marginBottom: 40,
+    backgroundColor: 'transparent',
+  },
+  mentorGrid: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  mentorRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+    marginBottom: 20,
+  },
+  mentorPhotoContainer: {
+    position: 'relative',
+    alignItems: 'center',
+  },
+  mentorPhoto: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  mentorPhoto1: {
+    transform: [{ rotate: '-8deg' }],
+  },
+  mentorPhoto2: {
+    transform: [{ rotate: '12deg' }],
+  },
+  mentorPhoto3: {
+    transform: [{ rotate: '6deg' }],
+  },
+  mentorPhoto4: {
+    transform: [{ rotate: '-10deg' }],
+  },
+  mentorBadge: {
+    position: 'absolute',
+    bottom: -8,
+    backgroundColor: '#FF4DB8',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 0, // Brutalist
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  liveBadge: {
+    backgroundColor: '#10B981',
+  },
+  activeBadge: {
+    backgroundColor: '#F59E0B',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  mentorCount: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    textTransform: 'lowercase',
+  },
+
   // Title
   titleSection: {
     alignItems: 'center',
