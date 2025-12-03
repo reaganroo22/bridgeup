@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import UniversitySearch from "@/components/UniversitySearch";
+import { universities } from "@/data/universities";
 
 export default function BecomeAWizzmoPage() {
   const [formData, setFormData] = useState({
@@ -54,12 +55,20 @@ export default function BecomeAWizzmoPage() {
     }));
   };
 
+  const isValidUniversity = formData.university === '' || universities.includes(formData.university);
   const canSubmit = formData.firstName && formData.lastName && formData.email && 
-                   formData.university && formData.classYear && formData.whyMentor && formData.instagram && formData.confirmAdvice && formData.confirmWoman;
+                   formData.university && formData.classYear && formData.whyMentor && formData.instagram && formData.confirmAdvice && formData.confirmWoman && isValidUniversity;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+
+    // Validate university selection
+    if (!universities.includes(formData.university)) {
+      alert('Please select a valid university from the dropdown list.');
+      setSubmitting(false);
+      return;
+    }
 
     try {
       const response = await fetch('/api/mentor-application', {
