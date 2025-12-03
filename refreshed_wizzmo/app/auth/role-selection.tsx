@@ -34,7 +34,7 @@ export default function RoleSelectionScreen() {
       // If user chooses "student", completely cleanup all mentor data
       if (role === 'student') {
         console.log('[RoleSelection] 🧹 User chose STUDENT - cleaning up ALL mentor data');
-        const { error: cleanupError } = await cleanupMentorData(user.id, user.email);
+        const { error: cleanupError } = await cleanupMentorData(user.id, user.email || '');
         
         if (cleanupError) {
           console.error('[RoleSelection] Error cleaning up mentor data:', cleanupError);
@@ -57,7 +57,14 @@ export default function RoleSelectionScreen() {
         }
       }
 
+      // If user chooses "both", DO NOT cleanup any data - preserve everything
+      if (role === 'both') {
+        console.log('[RoleSelection] 👥 User chose BOTH - preserving ALL existing student data');
+        console.log('[RoleSelection] Student profile data will be retained and mentor capabilities added');
+      }
+
       // Update user role in database and mark role selection as completed
+      console.log('[RoleSelection] 🎯 CRITICAL: Updating role to:', role, 'with role_selection_completed: true');
       const { error } = await updateUserProfile(user.id, { 
         role,
         role_selection_completed: true 
@@ -71,18 +78,53 @@ export default function RoleSelectionScreen() {
         return;
       }
 
-      // For mentor role, also clear any cached student mode preferences
-      if (role === 'mentor') {
-        try {
-          const AsyncStorage = await import('@react-native-async-storage/async-storage');
+      // Store the role selection state in storage for persistence
+      try {
+        const AsyncStorage = await import('@react-native-async-storage/async-storage');
+        
+        // Store the role selection
+        await AsyncStorage.default.setItem(`selected_role_${user.id}`, role);
+        await AsyncStorage.default.setItem(`role_selection_completed_${user.id}`, 'true');
+        
+        // CRITICAL: Clear onboarding progress to prevent conflicts between student/mentor flows
+        await AsyncStorage.default.removeItem(`onboarding_step_${user.id}`);
+        await AsyncStorage.default.removeItem('onboarding_step'); // Also clear legacy key
+        console.log('[RoleSelection] 🧹 Cleared onboarding progress to prevent flow conflicts');
+        
+        // For mentor role, also clear any cached student mode preferences
+        if (role === 'mentor') {
           await AsyncStorage.default.setItem(`user_mode_${user.id}`, 'mentor');
           console.log('[RoleSelection] ✅ Set mentor mode in storage to prevent student mode flicker');
-        } catch (storageError) {
-          console.error('[RoleSelection] Error setting mentor mode in storage:', storageError);
+        } else if (role === 'both') {
+          await AsyncStorage.default.setItem(`user_mode_${user.id}`, 'mentor'); // Default to mentor for dual-role
+          console.log('[RoleSelection] ✅ Set default mentor mode for dual-role user');
+        } else {
+          await AsyncStorage.default.setItem(`user_mode_${user.id}`, 'student');
+          console.log('[RoleSelection] ✅ Set student mode in storage');
         }
+      } catch (storageError) {
+        console.error('[RoleSelection] Error setting role in storage:', storageError);
       }
 
       console.log('[RoleSelection] ✅ Role updated successfully to:', role);
+
+      // VERIFICATION: Double-check the role was actually saved
+      try {
+        const { getUserProfile } = await import('@/lib/supabaseService');
+        const { data: verifiedProfile } = await getUserProfile(user.id);
+        console.log('[RoleSelection] 🔍 VERIFICATION: Database role after update:', verifiedProfile?.role);
+        console.log('[RoleSelection] 🔍 VERIFICATION: role_selection_completed:', (verifiedProfile as any)?.role_selection_completed);
+        
+        if (verifiedProfile?.role !== role) {
+          console.error('[RoleSelection] ❌ CRITICAL: Role not properly saved! Expected:', role, 'Got:', verifiedProfile?.role);
+          alert('Role update failed. Please try again.');
+          setLoading(false);
+          setSelectedRole(null);
+          return;
+        }
+      } catch (verifyError) {
+        console.warn('[RoleSelection] Could not verify role update:', verifyError);
+      }
 
       // Navigate based on selected role
       if (role === 'student') {
@@ -126,6 +168,9 @@ export default function RoleSelectionScreen() {
             You can be both a student asking questions and a mentor helping others. 
             What would you like to do?
           </Text>
+          <Text style={styles.warningText}>
+            ⚠️ This choice cannot be changed later
+          </Text>
         </View>
 
         {/* Role Options */}
@@ -144,7 +189,7 @@ export default function RoleSelectionScreen() {
             </View>
             <Text style={styles.roleTitle}>Student</Text>
             <Text style={styles.roleDescription}>
-              Ask questions and get advice from Georgetown mentors
+              Ask questions and get advice from college mentors
             </Text>
             {loading && selectedRole === 'student' && (
               <ActivityIndicator color="#FF6B6B" style={styles.loader} />
@@ -195,7 +240,7 @@ export default function RoleSelectionScreen() {
         </View>
 
             <Text style={styles.note}>
-              You can always change this later in your profile settings.
+              
             </Text>
           </View>
         </ScrollView>
@@ -289,6 +334,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#8E8E93',
     textAlign: 'center',
+    fontFamily: 'System',
+  },
+  warningText: {
+    fontSize: 14,
+    color: '#FF6B6B',
+    textAlign: 'center',
+    fontWeight: '600',
+    marginTop: 8,
     fontFamily: 'System',
   },
   

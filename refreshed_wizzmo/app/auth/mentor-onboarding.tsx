@@ -54,9 +54,15 @@ const topics = [
 ];
 
 const sessionFormats = [
-  { id: 'async-chat', name: 'Async chat (within 24–48h)', emoji: '💬' },
-  { id: 'live-audio', name: 'Live audio', emoji: '🎤' },
-  { id: 'live-video', name: 'Live video', emoji: '📹' },
+  { id: 'async-chat', name: 'Text chat (within 24–48h)', emoji: '💬' },
+  { id: 'voice-memo', name: 'Voice memo exchanges', emoji: '🎤' },
+];
+
+const communicationStyles = [
+  { id: 'direct', name: 'Direct & straightforward', emoji: '💪' },
+  { id: 'gentle', name: 'Gentle & supportive', emoji: '🤗' },
+  { id: 'funny', name: 'Funny & lighthearted', emoji: '😄' },
+  { id: 'empathetic', name: 'Empathetic & understanding', emoji: '💕' },
 ];
 
 const hoursPerWeek = [
@@ -106,9 +112,10 @@ const bearImages = {
 
 export default function MentorOnboarding() {
   const { user, signOut } = useAuth();
-  const { switchMode } = useUserMode();
+  const { switchMode, refreshUserData } = useUserMode();
   const [accessDenied, setAccessDenied] = useState(false);
   const [accessLoading, setAccessLoading] = useState(true);
+  const [isLoadingApplicationData, setIsLoadingApplicationData] = useState(false);
   
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -129,6 +136,7 @@ export default function MentorOnboarding() {
     major: '',
     selectedTopics: [] as string[],
     selectedFormats: [] as string[],
+    communicationStyle: '',
     weeklyHours: '',
     languages: 'English',
     socialLinks: '',
@@ -169,29 +177,57 @@ export default function MentorOnboarding() {
         const saved = await AsyncStorage.getItem(`mentor_onboarding_progress_${user.id}`);
         if (saved) {
           const progress = JSON.parse(saved);
-          // Only restore if recent (within 24 hours)
+          
+          // CRITICAL FIX: Don't restore if user completed onboarding before (step 8 = success screen)
+          // This prevents users from being stuck at the success screen on re-entry
+          if (progress.currentStep >= 8) {
+            console.log('[MentorOnboarding] Previous onboarding completed, starting fresh at step 1');
+            await AsyncStorage.removeItem(`mentor_onboarding_progress_${user.id}`);
+            setCurrentStep(1);
+            return;
+          }
+          
+          // Only restore if recent (within 24 hours) and not completed
           if (Date.now() - progress.timestamp < 24 * 60 * 60 * 1000) {
             console.log('[MentorOnboarding] Restoring saved progress...');
             setCurrentStep(progress.currentStep || 1);
+            // CRITICAL: Only restore non-application fields - Supabase data will override these
             setFormData(prev => ({
               ...prev,
-              ...progress.formData,
+              // Only restore fields that aren't from application (topics, formats, hours)
+              selectedTopics: progress.formData.selectedTopics || prev.selectedTopics,
+              selectedFormats: progress.formData.selectedFormats || prev.selectedFormats,
+              weeklyHours: progress.formData.weeklyHours || prev.weeklyHours,
+              languages: progress.formData.languages || prev.languages,
+              socialLinks: progress.formData.socialLinks || prev.socialLinks,
+              bio: progress.formData.bio || prev.bio,
+              // DON'T restore application fields - let Supabase override
               profilePhoto: null, // Reset media
               introVideo: null,   // Reset media
             }));
+          } else {
+            console.log('[MentorOnboarding] Saved progress too old, starting fresh');
+            await AsyncStorage.removeItem(`mentor_onboarding_progress_${user.id}`);
+            setCurrentStep(1);
           }
+        } else {
+          console.log('[MentorOnboarding] No saved progress, starting at step 1');
+          setCurrentStep(1);
         }
       } catch (error) {
         console.warn('[MentorOnboarding] Could not load progress:', error);
+        setCurrentStep(1); // Fallback to step 1
       }
     };
     loadMentorProgress();
   }, [user]);
 
-  // AUTO-SAVE: Save progress whenever form data changes
+  // AUTO-SAVE: Save progress whenever form data changes (but not while loading application data)
   useEffect(() => {
-    saveMentorProgress();
-  }, [currentStep, formData]);
+    if (!isLoadingApplicationData) {
+      saveMentorProgress();
+    }
+  }, [currentStep, formData, isLoadingApplicationData]);
 
   // Bear state transition animation
 
@@ -279,6 +315,7 @@ export default function MentorOnboarding() {
       if (!user?.email || accessDenied || accessLoading) return;
 
       try {
+        setIsLoadingApplicationData(true);
         // Check for existing mentor application directly from mentor_applications table
         console.log('[MentorOnboarding] Loading mentor application data for email:', user.email);
         const { data: mentorApplication, error: appError } = await supabase
@@ -289,18 +326,22 @@ export default function MentorOnboarding() {
         
         if (!appError && mentorApplication) {
           console.log('[MentorOnboarding] Found mentor application data:', mentorApplication);
-          // Preload application data into form
+          console.log('[MentorOnboarding] 🎯 PRIORITIZING SUPABASE DATA - overriding any saved progress');
+          // FORCE application data to override any saved progress
           setFormData(prev => ({
             ...prev,
+            // ALWAYS use application data for these fields
             fullName: (mentorApplication.first_name && mentorApplication.last_name ? `${mentorApplication.first_name} ${mentorApplication.last_name}` : '') || user.user_metadata?.full_name || '',
             university: mentorApplication.university || '',
             graduationYear: mentorApplication.graduation_year?.toString() || '',
             major: mentorApplication.major || '',
             motivation: mentorApplication.why_join || '', // Load "Why do I want to be a mentor" text from correct field
-            selectedTopics: mentorApplication.topics_comfortable_with || [],
-            selectedFormats: mentorApplication.session_formats || [],
-            weeklyHours: mentorApplication.hours_per_week?.toString() || '',
-            languages: mentorApplication.languages || 'English',
+            socialLinks: mentorApplication.instagram ? `instagram.com/${mentorApplication.instagram.replace(/^@/, '')}` : '', // Load Instagram handle
+            // Don't override topics/formats from application since they don't exist there
+            // selectedTopics: mentorApplication.topics_comfortable_with || prev.selectedTopics,
+            // selectedFormats: mentorApplication.session_formats || prev.selectedFormats,
+            // weeklyHours: mentorApplication.hours_per_week?.toString() || prev.weeklyHours,
+            // languages: mentorApplication.languages || prev.languages,
           }));
 
           // Set university search text for dropdown
@@ -368,11 +409,13 @@ export default function MentorOnboarding() {
         }
       } catch (error) {
         console.error('[MentorOnboarding] Error loading application data:', error);
+      } finally {
+        setIsLoadingApplicationData(false);
       }
     };
 
     loadMentorApplicationData();
-  }, [user]);
+  }, [user, accessDenied, accessLoading]);
 
   const dismissKeyboard = () => {
     Keyboard.dismiss();
@@ -452,8 +495,9 @@ export default function MentorOnboarding() {
         }
         return true;
       case 6:
-        if (formData.selectedFormats.length === 0) {
-          Alert.alert('Formats required', 'Please select at least one session format');
+        // Availability and formats validation  
+        if (!formData.selectedFormats.length) {
+          Alert.alert('Session format required', 'Please select at least one session format');
           return false;
         }
         if (!formData.weeklyHours) {
@@ -566,13 +610,14 @@ export default function MentorOnboarding() {
       try {
         console.log('[MentorOnboarding] Attempt 1: Using service function');
         console.log('[MentorOnboarding] 🎯 CRITICAL: Setting role to MENTOR in profile data:', mentorProfileData.role);
+        console.log('[MentorOnboarding] 🎯 About to call updateUserProfile with:', mentorProfileData);
         const { error: userError } = await supabaseService.updateUserProfile(user.id, mentorProfileData);
         
         if (!userError) {
-          console.log('[MentorOnboarding] ✅ User profile updated successfully with role: mentor');
+          console.log('[MentorOnboarding] ✅ User profile updated successfully with onboarding_completed: true, role:', mentorProfileData.role);
           profileSuccess = true;
         } else {
-          console.warn('[MentorOnboarding] Service function failed:', userError);
+          console.error('[MentorOnboarding] ❌ CRITICAL: Service function failed to update onboarding_completed:', userError);
         }
       } catch (serviceError) {
         console.warn('[MentorOnboarding] Service function error:', serviceError);
@@ -619,6 +664,7 @@ export default function MentorOnboarding() {
           is_verified: false,
           bio: formData.bio?.trim() || formData.motivation?.trim() || null,
           session_formats_offered: formData.selectedFormats || [],
+          communication_style: formData.communicationStyle || null,
           weekly_hour_commitment: formData.weeklyHours ? parseInt(formData.weeklyHours) : 3,
           languages_spoken: formData.languages || 'English',
           social_media_links: formData.socialMediaLinks || null,
@@ -631,6 +677,27 @@ export default function MentorOnboarding() {
         if (!mentorError) {
           console.log('[MentorOnboarding] ✅ Mentor profile created');
           mentorSuccess = true;
+          
+          // SPECIAL: Auto-post intro video if provided
+          if (formData.introVideo?.uri && formData.motivation) {
+            try {
+              console.log('[MentorOnboarding] 🎥 Auto-posting intro video');
+              const { error: videoError } = await supabaseService.createMentorVideo(
+                user.id,
+                formData.introVideo.uri,
+                'Intro Video',
+                formData.motivation.trim()
+              );
+              
+              if (!videoError) {
+                console.log('[MentorOnboarding] ✅ Intro video posted successfully');
+              } else {
+                console.warn('[MentorOnboarding] ⚠️ Intro video posting failed:', videoError);
+              }
+            } catch (videoPostError) {
+              console.warn('[MentorOnboarding] ⚠️ Intro video posting error:', videoPostError);
+            }
+          }
         } else {
           console.warn('[MentorOnboarding] Mentor profile creation failed:', mentorError);
         }
@@ -1128,7 +1195,33 @@ export default function MentorOnboarding() {
   const renderAvailabilityAndFormats = () => (
     <View style={styles.stepContent}>
       <BearImage size="medium" />
-      <Text style={styles.stepDescription}>your availability</Text>
+      <Text style={styles.stepDescription}>mentoring preferences</Text>
+
+      {/* Communication Style */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>communication approach</Text>
+        <Text style={styles.inputSubtitle}>how would you describe yourself?</Text>
+        <View style={styles.stylesGrid}>
+          {communicationStyles.map((style) => (
+            <TouchableOpacity
+              key={style.id}
+              style={[
+                styles.styleChip,
+                formData.communicationStyle === style.id && styles.styleChipSelected
+              ]}
+              onPress={() => setFormData(prev => ({ ...prev, communicationStyle: style.id }))}
+            >
+              <Text style={styles.styleEmoji}>{style.emoji}</Text>
+              <Text style={[
+                styles.styleText,
+                formData.communicationStyle === style.id && styles.styleTextSelected
+              ]}>
+                {style.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
 
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>session formats you offer</Text>
@@ -1286,24 +1379,26 @@ export default function MentorOnboarding() {
         <TouchableOpacity 
           style={styles.continueButton} 
           onPress={async () => {
-            console.log('[MentorOnboarding] 🚀 Start Mentoring pressed - navigating with mentor role');
+            console.log('[MentorOnboarding] 🚀 Start Mentoring pressed - ensuring completion and navigating');
             
             try {
-              // Force switch to mentor mode to trigger context refresh
-              console.log('[MentorOnboarding] 🔄 Force switching to mentor mode');
-              await switchMode('mentor');
+              // CRITICAL: Ensure onboarding is marked complete in database
+              console.log('[MentorOnboarding] 🔄 Force refreshing user data after completion...');
+              await refreshUserData();
               
-              // Small delay to ensure context and database sync
+              // Clear any saved progress to prevent re-entry to onboarding
+              await AsyncStorage.removeItem(`mentor_onboarding_progress_${user.id}`);
+              console.log('[MentorOnboarding] ✅ Cleared onboarding progress');
+              
+              // Small delay to ensure context update
               setTimeout(() => {
-                console.log('[MentorOnboarding] ➡️ Navigating to main app as mentor');
+                console.log('[MentorOnboarding] ➡️ Navigating to main app');
                 router.replace('/(tabs)/');
               }, 1000);
             } catch (error) {
-              console.warn('[MentorOnboarding] Could not switch mode, navigating anyway:', error);
-              // Fallback navigation even if mode switch fails
-              setTimeout(() => {
-                router.replace('/(tabs)/');
-              }, 500);
+              console.warn('[MentorOnboarding] Navigation error:', error);
+              // Fallback navigation
+              router.replace('/(tabs)/');
             }
           }}
         >
@@ -1337,7 +1432,7 @@ export default function MentorOnboarding() {
       case 3: return { title: 'about you', subtitle: 'basic information' };
       case 4: return { title: 'your story', subtitle: 'share your background' };
       case 5: return { title: 'expertise', subtitle: 'topics you can help with' };
-      case 6: return { title: 'availability', subtitle: 'when can you mentor?' };
+      case 6: return { title: 'preferences', subtitle: 'availability & style' };
       case 7: return { title: 'media', subtitle: 'optional profile enhancements' };
       case 8: return { title: 'done!', subtitle: 'you are ready to mentor' };
       default: return { title: '', subtitle: '' };
@@ -1813,6 +1908,40 @@ const styles = StyleSheet.create({
     textTransform: 'lowercase',
   },
   topicTextSelected: {
+    color: '#FF4DB8',
+  },
+
+  // Communication Styles
+  stylesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  styleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 0,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 6,
+  },
+  styleChipSelected: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+  },
+  styleEmoji: {
+    fontSize: 14,
+  },
+  styleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textTransform: 'lowercase',
+  },
+  styleTextSelected: {
     color: '#FF4DB8',
   },
 

@@ -267,6 +267,7 @@ export async function updateUserProfile(
     vertical?: string
     email?: string
     role?: string
+    role_selection_completed?: boolean
   }
 ): Promise<ServiceResponse<User>> {
   try {
@@ -292,6 +293,7 @@ export async function updateUserProfile(
     if (updates.vertical !== undefined) updateData.vertical = updates.vertical;
     if (updates.email !== undefined) updateData.email = updates.email;
     if (updates.role !== undefined) updateData.role = updates.role;
+    if (updates.role_selection_completed !== undefined) updateData.role_selection_completed = updates.role_selection_completed;
 
     console.log('[updateUserProfile] Actual update data being sent:', updateData);
 
@@ -416,6 +418,40 @@ export async function createOAuthUserProfile(
     const { data: existingUser } = await getUserProfile(userId)
     if (existingUser) {
       console.log('[createOAuthUserProfile] User profile already exists')
+      
+      // CRITICAL: Check if existing user needs role upgrade due to approved mentor application
+      try {
+        const { data: mentorApp } = await supabase
+          .from('mentor_applications')
+          .select('application_status')
+          .eq('email', email)
+          .eq('application_status', 'approved')
+          .maybeSingle();
+          
+        if (mentorApp && existingUser.role === 'student') {
+          console.log('[createOAuthUserProfile] 🎯 EXISTING USER HAS APPROVED MENTOR APP - upgrading from student to mentor role');
+          const { error: upgradeError } = await supabase
+            .from('users')
+            .update({ 
+              role: 'mentor',
+              role_selection_completed: true,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+            
+          if (!upgradeError) {
+            console.log('[createOAuthUserProfile] ✅ Successfully upgraded existing user to mentor role');
+            // Return updated profile
+            const { data: upgradedUser } = await getUserProfile(userId);
+            return { data: upgradedUser, error: null };
+          } else {
+            console.error('[createOAuthUserProfile] Failed to upgrade user role:', upgradeError);
+          }
+        }
+      } catch (mentorCheckError) {
+        console.warn('[createOAuthUserProfile] Error checking mentor status for existing user:', mentorCheckError);
+      }
+      
       return { data: existingUser, error: null }
     }
 
@@ -478,6 +514,28 @@ export async function createOAuthUserProfile(
       }
     }
 
+    // CRITICAL: Check for approved mentor application before setting role
+    console.log('[createOAuthUserProfile] Checking for approved mentor application for:', email);
+    let initialRole = 'student'; // Default role
+    
+    try {
+      const { data: mentorApp } = await supabase
+        .from('mentor_applications')
+        .select('application_status')
+        .eq('email', email)
+        .eq('application_status', 'approved')
+        .maybeSingle();
+        
+      if (mentorApp) {
+        console.log('[createOAuthUserProfile] 🎯 APPROVED MENTOR APPLICATION FOUND - setting initial role to mentor');
+        initialRole = 'mentor';
+      } else {
+        console.log('[createOAuthUserProfile] No approved mentor application - defaulting to student role');
+      }
+    } catch (mentorCheckError) {
+      console.warn('[createOAuthUserProfile] Error checking mentor application:', mentorCheckError);
+    }
+
     // Use RPC to create user profile (bypasses RLS like the trigger would)
     const { data, error } = await supabase.rpc('create_user_profile', {
       p_user_id: userId,
@@ -485,7 +543,7 @@ export async function createOAuthUserProfile(
       p_full_name: fullName || '',
       p_university: '', // Will be filled during onboarding
       p_graduation_year: new Date().getFullYear() + 4, // Default to 4 years from now
-      p_role: 'student'
+      p_role: initialRole // Use determined role instead of hardcoded 'student'
     })
 
     if (error) {
@@ -1035,10 +1093,38 @@ export async function createQuestion(
   isAnonymous: boolean = false,
   urgency: Urgency = 'low',
   vertical: string = CURRENT_VERTICAL_KEY,
-  preferredMentorId?: string
+  preferredMentorId?: string,
+  preferredMentorIds?: string[]
 ): Promise<ServiceResponse<Question>> {
   try {
-    console.log('[createQuestion] Creating question:', { studentId, categoryId, title, urgency, vertical })
+    console.log('[createQuestion] Creating question:', { studentId, categoryId, title, urgency, vertical, preferredMentorId, preferredMentorIds })
+
+    // Determine assignment logic:
+    // - Any mentor selection (single or multiple) → 'assigned' (specific requests)
+    // - No mentor selection → 'pending' (open requests)
+    let finalMentorId: string | null = null;
+    let questionStatus: 'pending' | 'assigned' = 'pending';
+
+    if (preferredMentorId) {
+      // Single mentor selected directly → assigned with requester name
+      finalMentorId = preferredMentorId;
+      questionStatus = 'assigned';
+      console.log('[createQuestion] Single mentor selected:', preferredMentorId, '→ assigned (with requester name)')
+    } else if (preferredMentorIds && preferredMentorIds.length === 1) {
+      // Exactly 1 mentor from filtering → assigned with requester name
+      finalMentorId = preferredMentorIds[0];
+      questionStatus = 'assigned';
+      console.log('[createQuestion] Exactly 1 mentor from filter:', preferredMentorIds[0], '→ assigned (with requester name)')
+    } else if (preferredMentorIds && preferredMentorIds.length > 1) {
+      // Multiple mentors from filtering → assigned to all filtered mentors
+      finalMentorId = null; // No single mentor, use assignments table
+      questionStatus = 'assigned';
+      console.log('[createQuestion] Multiple mentors filtered:', preferredMentorIds.length, '→ assigned to all')
+    } else {
+      // No mentor selection → open requests
+      questionStatus = 'pending';
+      console.log('[createQuestion] No specific mentors → pending (open requests)')
+    }
 
     // SQL: INSERT INTO questions (...) VALUES (...) RETURNING *
     const { data, error } = await supabase
@@ -1050,16 +1136,58 @@ export async function createQuestion(
         content,
         is_anonymous: isAnonymous,
         urgency,
-        status: 'pending',
+        status: questionStatus,
         vertical,
-        preferred_mentor_id: preferredMentorId,
+        preferred_mentor_id: finalMentorId,
       })
       .select()
       .single()
 
     if (error) throw error
 
-    console.log('[createQuestion] Question created:', data.id)
+    // If multiple mentors were selected, create assignments for each
+    if (preferredMentorIds && preferredMentorIds.length > 1) {
+      const assignments = preferredMentorIds.map(mentorId => ({
+        question_id: data.id,
+        mentor_id: mentorId
+      }));
+
+      const { error: assignmentError } = await supabase
+        .from('question_mentor_assignments')
+        .insert(assignments);
+
+      if (assignmentError) {
+        console.error('[createQuestion] Error creating mentor assignments:', assignmentError);
+        // Continue anyway - question is created, assignments failed
+      } else {
+        console.log('[createQuestion] Created assignments for', preferredMentorIds.length, 'mentors');
+      }
+    }
+
+    // For assigned questions (single or multiple mentors), create advice session so it appears in student chat
+    if (questionStatus === 'assigned') {
+      const sessionMentorId = finalMentorId || (preferredMentorIds && preferredMentorIds.length > 0 ? preferredMentorIds[0] : null);
+      
+      if (sessionMentorId) {
+        const { error: sessionError } = await supabase
+          .from('advice_sessions')
+          .insert({
+            student_id: studentId,
+            mentor_id: sessionMentorId,
+            question_id: data.id,
+            status: 'pending', // Will change to 'active' when mentor accepts
+            vertical
+          });
+
+        if (sessionError) {
+          console.error('[createQuestion] Error creating advice session:', sessionError);
+        } else {
+          console.log('[createQuestion] Created advice session for assigned question');
+        }
+      }
+    }
+
+    console.log('[createQuestion] Question created:', data.id, 'with status:', questionStatus)
     return { data, error: null }
   } catch (error) {
     console.error('[createQuestion] Error:', error)
@@ -1101,7 +1229,7 @@ export async function getQuestionsByStudent(studentId: string, vertical: string 
  */
 export async function getPendingQuestions(mentorId: string, vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<(Question & { category: Category })[]>> {
   try {
-    console.log(`[getPendingQuestions] Fetching ALL pending questions for mentor: ${mentorId}, vertical: ${vertical}`)
+    console.log(`[getPendingQuestions] 🔍 DEBUGGING: Fetching open requests for mentor: ${mentorId}, vertical: ${vertical}`)
 
     // Check if user is a mentor
     const { data: profileData, error: profileError } = await supabase
@@ -1136,8 +1264,8 @@ export async function getPendingQuestions(mentorId: string, vertical: string = C
       throw error
     }
 
-    console.log('[getPendingQuestions] Found', data?.length, 'pending questions')
-    console.log('[getPendingQuestions] Questions data:', data)
+    console.log('[getPendingQuestions] 🔍 DEBUGGING Found', data?.length, 'open requests')
+    console.log('[getPendingQuestions] 🔍 DEBUGGING Questions:', data?.map(q => ({id: q.id.slice(0,8), title: q.title, status: q.status})))
     return { data: data || [], error: null }
   } catch (error) {
     console.error('[getPendingQuestions] Error:', error)
@@ -1152,7 +1280,7 @@ export async function getPendingQuestions(mentorId: string, vertical: string = C
  */
 export async function getRequestedQuestions(mentorId: string, vertical: string = CURRENT_VERTICAL_KEY): Promise<ServiceResponse<(Question & { category: Category })[]>> {
   try {
-    console.log(`[getRequestedQuestions] Fetching questions specifically requested for mentor: ${mentorId}, vertical: ${vertical}`)
+    console.log(`[getRequestedQuestions] 🔍 DEBUGGING: Fetching questions for mentor: ${mentorId}, vertical: ${vertical}`)
 
     // Check if user is a mentor
     const { data: profileData, error: profileError } = await supabase
@@ -1171,21 +1299,58 @@ export async function getRequestedQuestions(mentorId: string, vertical: string =
       return { data: [], error: null }
     }
 
-    // Get questions specifically requested for this mentor
-    const { data, error } = await supabase
+    // Get questions specifically requested for this mentor (both single assignments and multiple assignments)
+    // We need to use two separate queries because of the complex join requirements
+    
+    // Query 1: Questions with preferred_mentor_id (single assignments)
+    const { data: singleAssignments, error: singleError } = await supabase
       .from('questions')
-      .select('*, category:categories(*)')
-      .eq('status', 'pending')
+      .select(`
+        *,
+        category:categories(*)
+      `)
+      .eq('status', 'assigned')
       .eq('vertical', vertical)
       .eq('preferred_mentor_id', mentorId)
       .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('[getRequestedQuestions] Error fetching questions:', error)
-      throw error
+    
+    if (singleError) {
+      console.error('[getRequestedQuestions] Error fetching single assignments:', singleError)
+      throw singleError
     }
+    
+    // Query 2: Questions with multiple assignments via question_mentor_assignments table
+    const { data: multipleAssignments, error: multipleError } = await supabase
+      .from('questions')
+      .select(`
+        *,
+        category:categories(*),
+        question_mentor_assignments!inner(mentor_id)
+      `)
+      .eq('status', 'assigned')
+      .eq('vertical', vertical)
+      .eq('question_mentor_assignments.mentor_id', mentorId)
+      .is('preferred_mentor_id', null)
+      .order('created_at', { ascending: false })
+    
+    if (multipleError) {
+      console.error('[getRequestedQuestions] Error fetching multiple assignments:', multipleError)
+      throw multipleError
+    }
+    
+    // Combine results and remove duplicates
+    const combinedData = [...(singleAssignments || []), ...(multipleAssignments || [])]
+    const uniqueQuestions = combinedData.filter((question, index, array) => 
+      array.findIndex(q => q.id === question.id) === index
+    )
+    
+    // Sort by created_at descending
+    const data = uniqueQuestions.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
 
     console.log('[getRequestedQuestions] Found', data?.length, 'questions specifically requested for this mentor')
+    console.log('[getRequestedQuestions] Single assignments:', singleAssignments?.length || 0, 'Multiple assignments:', multipleAssignments?.length || 0)
     return { data: data || [], error: null }
   } catch (error) {
     console.error('[getRequestedQuestions] Error:', error)
@@ -3460,7 +3625,7 @@ export async function getAllMentors(page: number = 0, limit: number = 20, exclud
     const totalCount = count || 0
     const hasMore = (page + 1) * limit < totalCount
 
-    // Build query
+    // Build query - use simpler approach without foreign key syntax
     let query = supabase
       .from('users')
       .select(`
@@ -3470,18 +3635,22 @@ export async function getAllMentors(page: number = 0, limit: number = 20, exclud
         university,
         graduation_year,
         bio,
-        mentor_profile:mentor_profiles!mentor_profiles_user_id_fkey(
+        role,
+        onboarding_completed,
+        mentor_profiles!inner(
           id,
           total_questions_answered,
           average_rating,
           total_helpful_votes,
-          is_verified,
           avg_response_time_minutes,
           availability_status,
-          updated_at
+          updated_at,
+          session_formats_offered,
+          communication_style,
+          specialties
         )
       `)
-      .not('mentor_profile', 'is', null) // Only users with mentor profiles
+      // Using inner join to only get users with mentor profiles
 
     // Exclude specific user if provided (prevent self-questions)
     if (excludeUserId) {
@@ -3493,15 +3662,22 @@ export async function getAllMentors(page: number = 0, limit: number = 20, exclud
       .order('created_at', { ascending: false })
       .range(page * limit, (page + 1) * limit - 1)
 
+
     if (error) throw error
 
-    // Transform the data to flatten mentor profiles
-    const transformedData = data?.map(user => ({
-      ...user,
-      user_id: user.id, // Use id as user_id since user_id column doesn't exist
-      mentor_profile: Array.isArray(user.mentor_profile) ? user.mentor_profile[0] : user.mentor_profile,
-      expertise: [] // No expertise table available yet
-    })) || []
+    // Transform the data to flatten mentor profiles - filter for valid mentors
+    const transformedData = (data || [])
+      .filter(user => {
+        // Only include users who have mentor profiles
+        const mentorProfile = Array.isArray(user.mentor_profiles) ? user.mentor_profiles[0] : user.mentor_profiles;
+        return mentorProfile && (mentorProfile.id || mentorProfile.user_id);
+      })
+      .map(user => ({
+        ...user,
+        user_id: user.id, // Use id as user_id since user_id column doesn't exist
+        mentor_profile: Array.isArray(user.mentor_profiles) ? user.mentor_profiles[0] : user.mentor_profiles,
+        expertise: [] // No expertise table available yet
+      }))
 
     console.log(`[getAllMentors] Found ${transformedData.length} mentors on page ${page}, hasMore: ${hasMore}`)
     return { 
@@ -3903,7 +4079,10 @@ export async function getOnlineMentors(
           total_questions_answered,
           average_rating,
           total_helpful_votes,
-          updated_at
+          updated_at,
+          session_formats_offered,
+          communication_style,
+          specialties
         )
       `)
       .in('role', ['mentor', 'both']) 
@@ -3912,7 +4091,7 @@ export async function getOnlineMentors(
       .eq('mentor_profiles.availability_status', 'available') // Only available mentors
       .gte('mentor_profiles.updated_at', fifteenMinutesAgo) // Active within 15 minutes
       .in('mentor_profiles.verification_status', ['verified', 'pending'])
-      .order('mentor_profiles.updated_at', { ascending: false }) // Most recently active first
+      .order('mentor_profiles(updated_at)', { ascending: false }) // Most recently active first
       .range(offset, offset + limit - 1);
 
     if (error) {

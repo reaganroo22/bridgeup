@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useAuth } from './AuthContext';
 import * as supabaseService from '../lib/supabaseService';
 
-export type SubscriptionPlan = 'free' | 'pro_monthly' | 'pro_yearly';
+export type SubscriptionPlan = 'free' | 'wizzmo_monthly' | 'wizzmo_annual';
 
 export interface SubscriptionStatus {
   plan: SubscriptionPlan;

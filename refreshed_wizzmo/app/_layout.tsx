@@ -226,6 +226,42 @@ function RootLayoutNav() {
         }
         
         if (application.application_status === 'approved') {
+          // SPECIAL CASE: Rejected → Approved mentor application (user needs fresh mentor onboarding)
+          if (userProfile.role === 'mentor' && userProfile.onboarding_completed) {
+            // Check if they have a mentor profile - if not, they need onboarding
+            const { data: mentorProfile } = await supabase
+              .from('mentor_profiles')
+              .select('bio, experience_description')
+              .eq('user_id', user.id)
+              .single();
+              
+            // CRITICAL: Only reset onboarding for users who haven't completed mentor onboarding yet
+            // If they completed onboarding but have a profile that looks incomplete, DON'T reset them
+            const hasIncompleteProfile = !mentorProfile || 
+              !mentorProfile.bio || mentorProfile.bio.length < 10 ||
+              !mentorProfile.experience_description || mentorProfile.experience_description.length < 10;
+              
+            if (hasIncompleteProfile && !userProfile.onboarding_completed) {
+              console.log('🎯 [checkMentorApplication] === SPECIAL CASE: REJECTED→APPROVED MENTOR NEEDS FRESH ONBOARDING ===');
+              console.log('🎯 [checkMentorApplication] Mentor role but incomplete/no mentor profile → Reset for fresh mentor onboarding');
+              
+              // Reset onboarding status so they go through mentor onboarding again with preloaded data
+              const { error: resetError } = await updateUserProfile(user.id, {
+                onboarding_completed: false,
+                role_selection_completed: true // Keep mentor role, just reset onboarding
+              });
+              
+              if (!resetError) {
+                console.log('✅ [checkMentorApplication] Reset mentor onboarding status for fresh start');
+                return { 
+                  ...userProfile, 
+                  onboarding_completed: false,
+                  role_selection_completed: true
+                };
+              }
+            }
+          }
+          
           // Case 5: Existing Mentor + Any Application Status
           if (userProfile.role === 'mentor' || (userProfile.role === 'both' && userProfile.role_selection_completed)) {
             console.log('🎯 [checkMentorApplication] === CASE 5: EXISTING MENTOR + ANY APPLICATION ===');
@@ -380,7 +416,17 @@ function RootLayoutNav() {
       console.log('[RootLayout] 🚫 NO USER - IMMEDIATE NAVIGATION TO AUTH');
       if (segments[0] !== 'auth') {
         console.log('[RootLayout] 🔄 Emergency redirect to /auth for unauthenticated user');
-        router.replace('/auth');
+        safeNavigate('/auth', 'user signed out - redirect to auth').then((navigationSuccess) => {
+          // Fallback: If safeNavigate failed, force navigation
+          if (!navigationSuccess) {
+            console.log('[RootLayout] 🚨 safeNavigate failed, forcing router.replace to /auth');
+            router.replace('/auth');
+          }
+        }).catch(() => {
+          // If safeNavigate throws error, force navigation
+          console.log('[RootLayout] 🚨 safeNavigate error, forcing router.replace to /auth');
+          router.replace('/auth');
+        });
       }
       return;
     }
@@ -803,8 +849,8 @@ function RootLayoutNav() {
     return () => clearTimeout(navigationTimeout);
   }, [user, loading, segments, appInitialized]);
 
-  // Show loading screen while checking auth state
-  if (loading) {
+  // Show loading screen while checking auth state OR during initial navigation OR when no user and not on auth
+  if (loading || !appInitialized || (!user && segments[0] !== 'auth')) {
     return <LoadingScreen />;
   }
 

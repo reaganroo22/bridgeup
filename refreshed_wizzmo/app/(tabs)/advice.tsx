@@ -82,6 +82,8 @@ export default function AdviceScreen() {
             title,
             content,
             category_id,
+            status,
+            preferred_mentor_id,
             categories (name)
           ),
           mentors:users!advice_sessions_mentor_id_fkey (
@@ -239,6 +241,8 @@ export default function AdviceScreen() {
                     title,
                     content,
                     category_id,
+                    status,
+                    preferred_mentor_id,
                     categories (name)
                   ),
                   mentors:users!advice_sessions_mentor_id_fkey (
@@ -413,7 +417,38 @@ export default function AdviceScreen() {
   };
 
   const activeSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'active'));
-  const assignedSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'pending')); // pending status = assigned in UI
+  const assignedSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'pending' || s.status === 'assigned')); // both pending and assigned status = assigned in UI
+  
+  // State for mentor counts for multi-mentor questions
+  const [mentorCounts, setMentorCounts] = useState<{ [questionId: string]: number }>({});
+  
+  // Fetch mentor counts for multi-mentor questions
+  useEffect(() => {
+    const fetchMentorCounts = async () => {
+      const multiMentorQuestions = assignedSessions.filter(session => 
+        session.questions?.preferred_mentor_id === null && session.questions?.status === 'assigned'
+      );
+      
+      if (multiMentorQuestions.length > 0) {
+        const counts: { [questionId: string]: number } = {};
+        
+        for (const session of multiMentorQuestions) {
+          if (session.question_id) {
+            const { data } = await supabase
+              .from('question_mentor_assignments')
+              .select('mentor_id')
+              .eq('question_id', session.question_id);
+            
+            counts[session.question_id] = data?.length || 0;
+          }
+        }
+        
+        setMentorCounts(counts);
+      }
+    };
+    
+    fetchMentorCounts();
+  }, [assignedSessions.length]);
   
   // Group assigned sessions by question_id for multi-mentor display
   const groupedAssignedSessions = assignedSessions.reduce((groups: { [key: string]: AdviceSession[] }, session) => {
@@ -655,6 +690,22 @@ export default function AdviceScreen() {
               {assignedSessions.map((session, index) => {
                 const categoryName = session.questions?.categories?.name || 'chat';
                 const questionTitle = session.questions?.title || session.questions?.content || 'Question';
+                
+                // Check if this is a multi-mentor question
+                const isMultiMentor = session.questions?.preferred_mentor_id === null && session.questions?.status === 'assigned';
+                const mentorCount = session.question_id ? (mentorCounts[session.question_id] || 0) : 0;
+                
+                // Debug logging for the "Huh" question
+                if (session.questions?.title === 'Huh') {
+                  console.log('[AdviceScreen] Huh question debug:', {
+                    questionTitle: session.questions?.title,
+                    preferredMentorId: session.questions?.preferred_mentor_id,
+                    questionStatus: session.questions?.status,
+                    isMultiMentor,
+                    mentorCount,
+                    sessionMentorName: session.mentors?.full_name
+                  });
+                }
 
                 return (
                   <TouchableOpacity
@@ -678,14 +729,22 @@ export default function AdviceScreen() {
                     }}
                     activeOpacity={0.8}
                   >
-                    {/* Left side with mentor avatar */}
+                    {/* Left side - show count badge for multi-mentor, avatar for single mentor */}
                     <View style={styles.chatLeft}>
-                      <Image
-                        source={{
-                          uri: session.mentors?.avatar_url || `https://ui-avatars.com/api/?name=Mentor&background=FF4DB8&color=fff&size=128`
-                        }}
-                        style={styles.mentorAvatar}
-                      />
+                      {isMultiMentor && mentorCount > 1 ? (
+                        <View style={[styles.mentorAvatar, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' }]}>
+                          <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20 }}>
+                            {mentorCount}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Image
+                          source={{
+                            uri: session.mentors?.avatar_url || `https://ui-avatars.com/api/?name=Mentor&background=FF4DB8&color=fff&size=128`
+                          }}
+                          style={styles.mentorAvatar}
+                        />
+                      )}
                     </View>
 
                     {/* Main content */}
@@ -693,7 +752,7 @@ export default function AdviceScreen() {
                       <View style={styles.chatHeader}>
                         <View style={styles.chatTitleRow}>
                           <Text style={[styles.mentorName, { color: colors.text }]} numberOfLines={1}>
-                            {session.mentors?.full_name || 'Your Mentor'}
+                            {isMultiMentor && mentorCount > 1 ? `${mentorCount} Mentors` : (session.mentors?.full_name || 'Your Mentor')}
                           </Text>
                           <View style={[styles.categoryPill, { backgroundColor: colors.primary + '20', borderColor: colors.primary + '40' }]}>
                             <Text style={[styles.categoryText, { color: colors.primary }]}>

@@ -82,6 +82,7 @@ export default function MentorsScreen() {
     vibes: string[];
     minRating: number | null;
     minQuestionsAnswered: number | null;
+    responseTime: string | null;
   }>({
     topics: [],
     sessionFormats: [],
@@ -92,6 +93,7 @@ export default function MentorsScreen() {
     vibes: [],
     minRating: null,
     minQuestionsAnswered: null,
+    responseTime: null,
   });
 
   // Selected mentors for multi-select functionality
@@ -299,14 +301,18 @@ export default function MentorsScreen() {
             major: mentor.major,
             graduation_year: mentor.graduation_year,
             availability_status: getAvailabilityStatus(),
-            specialties: mentor.expertise || [],
-            session_formats: ['text chat'],
+            // Map specialties from mentor_profiles correctly
+            specialties: mentor.mentor_profile?.specialties || [],
+            // Map session_formats_offered from mentor_profiles to match filter
+            session_formats: mentor.mentor_profile?.session_formats_offered || ['async-chat'],
             response_time: mentor.mentor_profile?.avg_response_time_minutes ? 
               formatResponseTime(mentor.mentor_profile.avg_response_time_minutes) : 'within 24 hours',
             languages: ['English'],
             experience_description: mentor.bio,
-            vibe: mentor.vibe || null, // Only show actual vibe if set
-            has_experience_with: mentor.expertise || [],
+            // Map communication_style from mentor_profiles to vibe field for filter compatibility
+            vibe: mentor.mentor_profile?.communication_style || null,
+            // Map specialties to has_experience_with for filter compatibility
+            has_experience_with: mentor.mentor_profile?.specialties || [],
             school_type: 'big_state' as const,
             bio: mentor.bio,
             average_rating: mentor.mentor_profile?.average_rating || 0,
@@ -374,16 +380,12 @@ export default function MentorsScreen() {
     // Note: When availability filter is active, we already load only online mentors from getOnlineMentors()
     // so no need to filter again locally - the database query handles this
 
-    // Apply topic filters (from Google Form topics)
+    // Apply topic filters - exact ID matching from mentor onboarding
     if (activeFilters.topics.length > 0) {
       filtered = filtered.filter(mentor => 
-        activeFilters.topics.some(topic => 
-          (mentor.specialties || []).some(specialty => 
-            specialty && specialty.toLowerCase().includes(topic.toLowerCase())
-          ) ||
-          (mentor.has_experience_with || []).some(exp => 
-            exp && exp.toLowerCase().includes(topic.toLowerCase())
-          )
+        activeFilters.topics.some(topicId => 
+          (mentor.specialties || []).includes(topicId) ||
+          (mentor.has_experience_with || []).includes(topicId)
         )
       );
     }
@@ -395,15 +397,15 @@ export default function MentorsScreen() {
       );
     }
 
-    // Apply session format filters
+    // Apply session format filters - match mentor_profiles.session_formats_offered
     if (activeFilters.sessionFormats.length > 0) {
-      filtered = filtered.filter(mentor => 
-        activeFilters.sessionFormats.some(format => 
-          mentor.session_formats.some(mentorFormat => 
-            mentorFormat.toLowerCase().includes(format.toLowerCase())
-          )
-        )
-      );
+      filtered = filtered.filter(mentor => {
+        // mentor.session_formats comes from mentor_profiles.session_formats_offered
+        const mentorFormats = mentor.session_formats || [];
+        return activeFilters.sessionFormats.some(filterFormat => 
+          mentorFormats.includes(filterFormat)
+        );
+      });
     }
 
     // Apply university filter
@@ -437,6 +439,28 @@ export default function MentorsScreen() {
       filtered = filtered.filter(mentor => 
         mentor.total_questions_answered >= activeFilters.minQuestionsAnswered!
       );
+    }
+
+    // Apply response time filter (Pro feature)
+    if (activeFilters.responseTime) {
+      filtered = filtered.filter(mentor => {
+        const responseTimeMinutes = mentor.response_time;
+        switch (activeFilters.responseTime) {
+          case 'within-1-hour':
+            return responseTimeMinutes.includes('1 ') || responseTimeMinutes.includes('within 1');
+          case 'within-6-hours':
+            return responseTimeMinutes.includes('1 ') || responseTimeMinutes.includes('2 ') || 
+                   responseTimeMinutes.includes('3 ') || responseTimeMinutes.includes('4 ') ||
+                   responseTimeMinutes.includes('5 ') || responseTimeMinutes.includes('6 ') ||
+                   responseTimeMinutes.includes('within 1') || responseTimeMinutes.includes('within 2') ||
+                   responseTimeMinutes.includes('within 3') || responseTimeMinutes.includes('within 4') ||
+                   responseTimeMinutes.includes('within 5') || responseTimeMinutes.includes('within 6');
+          case 'within-24-hours':
+            return !responseTimeMinutes.includes('12 hrs') || responseTimeMinutes.includes('within 24');
+          default:
+            return true;
+        }
+      });
     }
 
     console.log('[MentorsScreen] Filtering complete. Results:', filtered.length, 'mentors');
@@ -491,6 +515,7 @@ export default function MentorsScreen() {
       vibes: [],
       minRating: null,
       minQuestionsAnswered: null,
+      responseTime: null,
     });
     setUniversityQuery('');
     setShowUniversityDropdown(false);
@@ -507,7 +532,8 @@ export default function MentorsScreen() {
            activeFilters.graduationYearMax !== null ||
            activeFilters.vibes.length > 0 ||
            activeFilters.minRating !== null ||
-           activeFilters.minQuestionsAnswered !== null;
+           activeFilters.minQuestionsAnswered !== null ||
+           activeFilters.responseTime !== null;
   };
 
   const getActiveFilterCount = () => {
@@ -521,6 +547,7 @@ export default function MentorsScreen() {
     count += activeFilters.vibes.length;
     if (activeFilters.minRating) count++;
     if (activeFilters.minQuestionsAnswered) count++;
+    if (activeFilters.responseTime) count++;
     return count;
   };
 
@@ -579,30 +606,8 @@ export default function MentorsScreen() {
       </View>
 
       <View style={styles.expertiseSection}>
-        {mentor.has_experience_with.length > 0 && (
-          <View style={styles.tagsContainer}>
-            <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>experienced with</Text>
-            <View style={styles.tagRow}>
-              {mentor.has_experience_with.slice(0, 3).map((exp, index) => (
-                <View key={index} style={[styles.experienceTag, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '40' }]}>
-                  <Text style={[styles.experienceTagText, { color: colors.primary }]}>
-                    {exp}
-                  </Text>
-                </View>
-              ))}
-              {mentor.has_experience_with.length > 3 && (
-                <Text style={[styles.moreText, { color: colors.textSecondary }]}>
-                  +{mentor.has_experience_with.length - 3}
-                </Text>
-              )}
-            </View>
-          </View>
-        )}
         
         <View style={styles.sessionInfo}>
-          <Text style={[styles.sessionLabel, { color: colors.textSecondary }]}>
-            responds {mentor.response_time}
-          </Text>
           {mentor.average_rating > 0 && (
             <Text style={[styles.ratingLabel, { color: colors.text }]}>
               ⭐ {mentor.average_rating.toFixed(1)} • {mentor.total_questions_answered} questions
@@ -856,32 +861,49 @@ export default function MentorsScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Topics */}
+            {/* Topics - Match onboarding exactly */}
             <View style={styles.filterSection}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>topics</Text>
               <View style={styles.topicGrid}>
                 {[
-                  'Dating', 'Drama Talk', 'Matchmaking', 'Classes', 'Roommates', 'Style', 'Wellness',
-                  'Friend Drama', 'Situationships', 'Hookup Culture', 'Study Tips', 'Social Life',
-                  'First Dates', 'Breakups', 'Body Image', 'Mental Health', 'Self Care',
-                  'Greek Life', 'Making Friends', 'Dining Hall', 'Confidence', 'Fashion'
+                  { id: 'dating', name: 'Dating' },
+                  { id: 'drama-talk', name: 'Drama Talk' },
+                  { id: 'matchmaking', name: 'Matchmaking' },
+                  { id: 'classes', name: 'Classes' },
+                  { id: 'roommates', name: 'Roommates' },
+                  { id: 'style', name: 'Style' },
+                  { id: 'wellness', name: 'Wellness' },
+                  { id: 'friend-drama', name: 'Friend Drama' },
+                  { id: 'situationships', name: 'Situationships' },
+                  { id: 'hookup-culture', name: 'Hookup Culture' },
+                  { id: 'study-tips', name: 'Study Tips' },
+                  { id: 'social-life', name: 'Social Life' },
+                  { id: 'first-dates', name: 'First Dates' },
+                  { id: 'breakups', name: 'Breakups' },
+                  { id: 'body-image', name: 'Body Image' },
+                  { id: 'self-care', name: 'Self Care' },
+                  { id: 'greek-life', name: 'Greek Life' },
+                  { id: 'making-friends', name: 'Making Friends' },
+                  { id: 'dining-hall', name: 'Dining Hall' },
+                  { id: 'confidence', name: 'Confidence' },
+                  { id: 'fashion', name: 'Fashion' }
                 ].map((topic) => (
                 <TouchableOpacity 
-                  key={topic}
+                  key={topic.id}
                   style={[
                     styles.topicChip,
                     { backgroundColor: colors.surface, borderColor: colors.border },
-                    activeFilters.topics.includes(topic) && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
+                    activeFilters.topics.includes(topic.id) && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
                   ]}
-                  onPress={() => toggleFilter('topics', topic)}
+                  onPress={() => toggleFilter('topics', topic.id)}
                 >
                   <Text style={[
                     styles.filterOptionText,
-                    { color: activeFilters.topics.includes(topic) ? colors.primary : colors.text }
+                    { color: activeFilters.topics.includes(topic.id) ? colors.primary : colors.text }
                   ]}>
-                    {topic}
+                    {topic.name}
                   </Text>
-                  {activeFilters.topics.includes(topic) && (
+                  {activeFilters.topics.includes(topic.id) && (
                     <Ionicons name="checkmark" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
@@ -915,57 +937,35 @@ export default function MentorsScreen() {
               ))}
             </View>
 
-            {/* Session Format */}
+            {/* Session Format - Match onboarding exactly */}
             <View style={styles.filterSection}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>favorite session format</Text>
-              {['voice memo', 'text chat'].map((format) => (
+              {[
+                { id: 'async-chat', display: 'Text chat (within 24–48h)' },
+                { id: 'voice-memo', display: 'Voice memo exchanges' }
+              ].map((format) => (
                 <TouchableOpacity 
-                  key={format}
+                  key={format.id}
                   style={[
                     styles.filterOption,
                     { backgroundColor: colors.surface, borderColor: colors.border },
-                    activeFilters.sessionFormats.includes(format) && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
+                    activeFilters.sessionFormats.includes(format.id) && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
                   ]}
-                  onPress={() => toggleFilter('sessionFormats', format)}
+                  onPress={() => toggleFilter('sessionFormats', format.id)}
                 >
                   <Text style={[
                     styles.filterOptionText,
-                    { color: activeFilters.sessionFormats.includes(format) ? colors.primary : colors.text }
+                    { color: activeFilters.sessionFormats.includes(format.id) ? colors.primary : colors.text }
                   ]}>
-                    {format}
+                    {format.display}
                   </Text>
-                  {activeFilters.sessionFormats.includes(format) && (
+                  {activeFilters.sessionFormats.includes(format.id) && (
                     <Ionicons name="checkmark" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               ))}
             </View>
 
-            {/* Response Time */}
-            <View style={styles.filterSection}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>response time</Text>
-              {['within 1 hour', 'within 2-6 hours', 'within 24 hours'].map((time) => (
-                <TouchableOpacity 
-                  key={time}
-                  style={[
-                    styles.filterOption,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                    activeFilters.sessionFormats.includes(time) && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
-                  ]}
-                  onPress={() => toggleFilter('sessionFormats', time)}
-                >
-                  <Text style={[
-                    styles.filterOptionText,
-                    { color: activeFilters.sessionFormats.includes(time) ? colors.primary : colors.text }
-                  ]}>
-                    {time}
-                  </Text>
-                  {activeFilters.sessionFormats.includes(time) && (
-                    <Ionicons name="checkmark" size={20} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
 
             {/* University Search */}
             <View style={styles.filterSection}>
@@ -1126,6 +1126,49 @@ export default function MentorsScreen() {
               </View>
             </View>
 
+            {/* Response Time - Premium */}
+            <View style={styles.filterSection}>
+              <View style={styles.premiumHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>response time</Text>
+                <View style={[styles.proBadge, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.proBadgeText}>PRO</Text>
+                </View>
+              </View>
+              <View style={[styles.responseTimeOptions, !isProUser() && styles.premiumFeature]}>
+                {[
+                  { id: 'within-1-hour', display: 'Within 1 hour' },
+                  { id: 'within-6-hours', display: 'Within 6 hours' }, 
+                  { id: 'within-24-hours', display: 'Within 24 hours' }
+                ].map((time) => (
+                  <TouchableOpacity 
+                    key={time.id}
+                    style={[
+                      styles.filterOption,
+                      { 
+                        backgroundColor: isProUser() ? colors.surface : colors.surface + '50', 
+                        borderColor: isProUser() ? colors.border : colors.border + '50' 
+                      },
+                      activeFilters.responseTime === time.id && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
+                    ]}
+                    onPress={() => isProUser() ? setActiveFilters(prev => ({ 
+                      ...prev, 
+                      responseTime: prev.responseTime === time.id ? null : time.id 
+                    })) : handleProFeatureAttempt()}
+                    disabled={!isProUser()}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { color: isProUser() ? (activeFilters.responseTime === time.id ? colors.primary : colors.text) : colors.textSecondary }
+                    ]}>
+                      {time.display}
+                    </Text>
+                    {isProUser() && activeFilters.responseTime === time.id && (
+                      <Ionicons name="checkmark" size={20} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
             {/* Clear All */}
             {hasActiveFilters() && (
@@ -1723,5 +1766,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  responseTimeOptions: {
+    gap: 8,
+  },
+  motivationText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    lineHeight: 16,
+    marginBottom: 8,
   },
 });

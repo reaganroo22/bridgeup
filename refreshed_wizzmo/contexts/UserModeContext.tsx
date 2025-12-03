@@ -9,6 +9,7 @@ interface UserModeContextType {
   currentMode: UserMode | null;
   availableModes: UserMode[];
   switchMode: (mode: UserMode) => Promise<void>;
+  refreshUserData: () => Promise<void>;
   canSwitch: boolean;
   isLoading: boolean;
 }
@@ -21,16 +22,39 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>('');
 
+  // FORCE LOG ON MOUNT TO ENSURE COMPONENT IS RUNNING
+  useEffect(() => {
+    console.log('🔧 [UserMode] ===== PROVIDER MOUNTED =====');
+    console.log('🔧 [UserMode] Initial state:', { 
+      hasUser: !!user, 
+      userId: user?.id?.slice(0, 8) + '...', 
+      currentMode, 
+      userRole, 
+      isLoading 
+    });
+  }, []);
+
   // Fetch user role from database
   useEffect(() => {
     const fetchUserRole = async () => {
+      console.log(`🔧 [UserMode] ===== FETCHING USER ROLE =====`);
+      console.log(`🔧 [UserMode] User exists: ${!!user}, User ID: ${user?.id?.slice(0, 8)}...`);
+      
       if (!user?.id) {
+        console.log(`🔧 [UserMode] No user ID, setting loading false`);
         setIsLoading(false);
         return;
       }
 
       try {
+        console.log(`🔧 [UserMode] Calling getUserProfile for: ${user.id.slice(0, 8)}...`);
         const { data: userProfile } = await supabaseService.getUserProfile(user.id);
+        console.log(`🔧 [UserMode] Profile fetch result:`, { 
+          hasProfile: !!userProfile, 
+          role: userProfile?.role, 
+          email: userProfile?.email?.slice(0, 10) + '...'
+        });
+        
         if (userProfile?.role) {
           setUserRole(userProfile.role);
           console.log(`🔧 [UserMode] User role fetched: ${userProfile.role} for ${userProfile.email}`);
@@ -51,8 +75,18 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
           // If no profile, default to student
           setCurrentMode('student');
         }
+
+        // FORCE ROLE VALIDATION: If we have a mentor but wrong mode, fix it immediately
+        setTimeout(() => {
+          if (userProfile?.role === 'mentor' && currentMode !== 'mentor') {
+            console.log('🔧 [UserMode] 🚨 FORCE FIXING: Pure mentor detected with wrong mode');
+            setCurrentMode('mentor');
+            setUserRole('mentor');
+          }
+        }, 100);
+
       } catch (error) {
-        console.error('Error fetching user role:', error);
+        console.error('🔧 [UserMode] Error fetching user role:', error);
       }
     };
 
@@ -190,10 +224,48 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Force refresh user profile and role data
+  const refreshUserData = async () => {
+    if (!user?.id) {
+      console.log('🔄 [UserMode] No user ID, cannot refresh');
+      return;
+    }
+
+    try {
+      console.log('🔄 [UserMode] Force refreshing user role data...');
+      setIsLoading(true);
+      
+      // Re-fetch user profile from database
+      const { data: userProfile } = await supabaseService.getUserProfile(user.id);
+      console.log('🔄 [UserMode] Refreshed profile role:', userProfile?.role);
+      
+      if (userProfile?.role) {
+        setUserRole(userProfile.role);
+        
+        // Immediately set the correct mode based on refreshed role
+        if (userProfile.role === 'mentor') {
+          setCurrentMode('mentor');
+          console.log('🔄 [UserMode] 🎯 REFRESHED PURE MENTOR - set to mentor mode');
+        } else if (userProfile.role === 'student') {
+          setCurrentMode('student');
+          console.log('🔄 [UserMode] Refreshed student - set to student mode');
+        } else if (userProfile.role === 'both') {
+          setCurrentMode('mentor'); // Default to mentor for dual role
+          console.log('🔄 [UserMode] Refreshed dual role - set to mentor mode');
+        }
+      }
+    } catch (error) {
+      console.error('❌ [UserMode] Error refreshing user data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value: UserModeContextType = {
     currentMode,
     availableModes,
     switchMode,
+    refreshUserData,
     canSwitch,
     isLoading
   };

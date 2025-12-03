@@ -124,6 +124,10 @@ export default function ChatScreen() {
   const deletedMessageIds = useRef<Set<string>>(new Set());
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<number | undefined>(undefined);
+  
+  // Multi-mentor question state
+  const [mentorCount, setMentorCount] = useState(0);
+  const [isMultiMentor, setIsMultiMentor] = useState(false);
   const pollingIntervalRef = useRef<number | null>(null);
 
   // Helper function to detect video files by URL
@@ -214,6 +218,8 @@ export default function ChatScreen() {
             title,
             content,
             category_id,
+            status,
+            preferred_mentor_id,
             categories (name)
           ),
           students:users!advice_sessions_student_id_fkey (
@@ -245,6 +251,20 @@ export default function ChatScreen() {
           mentorsName: sessionData.mentors?.full_name
         });
         setSession(sessionData);
+        
+        // Check if this is a multi-mentor question
+        const questionIsMultiMentor = sessionData.questions?.preferred_mentor_id === null && sessionData.questions?.status === 'assigned';
+        setIsMultiMentor(questionIsMultiMentor);
+        
+        // Fetch mentor count for multi-mentor questions
+        if (questionIsMultiMentor && sessionData.question_id) {
+          const { data: assignments } = await supabase
+            .from('question_mentor_assignments')
+            .select('mentor_id')
+            .eq('question_id', sessionData.question_id);
+          
+          setMentorCount(assignments?.length || 0);
+        }
       }
 
       // Clear deleted message tracking on fresh load
@@ -1907,7 +1927,7 @@ export default function ChatScreen() {
   const categoryName = session.questions?.categories?.name || 'chat';
   // Get meaningful name for the other person in chat
   const otherPersonName = user?.id === session.student_id
-    ? session.mentors?.full_name || 'Mentor'
+    ? (isMultiMentor && mentorCount > 1 ? `${mentorCount} Mentors` : (session.mentors?.full_name || 'Mentor'))
     : (session.students?.full_name?.trim() || 
        (session.students as any)?.username || 
        (session.students as any)?.email?.split('@')[0] || 
@@ -1946,6 +1966,17 @@ export default function ChatScreen() {
           {/* Avatar and Name */}
           <View style={[styles.headerUserInfo, { backgroundColor: 'transparent' }]}>
             {(() => {
+              // Show count badge for multi-mentor questions
+              if (user?.id === session.student_id && isMultiMentor && mentorCount > 1) {
+                return (
+                  <View style={[styles.headerAvatarImage, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' }]}>
+                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>
+                      {mentorCount}
+                    </Text>
+                  </View>
+                );
+              }
+              
               const avatarUrl = user?.id === session.student_id 
                 ? session.mentors?.avatar_url
                 : session.students?.avatar_url;

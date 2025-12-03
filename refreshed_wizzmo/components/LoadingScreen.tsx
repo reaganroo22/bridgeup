@@ -1,16 +1,21 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, StyleSheet, Image } from 'react-native';
-import Colors from '@/constants/Colors';
-import { useColorScheme } from './useColorScheme';
 
 export default function LoadingScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  // Wizzmo bear images to cycle through
+  const wizzmoImages = [
+    require('../assets/images/wizzmo.png'),
+    require('../assets/images/happy.png'),
+    require('../assets/images/interested.png'),
+    require('../assets/images/sleepy.png'),
+    require('../assets/images/stargazed.png'),
+  ];
+  
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   // Animation values - smoother, more modern animation
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Smooth entrance animation
@@ -44,109 +49,59 @@ export default function LoadingScreen() {
       ]).start(() => breatheAnimation());
     };
 
-    // Very subtle rotation for visual interest
-    const rotateAnimation = () => {
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 8000,
-        useNativeDriver: true,
-      }).start(() => {
-        rotateAnim.setValue(0);
-        rotateAnimation();
-      });
-    };
+    // Cycle through Wizzmo bear images every 1.5 seconds
+    const imageInterval = setInterval(() => {
+      setCurrentImageIndex(prev => (prev + 1) % wizzmoImages.length);
+    }, 1500);
 
-    // Start animations after entrance
+    // Start breathing animation after entrance
     setTimeout(() => {
       breatheAnimation();
-      rotateAnimation();
     }, 800);
+
+    return () => {
+      clearInterval(imageInterval);
+    };
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={styles.container}>
       <Animated.View
         style={[
           styles.content,
           {
             opacity: fadeAnim,
-            transform: [
-              { scale: scaleAnim },
-              { rotate: rotateAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0deg', '360deg'],
-              }) }
-            ],
+            transform: [{ scale: scaleAnim }],
           },
         ]}
       >
-        {/* Wizzmobare Icon */}
+        {/* Cycling Wizzmo Bear Icon */}
         <View style={styles.logoContainer}>
           <Image 
-            source={require('../assets/images/icon.png')}
+            source={wizzmoImages[currentImageIndex]}
             style={styles.logoImage}
             resizeMode="contain"
           />
         </View>
         
         {/* Brand Name */}
-        <Text style={[styles.brandText, { color: colors.text }]}>
+        <Text style={styles.brandText}>
           wizzmo
         </Text>
         
         {/* Tagline */}
-        <Text style={[styles.taglineText, { color: colors.textSecondary }]}>
+        <Text style={styles.taglineText}>
           college advice that matters
         </Text>
-
-        {/* Loading dots animation */}
-        <View style={styles.dotsContainer}>
-          {[0, 1, 2].map((index) => (
-            <LoadingDot key={index} delay={index * 200} color={colors.primary} />
-          ))}
-        </View>
       </Animated.View>
     </View>
-  );
-}
-
-// Individual dot component with its own animation
-function LoadingDot({ delay, color }: { delay: number; color: string }) {
-  const dotAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const animateDot = () => {
-      Animated.sequence([
-        Animated.timing(dotAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(dotAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]).start(() => animateDot());
-    };
-
-    const timer = setTimeout(animateDot, delay);
-    return () => clearTimeout(timer);
-  }, [delay]);
-
-  return (
-    <Animated.View
-      style={[
-        styles.dot,
-        { backgroundColor: color, opacity: dotAnim }
-      ]}
-    />
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FF4DB8', // Pink background
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -161,7 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 32,
-    shadowColor: '#FF4DB8',
+    shadowColor: '#FFFFFF',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 16,
@@ -178,6 +133,7 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
     marginBottom: 8,
     textTransform: 'lowercase',
+    color: '#FFFFFF', // White text
   },
   taglineText: {
     fontSize: 16,
@@ -186,15 +142,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 40,
     textTransform: 'lowercase',
-  },
-  dotsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    color: 'rgba(255, 255, 255, 0.9)', // Light white text
   },
 });

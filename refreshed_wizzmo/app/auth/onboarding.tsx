@@ -94,7 +94,7 @@ const bearImages = {
 };
 
 export default function Onboarding() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { scheduleWelcomeFlow, scheduleWeeklyReminder, requestPermissions } = useNotifications();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -368,14 +368,11 @@ export default function Onboarding() {
 
       // BULLETPROOF OAUTH PROFILE CREATION: Multiple attempts with fallbacks
       
-      // ATTEMPT 1: Direct upsert with conflict resolution
-      console.log('[Onboarding] Attempting direct upsert...');
+      // ATTEMPT 1: Simple insert, then update if needed
+      console.log('[Onboarding] Attempting simple insert...');
       let { data, error } = await supabase
         .from('users')
-        .upsert(profileData, {
-          onConflict: 'id,email',
-          ignoreDuplicates: false
-        })
+        .insert(profileData)
         .select()
         .single();
 
@@ -1239,6 +1236,17 @@ export default function Onboarding() {
                 </TouchableOpacity>
               )}
               
+              {/* Test Sign Out Button */}
+              <TouchableOpacity
+                style={styles.signOutButton}
+                onPress={async () => {
+                  await signOut();
+                  router.replace('/auth');
+                }}
+              >
+                <Text style={styles.signOutText}>Sign Out</Text>
+              </TouchableOpacity>
+              
               <View style={styles.progressContainer}>
                 <View style={styles.progressTrack}>
                   <View 
@@ -2096,5 +2104,20 @@ const styles = StyleSheet.create({
   bearCoupleHeart: {
     fontSize: 32,
     marginHorizontal: 8,
+  },
+  
+  // Test Sign Out Button
+  signOutButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
+  },
+  signOutText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { GIRL_IMAGES } from '@/lib/imageService';
 import {
   StyleSheet,
   Modal,
@@ -9,6 +10,7 @@ import {
   View,
   ScrollView,
   Image,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,14 +39,76 @@ export default function PaywallVariantA({ visible = true, onClose, onSuccess }: 
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [showCloseButton, setShowCloseButton] = useState(false);
 
-  // Show close button after 7 seconds
+  // Animation values for subtle floating effect
+  const floatAnim1 = useRef(new Animated.Value(0)).current;
+  const floatAnim2 = useRef(new Animated.Value(0)).current;
+
+  // Show close button after 12 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowCloseButton(true);
-    }, 7000); // 7 seconds
+    }, 12000); // 12 seconds
 
     return () => clearTimeout(timer);
   }, []);
+
+  // Subtle floating animation for mentor photos
+  useEffect(() => {
+    const startAnimation = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(floatAnim1, {
+            toValue: 1,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(floatAnim1, {
+            toValue: 0,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Offset second animation
+      setTimeout(() => {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(floatAnim2, {
+              toValue: 1,
+              duration: 3500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(floatAnim2, {
+              toValue: 0,
+              duration: 3500,
+              useNativeDriver: true,
+            }),
+          ])
+        ).start();
+      }, 1500);
+    };
+
+    if (visible) {
+      startAnimation();
+      
+      // Preload images for faster display
+      const imagesToPreload = [
+        GIRL_IMAGES.girl2,
+        GIRL_IMAGES.girl11, 
+        GIRL_IMAGES.girl9,
+        GIRL_IMAGES.girl5,
+        GIRL_IMAGES.girl4,
+        GIRL_IMAGES.girl12
+      ];
+      
+      imagesToPreload.forEach(imageUri => {
+        Image.prefetch(imageUri).catch(() => {
+          // Ignore preload failures
+        });
+      });
+    }
+  }, [visible, floatAnim1, floatAnim2]);
 
   const handlePurchase = async (plan: SubscriptionPlan) => {
     setIsPurchasing(true);
@@ -99,58 +163,12 @@ export default function PaywallVariantA({ visible = true, onClose, onSuccess }: 
         {/* Scrollable Content */}
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
-            {/* Multiple Mentor Photos for Emotional Connection */}
-            <View style={styles.mentorPhotoSection}>
-              <View style={styles.mentorGrid}>
-                <View style={styles.mentorRow}>
-                  <View style={styles.mentorPhotoContainer}>
-                    <Image 
-                      source={require('@/assets/images/girl1.png')} 
-                      style={[styles.mentorPhoto, styles.mentorPhoto1]}
-                    />
-                    <View style={styles.mentorBadge}>
-                      <Text style={styles.badgeText}>verified</Text>
-                    </View>
-                  </View>
-                  <View style={styles.mentorPhotoContainer}>
-                    <Image 
-                      source={require('@/assets/images/girl2.png')} 
-                      style={[styles.mentorPhoto, styles.mentorPhoto2]}
-                    />
-                    <View style={[styles.mentorBadge, styles.liveBadge]}>
-                      <Text style={styles.badgeText}>online</Text>
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.mentorRow}>
-                  <View style={styles.mentorPhotoContainer}>
-                    <Image 
-                      source={require('@/assets/images/girl4.jpeg')} 
-                      style={[styles.mentorPhoto, styles.mentorPhoto3]}
-                    />
-                    <View style={styles.mentorBadge}>
-                      <Text style={styles.badgeText}>expert</Text>
-                    </View>
-                  </View>
-                  <View style={styles.mentorPhotoContainer}>
-                    <Image 
-                      source={require('@/assets/images/girl5.jpeg')} 
-                      style={[styles.mentorPhoto, styles.mentorPhoto4]}
-                    />
-                    <View style={[styles.mentorBadge, styles.activeBadge]}>
-                      <Text style={styles.badgeText}>active</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-              <Text style={styles.mentorCount}>200+ verified college mentors ready to help</Text>
-            </View>
 
             {/* Title */}
             <View style={styles.titleSection}>
-              <Text style={styles.title}>get real advice from real girls 💕</Text>
+              <Text style={styles.title}>spill the tea with college girls 💅</Text>
               <Text style={styles.subtitle}>
-                join thousands of college girls getting life-changing advice from verified mentors who actually get it
+            connect with verified college mentors who've been through it all and are ready to share their honest experiences
               </Text>
             </View>
 
@@ -160,24 +178,164 @@ export default function PaywallVariantA({ visible = true, onClose, onSuccess }: 
                 <Text style={styles.featureEmoji}>💬</Text>
                 <Text style={styles.featureText}>unlimited questions & advice</Text>
               </View>
+              
+              {/* First Girl Image - Between bullet points */}
+              <View style={styles.featureMentorSection}>
+                <Animated.View 
+                  style={[
+                    styles.featureMentorContainer,
+                    {
+                      transform: [{
+                        translateY: floatAnim1.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, -6]
+                        })
+                      }]
+                    }
+                  ]}
+                >
+                  <Image 
+                    source={{ uri: GIRL_IMAGES.girl2 }} 
+                    style={styles.featureMentorPhoto}
+                    defaultSource={require('@/assets/images/wizzmo.png')}
+                    loadingIndicatorSource={require('@/assets/images/wizzmo.png')}
+                  />
+                  <View style={[styles.mentorBadge, styles.liveBadge]}>
+                    <Text style={styles.badgeText}>online</Text>
+                  </View>
+                </Animated.View>
+              </View>
+
               <View style={styles.feature}>
                 <Text style={styles.featureEmoji}>⚡</Text>
                 <Text style={styles.featureText}>priority responses from top wizzmos</Text>
               </View>
+
+              {/* Second Girl Image - Between bullet points */}
+              <View style={styles.featureMentorSection}>
+                <Animated.View 
+                  style={[
+                    styles.featureMentorContainer,
+                    {
+                      transform: [{
+                        translateY: floatAnim2.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, -8]
+                        })
+                      }]
+                    }
+                  ]}
+                >
+                  <Image 
+                    source={{ uri: GIRL_IMAGES.girl11 }} 
+                    style={styles.featureMentorPhoto}
+                    defaultSource={require('@/assets/images/wizzmo.png')}
+                    loadingIndicatorSource={require('@/assets/images/wizzmo.png')}
+                  />
+                  <View style={styles.mentorBadge}>
+                    <Text style={styles.badgeText}>verified</Text>
+                  </View>
+                </Animated.View>
+              </View>
+
               <View style={styles.feature}>
                 <Text style={styles.featureEmoji}>🔥</Text>
                 <Text style={styles.featureText}>exclusive dating masterclasses</Text>
               </View>
+
+              {/* Girl9 Image - After exclusive dating masterclasses */}
+              <View style={styles.featureMentorSection}>
+                <Animated.View 
+                  style={[
+                    styles.featureMentorContainer,
+                    {
+                      transform: [{
+                        translateY: floatAnim1.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, -5]
+                        })
+                      }]
+                    }
+                  ]}
+                >
+                  <Image 
+                    source={{ uri: GIRL_IMAGES.girl9 }} 
+                    style={styles.featureMentorPhoto}
+                    defaultSource={require('@/assets/images/wizzmo.png')}
+                    loadingIndicatorSource={require('@/assets/images/wizzmo.png')}
+                  />
+                  <View style={[styles.mentorBadge, styles.activeBadge]}>
+                    <Text style={styles.badgeText}>expert</Text>
+                  </View>
+                </Animated.View>
+              </View>
+
               {selectedPlan === 'wizzmo_annual' && (
                 <>
                   <View style={styles.feature}>
                     <Text style={styles.featureEmoji}>👑</Text>
                     <Text style={styles.featureText}>VIP status & profile badge</Text>
                   </View>
+
+                  {/* Third Girl Image - Premium feature separator */}
+                  <View style={styles.featureMentorSection}>
+                    <Animated.View 
+                      style={[
+                        styles.featureMentorContainer,
+                        {
+                          transform: [{
+                            translateY: floatAnim1.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0, -4]
+                            })
+                          }]
+                        }
+                      ]}
+                    >
+                      <Image 
+                        source={{ uri: GIRL_IMAGES.girl5 }} 
+                        style={styles.featureMentorPhoto}
+                        defaultSource={require('@/assets/images/wizzmo.png')}
+                        loadingIndicatorSource={require('@/assets/images/wizzmo.png')}
+                      />
+                      <View style={[styles.mentorBadge, styles.activeBadge]}>
+                        <Text style={styles.badgeText}>VIP</Text>
+                      </View>
+                    </Animated.View>
+                  </View>
+
                   <View style={styles.feature}>
                     <Text style={styles.featureEmoji}>💎</Text>
-                    <Text style={styles.featureText}>exclusive premium wizzmo network</Text>
+                    <Text style={styles.featureText}>premium wizzmo mentorship circle</Text>
                   </View>
+
+                  {/* Fourth Girl Image - Between premium features */}
+                  <View style={styles.featureMentorSection}>
+                    <Animated.View 
+                      style={[
+                        styles.featureMentorContainer,
+                        {
+                          transform: [{
+                            translateY: floatAnim2.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0, -7]
+                            })
+                          }]
+                        }
+                      ]}
+                    >
+                      <Image 
+                        source={{ uri: GIRL_IMAGES.girl4 }} 
+                        style={styles.featureMentorPhoto}
+                        defaultSource={require('@/assets/images/wizzmo.png')}
+                        loadingIndicatorSource={require('@/assets/images/wizzmo.png')}
+                      />
+                      <View style={styles.mentorBadge}>
+                        <Text style={styles.badgeText}>premium</Text>
+                      </View>
+                    </Animated.View>
+                  </View>
+
                   <View style={styles.feature}>
                     <Text style={styles.featureEmoji}>🎁</Text>
                     <Text style={styles.featureText}>monthly dating guides & templates</Text>
@@ -227,6 +385,33 @@ export default function PaywallVariantA({ visible = true, onClose, onSuccess }: 
                 <Text style={styles.planPer}>just $0.16/day</Text>
                 <Text style={styles.planFeatures}>everything + VIP perks + exclusive content</Text>
               </TouchableOpacity>
+            </View>
+
+            {/* Girl10 Image - Near CTA for final conversion push */}
+            <View style={styles.ctaMentorSection}>
+              <Animated.View 
+                style={[
+                  styles.ctaMentorContainer,
+                  {
+                    transform: [{
+                      translateY: floatAnim1.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, -5]
+                      })
+                    }]
+                  }
+                ]}
+              >
+                <Image 
+                  source={{ uri: GIRL_IMAGES.girl12 }} 
+                  style={styles.ctaMentorPhoto}
+                  defaultSource={require('@/assets/images/wizzmo.png')}
+                  loadingIndicatorSource={require('@/assets/images/wizzmo.png')}
+                />
+                <View style={[styles.mentorBadge, styles.liveBadge]}>
+                  <Text style={styles.badgeText}>ready to help</Text>
+                </View>
+              </Animated.View>
             </View>
 
             {/* CTA */}
@@ -313,9 +498,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mentorPhoto: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     borderWidth: 3,
     borderColor: '#FFFFFF',
   },
@@ -404,6 +589,71 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+
+  // Feature Mentor Image
+  featureMentorSection: {
+    alignItems: 'center',
+    marginVertical: 25,
+    backgroundColor: 'transparent',
+  },
+  featureMentorContainer: {
+    position: 'relative',
+    alignItems: 'center',
+  },
+  featureMentorPhoto: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    transform: [{ rotate: '15deg' }],
+  },
+
+  // Pricing Mentor Image
+  pricingMentorSection: {
+    alignItems: 'center',
+    marginBottom: 25,
+    backgroundColor: 'transparent',
+  },
+  pricingMentorContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  pricingMentorPhoto: {
+    width: 85,
+    height: 85,
+    borderRadius: 42.5,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    transform: [{ rotate: '-12deg' }],
+  },
+  pricingMentorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+  },
+
+  // CTA Mentor Image
+  ctaMentorSection: {
+    alignItems: 'center',
+    marginBottom: 30,
+    backgroundColor: 'transparent',
+  },
+  ctaMentorContainer: {
+    position: 'relative',
+    alignItems: 'center',
+  },
+  ctaMentorPhoto: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    transform: [{ rotate: '15deg' }],
+    resizeMode: 'cover',
   },
 
   // Pricing

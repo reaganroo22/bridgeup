@@ -150,6 +150,7 @@ export default function HomeScreen() {
             content,
             category_id,
             preferred_mentor_id,
+            status,
             categories (name)
           ),
           students:users!advice_sessions_student_id_fkey (
@@ -184,8 +185,8 @@ export default function HomeScreen() {
         created_at: session.created_at,
         is_anonymous: false,
         preferred_mentor_id: session.questions?.preferred_mentor_id,
-        is_specific_request: session.questions?.preferred_mentor_id === user.id,
-        student_name: session.students?.full_name || 'Student',
+        is_specific_request: session.questions?.status === 'assigned',
+        student_name: session.questions?.preferred_mentor_id ? (session.students?.full_name || 'Student') : null,
         is_assigned_session: true, // Flag to identify these as assigned sessions
       }));
 
