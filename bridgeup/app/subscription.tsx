@@ -92,7 +92,7 @@ export default function SubscriptionScreen() {
       } else {
         Alert.alert(
           'Manage Subscription',
-          'To manage your subscription:\n\n1. Open Settings app\n2. Tap your name at the top\n3. Tap "Subscriptions"\n4. Find Wizzmo and tap it'
+          'To manage your subscription:\n\n1. Open Settings app\n2. Tap your name at the top\n3. Tap "Subscriptions"\n4. Find BridgeUp and tap it'
         );
       }
     } else {
@@ -104,7 +104,7 @@ export default function SubscriptionScreen() {
       } else {
         Alert.alert(
           'Manage Subscription',
-          'To manage your subscription:\n\n1. Open Google Play Store\n2. Tap your profile icon\n3. Tap "Payments & subscriptions"\n4. Tap "Subscriptions"\n5. Find Wizzmo and tap it'
+          'To manage your subscription:\n\n1. Open Google Play Store\n2. Tap your profile icon\n3. Tap "Payments & subscriptions"\n4. Tap "Subscriptions"\n5. Find BridgeUp and tap it'
         );
       }
     }
@@ -124,7 +124,7 @@ export default function SubscriptionScreen() {
     },
     {
       question: 'what\'s included in pro?',
-      answer: 'unlimited questions, priority matching with wizzmos, faster response times, and an ad-free experience! ✨',
+      answer: 'unlimited questions, priority matching with mentors, faster response times, and an ad-free experience! ✨',
     },
     {
       question: 'do my questions reset?',
@@ -166,7 +166,7 @@ export default function SubscriptionScreen() {
 
   const handleContactSupport = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Linking.openURL('mailto:support@wizzmo.com?subject=Subscription Help');
+    Linking.openURL('mailto:support@bridgeup.app?subject=Subscription Help');
   };
 
   const handleUpgrade = () => {
@@ -214,9 +214,9 @@ export default function SubscriptionScreen() {
                   <Text style={styles.statusLabel}>current plan</Text>
                   <Text style={styles.statusPlan}>
                     {isProUser() ? (
-                      subscriptionStatus.plan === 'pro_monthly' ? 'wizzmo pro monthly' :
-                      subscriptionStatus.plan === 'pro_yearly' ? 'wizzmo pro yearly' :
-                      'wizzmo pro'
+                      subscriptionStatus.plan === 'pro_monthly' ? 'bridgeup pro monthly' :
+                      subscriptionStatus.plan === 'pro_yearly' ? 'bridgeup pro yearly' :
+                      'bridgeup pro'
                     ) : 'free trial'}
                   </Text>
                 </View>

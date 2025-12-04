@@ -351,7 +351,7 @@ export default function EditProfileScreen() {
           {/* Role/Mentor Interest Section */}
           <View style={[styles.divider, { borderTopColor: colors.border }]}>
             <Text style={[styles.dividerText, { color: colors.textSecondary }]}>
-              {userRole === 'student' ? 'mentor interest' : 'wizzmo settings'}
+              {userRole === 'student' ? 'mentor interest' : 'bridgeup settings'}
             </Text>
           </View>
 
@@ -384,8 +384,8 @@ export default function EditProfileScreen() {
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     Alert.alert(
-                      'become a wizzmo',
-                      'want to help other college students? apply to become a verified wizzmo mentor!',
+                      'become a bridgeup',
+                      'want to help other college students? apply to become a verified bridgeup mentor!',
                       [
                         { text: 'maybe later', style: 'cancel' },
                         { text: 'apply now', onPress: () => {

@@ -1,0 +1,43 @@
+# Development files
+.git/
+.DS_Store
+*.log
+.vscode/
+.expo/
+coverage/
+
+# Documentation
+*.md
+docs/
+OAUTH_SETUP_BRIDGEUP.md
+FINAL_SUPABASE_CONFIG.md
+APPLY_DATABASE_MIGRATION.md
+
+# Backup directories
+bridgeup_backup/
+*_backup/
+
+# Large development dependencies (these get reinstalled on EAS)
+node_modules/@types/
+node_modules/typescript/
+node_modules/@react-native/debugger-frontend/
+node_modules/react-devtools-core/
+
+# Source maps and debug files
+*.map
+*.d.ts.map
+
+# iOS build artifacts (these get rebuilt on EAS)
+ios/Pods/
+ios/build/
+ios/DerivedData/
+*.xcworkspace/xcshareddata/
+*.xcuserdata/
+
+# Android build artifacts
+android/build/
+android/app/build/
+
+# Temporary files
+tmp/
+temp/

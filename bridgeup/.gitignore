@@ -33,3 +33,32 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# Documentation files (shouldn't be in repo)
+*.md
+docs/
+OAUTH_SETUP_BRIDGEUP.md
+FINAL_SUPABASE_CONFIG.md
+APPLY_DATABASE_MIGRATION.md
+RevenueCat_Implementation_Documentation.md
+
+# Sensitive auth keys (but keep OAuth plist files!)
+# Note: GoogleService-Info.plist and OAuth plist files are NEEDED for auth to work
+# *.plist  <- DO NOT uncomment this - breaks OAuth!
+# Only ignore specific sensitive keys:
+AuthKey_*.p8
+
+# Backup directories
+*_backup/
+bridgeup_backup/
+
+# Build artifacts
+ios/Pods/
+ios/build/
+ios/DerivedData/
+android/build/
+android/app/build/
+
+# Xcode user data
+*.xcuserdata/
+*.xcworkspace/xcshareddata/

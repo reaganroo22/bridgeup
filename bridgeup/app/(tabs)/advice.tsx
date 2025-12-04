@@ -8,7 +8,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuth } from '../../contexts/AuthContext';
 import CustomHeader from '@/components/CustomHeader';
-import WizzmoIntroCard from '@/components/WizzmoIntroCard';
+import AdvisorIntroCard from '@/components/AdvisorIntroCard';
 import ModeToggle from '@/components/ModeToggle';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
@@ -60,9 +60,9 @@ export default function AdviceScreen() {
   const [pendingQuestions, setPendingQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showWizzmoIntro, setShowWizzmoIntro] = useState(false);
+  const [showMentorIntro, setShowMentorIntro] = useState(false);
   const [newActiveSession, setNewActiveSession] = useState<AdviceSession | null>(null);
-  const [wizzmoProfile, setWizzmoProfile] = useState<any>(null);
+  const [mentorProfile, setMentorProfile] = useState<any>(null);
 
   // Fetch user's advice sessions
   const fetchSessions = async () => {
@@ -193,7 +193,7 @@ export default function AdviceScreen() {
           
           // Check if this is a session becoming active (mentor accepted)
           if (payload.eventType === 'UPDATE' && payload.new?.status === 'active' && payload.old?.status === 'pending') {
-            console.log('[AdviceScreen] Session became active, showing Wizzmo intro');
+            console.log('[AdviceScreen] Session became active, showing mentor intro');
             
             // Fetch the full session with mentor details
             try {
@@ -225,7 +225,7 @@ export default function AdviceScreen() {
                 // Fetch mentor stats
                 const { data: statsData } = await supabaseService.getMentorStats(sessionData.mentor_id);
                 
-                const wizzmoData = {
+                const mentorData = {
                   ...sessionData.mentors,
                   questions_answered: statsData?.questions_answered || 0,
                   average_rating: statsData?.average_rating || 0,
@@ -233,8 +233,8 @@ export default function AdviceScreen() {
                 };
 
                 setNewActiveSession(sessionData);
-                setWizzmoProfile(wizzmoData);
-                setShowWizzmoIntro(true);
+                setMentorProfile(mentorData);
+                setShowMentorIntro(true);
               }
             } catch (error) {
               console.error('[AdviceScreen] Error fetching session/mentor data:', error);
@@ -273,10 +273,10 @@ export default function AdviceScreen() {
     fetchAllData();
   };
 
-  const handleWizzmoIntroClose = () => {
-    setShowWizzmoIntro(false);
+  const handleMentorIntroClose = () => {
+    setShowMentorIntro(false);
     setNewActiveSession(null);
-    setWizzmoProfile(null);
+    setMentorProfile(null);
     
     // Navigate to the chat if we have a session
     if (newActiveSession) {
@@ -614,12 +614,12 @@ export default function AdviceScreen() {
         </View>
       </ScrollView>
 
-      {/* Wizzmo Introduction Card */}
-      {showWizzmoIntro && wizzmoProfile && (
-        <WizzmoIntroCard
-          visible={showWizzmoIntro}
-          onClose={handleWizzmoIntroClose}
-          wizzmo={wizzmoProfile}
+      {/* Advisor Introduction Card */}
+      {showMentorIntro && mentorProfile && (
+        <AdvisorIntroCard
+          visible={showMentorIntro}
+          onClose={handleMentorIntroClose}
+          advisor={mentorProfile}
         />
       )}
     </>

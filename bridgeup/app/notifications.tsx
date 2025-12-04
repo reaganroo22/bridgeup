@@ -34,7 +34,7 @@ export default function NotificationsScreen() {
         {
           id: 'newMessages',
           title: 'new messages',
-          description: 'when a wizzmo responds to your question',
+          description: 'when a mentor responds to your question',
           value: settings.newMessages,
         },
         {
@@ -97,7 +97,7 @@ export default function NotificationsScreen() {
             stay in the loop
           </Text>
           <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
-            customize when and how you want to hear from wizzmo. you can always change these settings later.
+            customize when and how you want to hear from bridgeup. you can always change these settings later.
           </Text>
         </View>
 
@@ -114,7 +114,7 @@ export default function NotificationsScreen() {
                   new messages
                 </Text>
                 <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
-                  when wizzmos respond to your questions
+                  when mentors respond to your questions
                 </Text>
               </View>
               <Switch

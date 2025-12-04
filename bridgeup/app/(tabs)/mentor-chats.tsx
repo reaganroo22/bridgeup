@@ -583,7 +583,7 @@ export default function UnifiedChatsScreen() {
           setSelectedChatForRating(null);
         }}
         onSubmit={handleRatingSubmit}
-        wizzmoName={
+        mentorName={
           selectedChatForRating
             ? sessions.find(s => s.id === selectedChatForRating)?.students?.full_name || 'student'
             : 'user'

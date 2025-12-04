@@ -24,14 +24,14 @@ interface HelpfulAdvice {
   preview: string;
 }
 
-export default function WizzmoProfileScreen() {
+export default function BridgeUpProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'dark'];
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { user: authUser } = useAuth();
   const [isFollowing, setIsFollowing] = useState(false);
-  const [wizzmoProfile, setWizzmoProfile] = useState<any>(null);
+  const [mentorProfile, setMentorProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isViewingSelf, setIsViewingSelf] = useState(false);
   const [ratings, setRatings] = useState<any[]>([]);
@@ -50,20 +50,20 @@ export default function WizzmoProfileScreen() {
   const forcePublic = params.forcePublic === 'true';
 
   useEffect(() => {
-    fetchWizzmoProfile();
+    fetchMentorProfile();
   }, [profileUserId, authUser]);
 
   // Refetch profile when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log('[WizzmoProfile] Screen focused, refetching profile...');
+      console.log('[MentorProfile] Screen focused, refetching profile...');
       if (profileUserId) {
-        fetchWizzmoProfile();
+        fetchMentorProfile();
       }
     }, [profileUserId])
   );
 
-  const fetchWizzmoProfile = async () => {
+  const fetchMentorProfile = async () => {
     if (!profileUserId) return;
 
     try {
@@ -82,7 +82,7 @@ export default function WizzmoProfileScreen() {
       // Fetch profile data
       const { data: profile } = await supabaseService.getUserProfile(profileUserId);
       if (profile) {
-        setWizzmoProfile(profile);
+        setMentorProfile(profile);
         
         // Update mentor stats to ensure helpful votes are current (now with corrected SQL)
         if (profile.mentor_profile) {
@@ -90,7 +90,7 @@ export default function WizzmoProfileScreen() {
           // Refetch profile to get updated stats
           const { data: updatedProfile } = await supabaseService.getUserProfile(profileUserId);
           if (updatedProfile) {
-            setWizzmoProfile(updatedProfile);
+            setMentorProfile(updatedProfile);
           }
         }
 
@@ -102,7 +102,7 @@ export default function WizzmoProfileScreen() {
           // Check if favorited - only for users who can act as students
           if (currentProfile?.role === 'student' || currentProfile?.role === 'both') {
             const { data: favorite } = await supabase
-              .from('favorite_wizzmos')
+              .from('favorite_mentors')
               .select('id')
               .eq('student_id', authUser.id)
               .eq('mentor_id', profileUserId)
@@ -121,7 +121,7 @@ export default function WizzmoProfileScreen() {
       // Fetch mentor videos
       await fetchMentorVideos();
     } catch (error) {
-      console.error('[WizzmoProfile] Error fetching profile:', error);
+      console.error('[MentorProfile] Error fetching profile:', error);
     } finally {
       setLoading(false);
     }
@@ -135,13 +135,13 @@ export default function WizzmoProfileScreen() {
         .eq('following_id', profileUserId);
 
       if (error) {
-        console.error('[WizzmoProfile] Error fetching followers:', error);
+        console.error('[MentorProfile] Error fetching followers:', error);
         return;
       }
 
       setFollowerCount(data?.length || 0);
     } catch (error) {
-      console.error('[WizzmoProfile] Error fetching follower count:', error);
+      console.error('[MentorProfile] Error fetching follower count:', error);
     }
   };
 
@@ -184,7 +184,7 @@ export default function WizzmoProfileScreen() {
         setAverageRating(data.length > 0 ? totalRating / data.length : 0);
       }
     } catch (error) {
-      console.error('[WizzmoProfile] Error fetching ratings:', error);
+      console.error('[MentorProfile] Error fetching ratings:', error);
     }
   };
 
@@ -202,7 +202,7 @@ export default function WizzmoProfileScreen() {
         setIsFollowing(true);
       }
     } catch (error) {
-      console.error('[WizzmoProfile] Error toggling follow:', error);
+      console.error('[MentorProfile] Error toggling follow:', error);
     }
   };
 
@@ -212,14 +212,14 @@ export default function WizzmoProfileScreen() {
 
       const { data: videos, error } = await supabaseService.getMentorVideos(profileUserId);
       if (error) {
-        console.error('[WizzmoProfile] Error fetching videos:', error);
+        console.error('[MentorProfile] Error fetching videos:', error);
         return;
       }
 
       setMentorVideos(videos || []);
-      console.log('[WizzmoProfile] Loaded', videos?.length || 0, 'videos for mentor');
+      console.log('[MentorProfile] Loaded', videos?.length || 0, 'videos for mentor');
     } catch (error) {
-      console.error('[WizzmoProfile] Error fetching mentor videos:', error);
+      console.error('[MentorProfile] Error fetching mentor videos:', error);
     }
   };
 
@@ -232,18 +232,18 @@ export default function WizzmoProfileScreen() {
       if (isFavorited) {
         // Remove from favorites
         const { error } = await supabase
-          .from('favorite_wizzmos')
+          .from('favorite_mentors')
           .delete()
           .eq('student_id', authUser.id)
           .eq('mentor_id', profileUserId);
 
         if (error) throw error;
         setIsFavorited(false);
-        console.log('[WizzmoProfile] Removed from favorites');
+        console.log('[MentorProfile] Removed from favorites');
       } else {
         // Add to favorites
         const { error } = await supabase
-          .from('favorite_wizzmos')
+          .from('favorite_mentors')
           .insert({
             student_id: authUser.id,
             mentor_id: profileUserId,
@@ -252,10 +252,10 @@ export default function WizzmoProfileScreen() {
 
         if (error && error.code !== '23505') throw error; // Ignore duplicate key errors
         setIsFavorited(true);
-        console.log('[WizzmoProfile] Added to favorites');
+        console.log('[MentorProfile] Added to favorites');
       }
     } catch (error) {
-      console.error('[WizzmoProfile] Error toggling favorite:', error);
+      console.error('[MentorProfile] Error toggling favorite:', error);
     }
   };
 
@@ -263,7 +263,7 @@ export default function WizzmoProfileScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedVideo({
       ...video,
-      mentor_profile: wizzmoProfile
+      mentor_profile: mentorProfile
     });
     setShowFullscreenVideo(true);
   };
@@ -276,7 +276,7 @@ export default function WizzmoProfileScreen() {
       const { error } = await supabaseService.deleteMentorVideo(videoId);
       
       if (error) {
-        console.error('[WizzmoProfile] Error deleting video:', error);
+        console.error('[MentorProfile] Error deleting video:', error);
         return;
       }
 
@@ -284,13 +284,13 @@ export default function WizzmoProfileScreen() {
       setMentorVideos(mentorVideos.filter(video => video.id !== videoId));
       setShowDeleteConfirm(null);
       
-      console.log('[WizzmoProfile] Video deleted successfully');
+      console.log('[MentorProfile] Video deleted successfully');
     } catch (error) {
-      console.error('[WizzmoProfile] Error deleting video:', error);
+      console.error('[MentorProfile] Error deleting video:', error);
     }
   };
 
-  if (loading || !wizzmoProfile) {
+  if (loading || !mentorProfile) {
     return (
       <>
         <CustomHeader
@@ -337,8 +337,8 @@ export default function WizzmoProfileScreen() {
               {/* Avatar */}
               <View style={styles.avatarContainer}>
                 <Avatar
-                  name={wizzmoProfile.full_name || wizzmoProfile.username || 'Wizzmo'}
-                  imageUrl={wizzmoProfile.avatar_url}
+                  name={mentorProfile.full_name || mentorProfile.username || 'Mentor'}
+                  imageUrl={mentorProfile.avatar_url}
                   size="xlarge"
                   showEditButton={false}
                 />
@@ -350,23 +350,23 @@ export default function WizzmoProfileScreen() {
             <View style={styles.bioSection}>
               <View style={styles.nameRow}>
                 <Text style={[styles.fullName, { color: colors.text }]}>
-                  {wizzmoProfile.full_name || wizzmoProfile.username || 'Wizzmo'}
+                  {mentorProfile.full_name || mentorProfile.username || 'Mentor'}
                 </Text>
-                {wizzmoProfile?.mentor_profile?.is_verified && (
+                {mentorProfile?.mentor_profile?.is_verified && (
                   <View style={[styles.verifiedBadge, { backgroundColor: colors.surfaceElevated }]}>
                     <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
                   </View>
                 )}
               </View>
               <Text style={[styles.username, { color: colors.textSecondary }]}>
-                @{wizzmoProfile.username || 'username'}
+                @{mentorProfile.username || 'username'}
               </Text>
               <Text style={[styles.university, { color: colors.textSecondary }]}>
-                {wizzmoProfile.university || 'University'} • Class of {wizzmoProfile.graduation_year || '2025'}
+                {mentorProfile.university || 'University'} • Class of {mentorProfile.graduation_year || '2025'}
               </Text>
-              {wizzmoProfile.bio && (
+              {mentorProfile.bio && (
                 <Text style={[styles.bio, { color: colors.text }]}>
-                  {wizzmoProfile.bio}
+                  {mentorProfile.bio}
                 </Text>
               )}
             </View>
@@ -418,7 +418,7 @@ export default function WizzmoProfileScreen() {
             <View style={styles.statsCardRow}>
               <View style={styles.statsCardItem}>
                 <Text style={[styles.statsCardValue, { color: colors.primary }]}>
-                  {wizzmoProfile?.mentor_profile?.total_questions_answered || 0}
+                  {mentorProfile?.mentor_profile?.total_questions_answered || 0}
                 </Text>
                 <Text style={[styles.statsCardLabel, { color: colors.textSecondary }]}>
                   questions answered
@@ -436,7 +436,7 @@ export default function WizzmoProfileScreen() {
               <View style={[styles.statsCardDivider, { backgroundColor: colors.separator }]} />
               <View style={styles.statsCardItem}>
                 <Text style={[styles.statsCardValue, { color: colors.primary }]}>
-                  {wizzmoProfile?.mentor_profile?.total_helpful_votes || 0}
+                  {mentorProfile?.mentor_profile?.total_helpful_votes || 0}
                 </Text>
                 <Text style={[styles.statsCardLabel, { color: colors.textSecondary }]}>
                   helpful votes

@@ -103,7 +103,7 @@ function RootLayoutNav() {
       'subscription', 
       'edit-profile', 
       'student-profile', 
-      'wizzmo-profile', 
+      'bridgeup-profile', 
       'notifications', 
       'help', 
       'privacy', 

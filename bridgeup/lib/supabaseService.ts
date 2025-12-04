@@ -1,5 +1,5 @@
 /**
- * Wizzmo Supabase Service Layer
+ * BridgeUp Supabase Service Layer
  *
  * Comprehensive database operations wrapper for all Supabase interactions.
  * Provides type-safe, error-handled methods for all database operations.
@@ -564,7 +564,7 @@ export async function createMentorProfile(
 
 /**
  * ADMIN FUNCTION: Approve a mentor application and upgrade user to mentor role
- * This should be called after reviewing a "Become a Wizzmo" application
+ * This should be called after reviewing a "Become a Mentor" application
  * @param userId - User UUID to promote to mentor
  * @param categoryIds - Array of category IDs the mentor can help with (expertise areas)
  * @returns Success status with created mentor profile
@@ -2980,9 +2980,9 @@ export async function getAllMentors(page: number = 0, limit: number = 20, exclud
           total_questions_answered,
           average_rating,
           total_helpful_votes,
-          is_verified,
-          avg_response_time_minutes,
+          response_time_avg,
           availability_status,
+          verification_status,
           updated_at
         )
       `)

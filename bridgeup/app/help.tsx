@@ -16,14 +16,14 @@ export default function HelpScreen() {
   const faqItems = [
     {
       question: "how does matching work?",
-      answer: "when you submit a question, our system matches you with 2-3 verified college mentors (wizzmos) who specialize in your topic. they'll join a private chat to help you out."
+      answer: "when you submit a question, our system matches you with 2-3 verified college mentors (bridgeups) who specialize in your topic. they'll join a private chat to help you out."
     },
     {
       question: "are my questions really anonymous?",
       answer: "yes! when you post anonymously, mentors can't see your identity. only you can decide if you want to share more about yourself in the chat."
     },
     {
-      question: "how do i become a wizzmo?",
+      question: "how do i become a bridgeup?",
       answer: "we're currently building our mentor network! if you're interested in helping other college students, reach out through our contact form."
     },
     {
@@ -32,28 +32,28 @@ export default function HelpScreen() {
     },
     {
       question: "is this app free?",
-      answer: "yes! wizzmo is free to use. you can ask questions and get advice without any cost."
+      answer: "yes! bridgeup is free to use. you can ask questions and get advice without any cost."
     }
   ];
 
   const contactOptions = [
     {
       title: "email us",
-      subtitle: "hello@wizzmo.app",
+      subtitle: "hello@bridgeup.app",
       icon: "mail-outline",
-      action: () => Linking.openURL('mailto:hello@wizzmo.app')
+      action: () => Linking.openURL('mailto:hello@bridgeup.app')
     },
     {
       title: "report an issue",
       subtitle: "something not working?",
       icon: "warning-outline",
-      action: () => Alert.alert('report issue', 'issue reporting coming soon! for now, email us at hello@wizzmo.app')
+      action: () => Alert.alert('report issue', 'issue reporting coming soon! for now, email us at hello@bridgeup.app')
     },
     {
       title: "give feedback",
       subtitle: "help us improve",
       icon: "heart-outline",
-      action: () => Alert.alert('feedback', 'feedback form coming soon! for now, email us your thoughts at hello@wizzmo.app')
+      action: () => Alert.alert('feedback', 'feedback form coming soon! for now, email us your thoughts at hello@bridgeup.app')
     }
   ];
 
@@ -134,7 +134,7 @@ export default function HelpScreen() {
             community guidelines
           </Text>
           <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
-            wizzmo is a safe space for college students to get honest advice. we ask that everyone:
+            bridgeup is a safe space for college students to get honest advice. we ask that everyone:
           </Text>
           <View style={styles.guidelinesList}>
             <Text style={[styles.guideline, { color: colors.textSecondary }]}>• be kind and respectful</Text>

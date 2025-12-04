@@ -36,7 +36,7 @@ export default function TermsScreen() {
             </Text>
           </View>
 
-          {/* What Wizzmo Is */}
+          {/* What BridgeUp Is */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               what bridgeup is

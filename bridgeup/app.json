@@ -40,7 +40,7 @@
           }
         ]
       },
-      "googleServicesFile": "./Client ID for iOS BridgeUp (1).plist"
+      "googleServicesFile": "./ios/GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {

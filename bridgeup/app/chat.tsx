@@ -859,7 +859,7 @@ export default function ChatScreen() {
         console.log('[Chat] Adding mentor to favorites:', session.mentor_id);
         // Add to favorites
         const { error: favoriteError } = await supabase
-          .from('favorite_wizzmos')
+          .from('favorite_mentors')
           .insert({
             student_id: user.id,
             mentor_id: session.mentor_id,
@@ -2264,7 +2264,7 @@ export default function ChatScreen() {
             <Text style={[styles.replyingToText, { color: colors.primary }]}>
               Replying to {replyingToMessage.sender_id === user?.id ? 'yourself' : (
                 replyingToMessage.sender_id === session?.mentor_id 
-                  ? (session?.mentors?.full_name || 'Wizzmo')
+                  ? (session?.mentors?.full_name || 'Mentor')
                   : (session?.students?.full_name || 'User')
               )}
             </Text>
@@ -2421,7 +2421,7 @@ export default function ChatScreen() {
         visible={showRatingModal}
         onClose={() => setShowRatingModal(false)}
         onSubmit={handleRatingSubmit}
-        wizzmoName={otherPersonName || 'your wizzmo'}
+        mentorName={otherPersonName || 'your mentor'}
         mentorId={session.mentor_id}
         showFavorite={user?.id === session.student_id}
       />

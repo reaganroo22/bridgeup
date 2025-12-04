@@ -131,7 +131,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
         period: 'forever',
         features: [
           { text: '3 questions total', included: true },
-          { text: 'access to wizzmos', included: true },
+          { text: 'access to mentors', included: true },
           { text: 'unlimited questions', included: false },
           { text: 'priority matching', included: false },
           { text: 'ad-free experience', included: false },

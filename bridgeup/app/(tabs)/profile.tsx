@@ -45,7 +45,7 @@ interface Question {
   timestamp: Date;
 }
 
-interface FavoriteWizzmo {
+interface FavoriteMentor {
   id: string;
   mentor_id: string;
   mentors: {
@@ -98,7 +98,7 @@ export default function ProfileScreen() {
   const [editedGradYear, setEditedGradYear] = useState('');
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [usernameChecking, setUsernameChecking] = useState(false);
-  const [favoriteWizzmos, setFavoriteWizzmos] = useState<FavoriteWizzmo[]>([]);
+  const [favoriteMentors, setFavoriteMentors] = useState<FavoriteMentor[]>([]);
   const [showVideoUploadModal, setShowVideoUploadModal] = useState(false);
   const [selectedVideoUri, setSelectedVideoUri] = useState<string | null>(null);
 
@@ -134,11 +134,11 @@ export default function ProfileScreen() {
 
     const fetchFavorites = async () => {
       const { data, error } = await supabase
-        .from('favorite_wizzmos')
+        .from('favorite_mentors')
         .select(`
           id,
           mentor_id,
-          mentors:users!favorite_wizzmos_mentor_id_fkey (
+          mentors:users!favorite_mentors_mentor_id_fkey (
             full_name,
             avatar_url
           )
@@ -146,7 +146,7 @@ export default function ProfileScreen() {
         .eq('student_id', authUser.id);
 
       if (data) {
-        setFavoriteWizzmos(data);
+        setFavoriteMentors(data);
       }
     };
 
@@ -274,7 +274,7 @@ export default function ProfileScreen() {
   const stats = {
     questionsAsked: recentSessions.length,
     activeChats: recentSessions.filter(s => s.status === 'active').length,
-    favoriteWizzmos: favoriteWizzmos.length,
+    favoriteMentors: favoriteMentors.length,
   };
 
   // Loading state
@@ -964,7 +964,7 @@ export default function ProfileScreen() {
 
               <View style={[styles.statCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
                 <Text style={[styles.statValue, { color: colors.primary }]}>
-                  {stats.favoriteWizzmos}
+                  {stats.favoriteMentors}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
                   favorite advisors
@@ -1126,8 +1126,8 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          {/* Favorite Wizzmos Section */}
-          {favoriteWizzmos.length > 0 && (
+          {/* Favorite Mentors Section */}
+          {favoriteMentors.length > 0 && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
                 favorite advisors
@@ -1137,7 +1137,7 @@ export default function ProfileScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.favoritesScrollContent}
               >
-                {favoriteWizzmos.map((favorite) => (
+                {favoriteMentors.map((favorite) => (
                   <TouchableOpacity
                     key={favorite.id}
                     style={[styles.favoriteCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -1152,7 +1152,7 @@ export default function ProfileScreen() {
                       </Text>
                     </View>
                     <Text style={[styles.favoriteName, { color: colors.text }]} numberOfLines={1}>
-                      {favorite.mentors?.full_name || 'Wizzmo'}
+                      {favorite.mentors?.full_name || 'Mentor'}
                     </Text>
                     <Ionicons name="heart" size={16} color="#FF4DB8" />
                   </TouchableOpacity>
@@ -1880,8 +1880,8 @@ const styles = StyleSheet.create({
     textTransform: 'lowercase',
   },
 
-  // Wizzmo Grid
-  // Favorite Wizzmos
+  // Mentor Grid
+  // Favorite Mentors
   favoritesScrollContent: {
     gap: 12,
   },

@@ -1,6 +1,6 @@
 /**
  * OAuth Authentication Service
- * Handles Apple and Google sign-in for Wizzmo
+ * Handles Apple and Google sign-in for BridgeUp
  */
 
 import * as AuthSession from 'expo-auth-session';

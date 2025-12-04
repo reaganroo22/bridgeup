@@ -30,7 +30,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as supabaseService from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabase';
 
-interface FavoriteWizzmo {
+interface FavoriteMentor {
   id: string;
   mentor_id: string;
   mentors: {
@@ -58,9 +58,9 @@ export default function AskScreen() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [categories, setCategories] = useState<Array<{id: string, slug: string, name: string, icon: string | null, description: string | null}>>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
-  const [favoriteWizzmos, setFavoriteWizzmos] = useState<FavoriteWizzmo[]>([]);
-  const [selectedWizzmo, setSelectedWizzmo] = useState<string | null>(null);
-  const [selectedWizzmoData, setSelectedWizzmoData] = useState<any>(null);
+  const [favoriteMentors, setFavoriteMentors] = useState<FavoriteMentor[]>([]);
+  const [selectedMentor, setSelectedWizzmo] = useState<string | null>(null);
+  const [selectedMentorData, setSelectedWizzmoData] = useState<any>(null);
   const [preSelectedMentors, setPreSelectedMentors] = useState<Array<{id: string, name: string, avatar_url?: string}>>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{id: string, full_name: string | null, username: string | null, avatar_url?: string | null, mentor_profiles: any}>>([]);
@@ -238,11 +238,11 @@ export default function AskScreen() {
 
     const fetchFavorites = async () => {
       const { data, error } = await supabase
-        .from('favorite_wizzmos')
+        .from('favorite_mentors')
         .select(`
           id,
           mentor_id,
-          mentors:users!favorite_wizzmos_mentor_id_fkey (
+          mentors:users!favorite_mentors_mentor_id_fkey (
             full_name,
             avatar_url
           )
@@ -253,7 +253,7 @@ export default function AskScreen() {
         // Log mentor_id values to debug UUID issues
         console.log('[AskScreen] Favorite advisors mentor IDs:', data.map(f => ({id: f.id, mentor_id: f.mentor_id})));
         console.log('[AskScreen] Loaded', data.length, 'favorite advisors');
-        setFavoriteWizzmos(data);
+        setFavoriteMentors(data);
       } else if (error) {
         console.error('[AskScreen] Error loading favorites:', error);
       }
@@ -390,13 +390,13 @@ export default function AskScreen() {
     }
   }, [params.mentorId]);
 
-  // Handle selected mentors from wizzmos tab
+  // Handle selected mentors from mentors tab
   useEffect(() => {
     if (params.selectedMentors && typeof params.selectedMentors === 'string') {
       try {
         const mentors = JSON.parse(params.selectedMentors);
         setPreSelectedMentors(mentors);
-        console.log('[AskScreen] Pre-selected mentors from wizzmos tab:', mentors);
+        console.log('[AskScreen] Pre-selected mentors from mentors tab:', mentors);
       } catch (error) {
         console.error('[AskScreen] Error parsing selected mentors:', error);
       }
@@ -404,8 +404,8 @@ export default function AskScreen() {
   }, [params.selectedMentors]);
 
   const handleSubmit = async () => {
-    // Check if user selected a specific wizzmo (premium feature)
-    if (selectedWizzmo && !isProUser) {
+    // Check if user selected a specific mentor (premium feature)
+    if (selectedMentor && !isProUser) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setShowPaywall(true);
       return;
@@ -479,21 +479,21 @@ export default function AskScreen() {
         );
       }
 
-      // If a specific wizzmo was selected, create advice session directly (premium feature)
-      if (selectedWizzmo && newQuestion) {
-        // Validate selectedWizzmo is a proper UUID
+      // If a specific mentor was selected, create advice session directly (premium feature)
+      if (selectedMentor && newQuestion) {
+        // Validate selectedMentor is a proper UUID
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(selectedWizzmo)) {
-          console.error('[AskScreen] Invalid mentor UUID:', selectedWizzmo);
+        if (!uuidRegex.test(selectedMentor)) {
+          console.error('[AskScreen] Invalid mentor UUID:', selectedMentor);
           Alert.alert('Error', 'Invalid mentor selection. Please try again.');
           setIsSubmitting(false);
           return;
         }
         
-        console.log('[AskScreen] Creating direct session with selected wizzmo:', selectedWizzmo);
+        console.log('[AskScreen] Creating direct session with selected mentor:', selectedMentor);
         const { data: session, error: sessionError } = await supabaseService.createAdviceSession(
           newQuestion.id,
-          selectedWizzmo
+          selectedMentor
         );
 
         if (sessionError) {
@@ -541,7 +541,7 @@ export default function AskScreen() {
       setSelectedWizzmo(null);
       setIsSubmitting(false);
 
-      const message = selectedWizzmo
+      const message = selectedMentor
         ? 'Your chosen advisor is getting notified now! 🎯'
         : preSelectedMentors.length > 0
         ? `Your ${preSelectedMentors.length} selected advisors are getting notified now! 📚`
@@ -885,7 +885,7 @@ export default function AskScreen() {
                   <Ionicons name="search" size={20} color={colors.textSecondary} />
                   <TextInput
                     style={[styles.searchInput, { color: colors.text }]}
-                    placeholder="search wizzmos..."
+                    placeholder="search mentors..."
                     placeholderTextColor={colors.textTertiary}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
@@ -899,7 +899,7 @@ export default function AskScreen() {
                 {searchResults.length > 0 && (
                   <View style={[styles.searchResults, { backgroundColor: colors.background, borderColor: colors.border }]}>
                     {searchResults.map((mentor) => {
-                      const isSelected = selectedWizzmo === mentor.id;
+                      const isSelected = selectedMentor === mentor.id;
                       const profile = mentor.mentor_profiles[0];
                       return (
                         <TouchableOpacity
@@ -969,7 +969,7 @@ export default function AskScreen() {
                 )}
 
                 {/* Favorite Wizzmos */}
-                {favoriteWizzmos.length > 0 && (
+                {favoriteMentors.length > 0 && (
                   <View style={styles.favoritesSection}>
                     <Text style={[styles.favoritesTitle, { color: colors.text }]}>
                       your favorites
@@ -979,8 +979,8 @@ export default function AskScreen() {
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.favoritesScrollContent}
                     >
-                      {favoriteWizzmos.map((favorite) => {
-                        const isSelected = selectedWizzmo === favorite.mentor_id;
+                      {favoriteMentors.map((favorite) => {
+                        const isSelected = selectedMentor === favorite.mentor_id;
                         return (
                           <TouchableOpacity
                             key={favorite.id}
@@ -1025,7 +1025,7 @@ export default function AskScreen() {
                 )}
 
                 {/* Selected Mentor from Search */}
-                {selectedWizzmo && !favoriteWizzmos.find(f => f.mentor_id === selectedWizzmo) && (
+                {selectedMentor && !favoriteMentors.find(f => f.mentor_id === selectedMentor) && (
                   <View style={styles.selectedMentorSection}>
                     <Text style={[styles.favoritesTitle, { color: colors.text }]}>
                       selected advisor
@@ -1033,11 +1033,11 @@ export default function AskScreen() {
                     <View style={[styles.selectedMentorCard, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
                       <View style={[styles.favoriteAvatar, { backgroundColor: '#FFFFFF' }]}>
                         <Text style={[styles.favoriteInitial, { color: colors.primary }]}>
-                          {selectedWizzmoData?.full_name?.charAt(0).toUpperCase() || 'W'}
+                          {selectedMentorData?.full_name?.charAt(0).toUpperCase() || 'W'}
                         </Text>
                       </View>
                       <Text style={[styles.favoriteName, { color: '#FFFFFF' }]} numberOfLines={1}>
-                        {selectedWizzmoData?.full_name || 'Selected Advisor'}
+                        {selectedMentorData?.full_name || 'Selected Advisor'}
                       </Text>
                       <TouchableOpacity onPress={() => {
                         setSelectedWizzmo(null);

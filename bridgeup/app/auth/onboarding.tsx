@@ -302,7 +302,11 @@ export default function Onboarding() {
   const renderWelcome = () => (
     <View style={styles.stepContent}>
       <View style={styles.logoContainer}>
-        <Text style={styles.logoText}>{CURRENT_VERTICAL.name.toLowerCase()}</Text>
+        <Image 
+          source={require('@/assets/images/bridgeup-logo.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
       </View>
       <Text style={styles.welcomeTitle}>welcome to {CURRENT_VERTICAL.name.toLowerCase()}</Text>
       <Text style={styles.welcomeSubtitle}>
@@ -875,6 +879,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   bearLogo: {
+    width: 120,
+    height: 120,
+  },
+  logoImage: {
     width: 120,
     height: 120,
   },

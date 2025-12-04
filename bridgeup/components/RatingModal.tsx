@@ -11,7 +11,7 @@ interface RatingModalProps {
   visible: boolean;
   onClose: () => void;
   onSubmit: (rating: number, feedback: string, isFavorite: boolean) => void;
-  wizzmoName?: string;
+  mentorName?: string;
   mentorId?: string;
   showFavorite?: boolean;
 }
@@ -20,7 +20,7 @@ export default function RatingModal({
   visible,
   onClose,
   onSubmit,
-  wizzmoName = 'your wizzmo',
+  mentorName = 'your mentor',
   mentorId,
   showFavorite = true,
 }: RatingModalProps) {
@@ -86,7 +86,7 @@ export default function RatingModal({
           </View>
 
           <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-            How was your chat with {wizzmoName}?
+            How was your chat with {mentorName}?
           </Text>
 
           {/* Star Rating */}
@@ -118,7 +118,7 @@ export default function RatingModal({
                 color={isFavorite ? '#FF4DB8' : colors.textSecondary}
               />
               <Text style={[styles.favoriteText, { color: colors.text }]}>
-                add {wizzmoName} to favorites
+                add {mentorName} to favorites
               </Text>
             </TouchableOpacity>
           )}
