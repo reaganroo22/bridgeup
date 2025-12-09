@@ -43,20 +43,7 @@ export default function UniversitySearch({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setSearchTerm(newValue);
-    
-    // Check if the typed value is an exact match to a valid university
-    const exactMatch = universities.find(uni => 
-      uni.toLowerCase() === newValue.toLowerCase()
-    );
-    
-    if (exactMatch) {
-      // If it's an exact match, update the form value
-      onChange(exactMatch);
-    } else {
-      // Clear the form value if it's not a valid university
-      onChange('');
-    }
-    
+    onChange(newValue);
     setIsOpen(true);
     setHighlightedIndex(-1);
   };
@@ -91,34 +78,11 @@ export default function UniversitySearch({
   };
 
   const selectUniversity = (university: string) => {
-    // Only update form value when a valid university is selected
     onChange(university);
     setSearchTerm(university);
     setIsOpen(false);
     setHighlightedIndex(-1);
     inputRef.current?.blur();
-  };
-
-  // Handle blur - if search term doesn't match a valid university, clear the form value
-  const handleBlur = () => {
-    // Small delay to allow click events on dropdown to fire first
-    setTimeout(() => {
-      const isValidSelection = universities.some(uni => 
-        uni.toLowerCase() === searchTerm.toLowerCase()
-      );
-      
-      if (!isValidSelection && searchTerm !== value) {
-        // User typed something but didn't select from dropdown - clear it
-        onChange('');
-        setSearchTerm('');
-      } else if (value && searchTerm !== value) {
-        // Restore the valid value if search term was changed
-        setSearchTerm(value);
-      }
-      
-      setIsOpen(false);
-      setHighlightedIndex(-1);
-    }, 200);
   };
 
   const handleFocus = () => {
@@ -143,7 +107,6 @@ export default function UniversitySearch({
         value={searchTerm}
         onChange={handleInputChange}
         onFocus={handleFocus}
-        onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={`w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C147E9] focus:border-[#C147E9] text-base text-gray-900 bg-white ${className}`}
@@ -161,7 +124,7 @@ export default function UniversitySearch({
                   className={`px-3 py-2 cursor-pointer text-sm ${
                     index === highlightedIndex
                       ? 'bg-[#C147E9] text-white'
-                      : 'hover:bg-gray-100'
+                      : 'hover:bg-gray-100 text-gray-900'
                   }`}
                   onClick={() => selectUniversity(university)}
                   onMouseEnter={() => setHighlightedIndex(index)}
