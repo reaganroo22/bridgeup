@@ -78,8 +78,8 @@ export default function UniversitySearch({
   };
 
   const selectUniversity = (university: string) => {
-    onChange(university);
     setSearchTerm(university);
+    onChange(university);
     setIsOpen(false);
     setHighlightedIndex(-1);
     inputRef.current?.blur();
@@ -95,9 +95,9 @@ export default function UniversitySearch({
   // Set search term when value changes externally
   useEffect(() => {
     if (value !== searchTerm) {
-      setSearchTerm(value);
+      setSearchTerm(value || '');
     }
-  }, [value]);
+  }, [value, searchTerm]);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -115,16 +115,16 @@ export default function UniversitySearch({
       />
       
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto text-gray-900">
           {filteredUniversities.length > 0 ? (
             <>
               {filteredUniversities.map((university, index) => (
                 <div
                   key={university}
-                  className={`px-3 py-2 cursor-pointer text-sm ${
+                  className={`px-3 py-2 cursor-pointer text-sm text-gray-900 ${
                     index === highlightedIndex
-                      ? 'bg-[#C147E9] text-white'
-                      : 'hover:bg-gray-100 text-gray-900'
+                      ? 'bg-[#C147E9] !text-white'
+                      : 'hover:bg-gray-100'
                   }`}
                   onClick={() => selectUniversity(university)}
                   onMouseEnter={() => setHighlightedIndex(index)}
