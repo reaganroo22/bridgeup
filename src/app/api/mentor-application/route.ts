@@ -46,11 +46,12 @@ export async function POST(request: NextRequest) {
     console.log('[API] 3. Validating required fields...');
     console.log('[API] Field check:', { firstName: !!firstName, lastName: !!lastName, email: !!email, university: !!university, year: !!year, major: !!major, whyJoin: !!whyJoin, experience: !!experience, topics: topics?.length });
     
-    // Validate required fields
-    if (!firstName || !lastName || !email || !university || !year || !major || !whyJoin || !experience || !topics?.length) {
+    // Validate required fields (only check what the form actually collects)
+    if (!firstName || !lastName || !email || !university || !year || !whyJoin) {
       console.log('[API] ❌ Validation failed - missing required fields');
+      console.log('[API] Missing:', { firstName: !firstName, lastName: !lastName, email: !email, university: !university, year: !year, whyJoin: !whyJoin });
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields. Please fill out all required fields.' },
         { status: 400 }
       );
     }
