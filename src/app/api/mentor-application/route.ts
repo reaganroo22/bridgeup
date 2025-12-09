@@ -44,12 +44,26 @@ export async function POST(request: NextRequest) {
     } = body;
 
     console.log('[API] 3. Validating required fields...');
+    console.log('[API] Raw field values:', { firstName, lastName, email, university, year, whyJoin, major, experience, topics });
     console.log('[API] Field check:', { firstName: !!firstName, lastName: !!lastName, email: !!email, university: !!university, year: !!year, major: !!major, whyJoin: !!whyJoin, experience: !!experience, topics: topics?.length });
     
-    // Validate required fields (only check what the form actually collects)
-    if (!firstName || !lastName || !email || !university || !year || !whyJoin) {
+    // Validate required fields (only check what the form actually collects, trim and check for meaningful content)
+    const trimmedFirstName = firstName?.trim();
+    const trimmedLastName = lastName?.trim();
+    const trimmedEmail = email?.trim();
+    const trimmedUniversity = university?.trim();
+    const trimmedWhyJoin = whyJoin?.trim();
+    
+    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedUniversity || !year || !trimmedWhyJoin) {
       console.log('[API] ❌ Validation failed - missing required fields');
-      console.log('[API] Missing:', { firstName: !firstName, lastName: !lastName, email: !email, university: !university, year: !year, whyJoin: !whyJoin });
+      console.log('[API] Missing:', { 
+        firstName: !trimmedFirstName, 
+        lastName: !trimmedLastName, 
+        email: !trimmedEmail, 
+        university: !trimmedUniversity, 
+        year: !year, 
+        whyJoin: !trimmedWhyJoin 
+      });
       return NextResponse.json(
         { error: 'Missing required fields. Please fill out all required fields.' },
         { status: 400 }
@@ -67,12 +81,12 @@ export async function POST(request: NextRequest) {
 
     // Prepare application data for database (FIXED: Only use fields that exist after cleanup)
     const applicationData = {
-      email: email.toLowerCase().trim(),
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
-      university: university.trim(),
+      email: trimmedEmail.toLowerCase(),
+      first_name: trimmedFirstName,
+      last_name: trimmedLastName,
+      university: trimmedUniversity,
       graduation_year: year.toString(), // Keep as string to match database
-      why_join: whyJoin.trim(),
+      why_join: trimmedWhyJoin,
       instagram: instagram || null,
       confirm_woman: true, // Assuming they confirmed during form
       confirm_advice: true, // Assuming they confirmed during form
