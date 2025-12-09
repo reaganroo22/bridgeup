@@ -15,6 +15,7 @@ import {
   Platform,
   Image,
   Share,
+  Animated,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -128,6 +129,10 @@ export default function MentorOnboarding() {
 
   // Animation state
   const [currentBearState, setCurrentBearState] = useState('happy');
+  
+  // Animation refs for bear
+  const bearRotateAnim = useRef(new Animated.Value(0)).current;
+  const bearScaleAnim = useRef(new Animated.Value(1)).current;
 
   // Form data
   const [formData, setFormData] = useState({
@@ -913,23 +918,76 @@ export default function MentorOnboarding() {
     }
   };
 
-  // Function to handle bear tapping - cycles through expressions
+  // Function to handle bear tapping - now with RANDOM fun animations!
   const handleBearTap = () => {
-    const bearStates = ['happy', 'interested', 'stargazed', 'glow', 'glowing', 'sleepy'];
-    const currentIndex = bearStates.indexOf(currentBearState);
-    const nextIndex = (currentIndex + 1) % bearStates.length;
-    const nextState = bearStates[nextIndex];
-    
-    setCurrentBearState(nextState);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
-    console.log('🐻 Mentor Bear tapped! Changed from', currentBearState, 'to', nextState);
+    // Array of different fun animations
+    const animations = [
+      // 1. Classic Spin
+      () => {
+        console.log('🐻 Mentor Bear doing: Classic Spin!');
+        bearRotateAnim.setValue(0);
+        return Animated.sequence([
+          Animated.parallel([
+            Animated.timing(bearScaleAnim, { toValue: 1.15, duration: 200, useNativeDriver: true }),
+            Animated.timing(bearRotateAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+          ]),
+          Animated.timing(bearScaleAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+        ]);
+      },
+      
+      // 2. Bounce Jump
+      () => {
+        console.log('🐻 Mentor Bear doing: Bounce Jump!');
+        return Animated.sequence([
+          Animated.timing(bearScaleAnim, { toValue: 1.3, duration: 150, useNativeDriver: true }),
+          Animated.timing(bearScaleAnim, { toValue: 0.9, duration: 100, useNativeDriver: true }),
+          Animated.timing(bearScaleAnim, { toValue: 1.1, duration: 150, useNativeDriver: true }),
+          Animated.timing(bearScaleAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        ]);
+      },
+      
+      // 3. Wiggle Dance
+      () => {
+        console.log('🐻 Mentor Bear doing: Wiggle Dance!');
+        bearRotateAnim.setValue(0);
+        return Animated.sequence([
+          Animated.timing(bearRotateAnim, { toValue: 0.1, duration: 100, useNativeDriver: true }),
+          Animated.timing(bearRotateAnim, { toValue: -0.1, duration: 100, useNativeDriver: true }),
+          Animated.timing(bearRotateAnim, { toValue: 0.1, duration: 100, useNativeDriver: true }),
+          Animated.timing(bearRotateAnim, { toValue: -0.1, duration: 100, useNativeDriver: true }),
+          Animated.timing(bearRotateAnim, { toValue: 0, duration: 100, useNativeDriver: true }),
+        ]);
+      },
+      
+      // 4. Pulse Heartbeat
+      () => {
+        console.log('🐻 Mentor Bear doing: Pulse Heartbeat!');
+        return Animated.sequence([
+          Animated.timing(bearScaleAnim, { toValue: 1.2, duration: 300, useNativeDriver: true }),
+          Animated.timing(bearScaleAnim, { toValue: 1.1, duration: 150, useNativeDriver: true }),
+          Animated.timing(bearScaleAnim, { toValue: 1.25, duration: 200, useNativeDriver: true }),
+          Animated.timing(bearScaleAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+        ]);
+      },
+      
+      // 5. Double Spin
+      () => {
+        console.log('🐻 Mentor Bear doing: Double Spin Combo!');
+        bearRotateAnim.setValue(0);
+        return Animated.sequence([
+          Animated.timing(bearRotateAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(bearRotateAnim, { toValue: 2, duration: 400, useNativeDriver: true }),
+        ]);
+      },
+    ];
     
-    // Revert back to default after 3 seconds
-    setTimeout(() => {
-      setCurrentBearState('happy');
-      console.log('🐻 Reverted back to happy state');
-    }, 3000);
+    // Pick random animation
+    const randomAnimation = animations[Math.floor(Math.random() * animations.length)];
+    randomAnimation().start(() => {
+      console.log('🐻 Mentor Bear animation completed!');
+    });
   };
 
   // Bear Component with title
@@ -940,11 +998,26 @@ export default function MentorOnboarding() {
       large: { width: 180, height: 180 },
     };
 
+    // Create rotation interpolation (full 360-degree spin)
+    const rotateInterpolate = bearRotateAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['0deg', '360deg'],
+    });
+
     return (
       <TouchableOpacity style={styles.bearContainer} onPress={handleBearTap} activeOpacity={0.8}>
-        <Image
+        <Animated.Image
           source={bearImages[currentBearState]}
-          style={[styles.bearImage, bearSizes[size]]}
+          style={[
+            styles.bearImage, 
+            bearSizes[size],
+            {
+              transform: [
+                { rotate: rotateInterpolate },
+                { scale: bearScaleAnim },
+              ],
+            },
+          ]}
           resizeMode="contain"
         />
       </TouchableOpacity>

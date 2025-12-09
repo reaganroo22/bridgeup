@@ -596,45 +596,11 @@ export default function AskScreen() {
         );
       }
 
-      // If a specific wizzmo was selected, create advice session directly (premium feature)
+      // Session creation is now handled automatically by submitQuestion in AppContext
+      // No need to manually create sessions here - prevents duplicates
       if (selectedMentor && newQuestionId) {
-        // Validate selectedMentor is a proper UUID
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(selectedMentor)) {
-          console.error('[AskScreen] Invalid mentor UUID:', selectedMentor);
-          Alert.alert('Error', 'Invalid mentor selection. Please try again.');
-          setIsSubmitting(false);
-          return;
-        }
-        
-        console.log('[AskScreen] Creating direct session with selected wizzmo:', selectedMentor);
-        const { data: session, error: sessionError } = await supabaseService.createAdviceSession(
-          newQuestionId,
-          selectedMentor
-        );
-
-        if (sessionError) {
-          console.error('[AskScreen] Error creating session:', sessionError);
-          
-          // Handle specific error for self-mentoring attempts
-          if (sessionError.message === 'Students cannot ask questions to themselves') {
-            Alert.alert(
-              'Cannot Select Yourself', 
-              "You can't select yourself as a mentor for your own question. This helps maintain objective advice.",
-              [{ text: 'OK', style: 'default' }]
-            );
-          }
-          // Question still created, just not the direct session - continue normally
-        } else {
-          console.log('[AskScreen] ✅ Direct session created successfully:', session?.id);
-          console.log('[AskScreen] Session details:', { 
-            sessionId: session?.id,
-            questionId: newQuestionId,
-            mentorId: selectedMentor,
-            studentId: user?.id,
-            status: session?.status 
-          });
-        }
+        console.log('[AskScreen] ✅ Question assigned to selected mentor:', selectedMentor);
+        console.log('[AskScreen] Session created automatically by submitQuestion');
       }
 
       // Question count increment is handled by submitQuestion in AppContext

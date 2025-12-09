@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +21,10 @@ export default function RoleSelectionScreen() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'student' | 'mentor' | 'both' | null>(null);
+  
+  // Animation refs for bear
+  const bearRotateAnim = useRef(new Animated.Value(0)).current;
+  const bearScaleAnim = useRef(new Animated.Value(1)).current;
 
   const handleRoleSelection = async (role: 'student' | 'mentor' | 'both') => {
     if (!user || loading) return;
@@ -142,6 +147,78 @@ export default function RoleSelectionScreen() {
     }
   };
 
+  // Function to handle bear tapping - now with RANDOM fun animations!
+  const handleBearTap = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    // Array of different fun animations
+    const animations = [
+      // 1. Classic Spin
+      () => {
+        console.log('🐻 Role Selection Bear doing: Classic Spin!');
+        bearRotateAnim.setValue(0);
+        return Animated.sequence([
+          Animated.parallel([
+            Animated.timing(bearScaleAnim, { toValue: 1.15, duration: 200, useNativeDriver: true }),
+            Animated.timing(bearRotateAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+          ]),
+          Animated.timing(bearScaleAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+        ]);
+      },
+      
+      // 2. Bounce Jump
+      () => {
+        console.log('🐻 Role Selection Bear doing: Bounce Jump!');
+        return Animated.sequence([
+          Animated.timing(bearScaleAnim, { toValue: 1.3, duration: 150, useNativeDriver: true }),
+          Animated.timing(bearScaleAnim, { toValue: 0.9, duration: 100, useNativeDriver: true }),
+          Animated.timing(bearScaleAnim, { toValue: 1.1, duration: 150, useNativeDriver: true }),
+          Animated.timing(bearScaleAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        ]);
+      },
+      
+      // 3. Wiggle Dance
+      () => {
+        console.log('🐻 Role Selection Bear doing: Wiggle Dance!');
+        bearRotateAnim.setValue(0);
+        return Animated.sequence([
+          Animated.timing(bearRotateAnim, { toValue: 0.1, duration: 100, useNativeDriver: true }),
+          Animated.timing(bearRotateAnim, { toValue: -0.1, duration: 100, useNativeDriver: true }),
+          Animated.timing(bearRotateAnim, { toValue: 0.1, duration: 100, useNativeDriver: true }),
+          Animated.timing(bearRotateAnim, { toValue: -0.1, duration: 100, useNativeDriver: true }),
+          Animated.timing(bearRotateAnim, { toValue: 0, duration: 100, useNativeDriver: true }),
+        ]);
+      },
+      
+      // 4. Pulse Heartbeat
+      () => {
+        console.log('🐻 Role Selection Bear doing: Pulse Heartbeat!');
+        return Animated.sequence([
+          Animated.timing(bearScaleAnim, { toValue: 1.2, duration: 300, useNativeDriver: true }),
+          Animated.timing(bearScaleAnim, { toValue: 1.1, duration: 150, useNativeDriver: true }),
+          Animated.timing(bearScaleAnim, { toValue: 1.25, duration: 200, useNativeDriver: true }),
+          Animated.timing(bearScaleAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+        ]);
+      },
+      
+      // 5. Double Spin
+      () => {
+        console.log('🐻 Role Selection Bear doing: Double Spin Combo!');
+        bearRotateAnim.setValue(0);
+        return Animated.sequence([
+          Animated.timing(bearRotateAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(bearRotateAnim, { toValue: 2, duration: 400, useNativeDriver: true }),
+        ]);
+      },
+    ];
+    
+    // Pick random animation
+    const randomAnimation = animations[Math.floor(Math.random() * animations.length)];
+    randomAnimation().start(() => {
+      console.log('🐻 Role Selection Bear animation completed!');
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
@@ -158,11 +235,26 @@ export default function RoleSelectionScreen() {
           <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
-          <Image
-            source={require('@/assets/images/glowing.png')}
-            style={styles.bearImage}
-            resizeMode="contain"
-          />
+          <TouchableOpacity onPress={handleBearTap} activeOpacity={0.8} style={styles.bearContainer}>
+            <Animated.Image
+              source={require('@/assets/images/glowing.png')}
+              style={[
+                styles.bearImage,
+                {
+                  transform: [
+                    { 
+                      rotate: bearRotateAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '360deg'],
+                      })
+                    },
+                    { scale: bearScaleAnim },
+                  ],
+                },
+              ]}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
           <Text style={styles.title}>Welcome Back!</Text>
           <Text style={styles.subtitle}>
             You can be both a student asking questions and a mentor helping others. 
@@ -263,10 +355,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
+  bearContainer: {
+    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   bearImage: {
     width: 80,
     height: 80,
-    marginBottom: 20,
   },
   title: {
     fontSize: 28,

@@ -136,7 +136,10 @@ export default function UnifiedChatsScreen() {
         pendingSessions.forEach(s => console.log(`  - ${s.id.slice(0, 8)}: ${s.questions?.title} from ${s.students?.full_name}`));
       }
       
-      setSessions(data || []);
+      // Deduplicate sessions by ID (same logic as AppContext)
+      const uniqueSessions = Array.from(new Map((data || []).map(s => [s.id, s])).values());
+      setSessions(uniqueSessions);
+      console.log('[MentorChats] Sessions deduplicated:', (data || []).length, '→', uniqueSessions.length);
     } catch (error) {
       console.error('Error fetching sessions:', error);
     }

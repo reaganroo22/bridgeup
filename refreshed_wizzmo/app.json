@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/wizzmo.png",
+      "image": "./assets/images/Generated Image Dec 07 2025 from Google AI Studio (1).jpeg",
       "resizeMode": "contain",
       "backgroundColor": "#FF4DB8"
     },
@@ -19,6 +19,12 @@
       "bundleIdentifier": "com.wizzmo.app",
       "buildNumber": "32",
       "usesAppleSignIn": true,
+      "splash": {
+        "image": "./assets/images/Generated Image Dec 07 2025 from Google AI Studio (1).jpeg",
+        "tabletImage": "./assets/images/Generated Image Dec 07 2025 from Google AI Studio (3).jpeg",
+        "resizeMode": "contain",
+        "backgroundColor": "#FF4DB8"
+      },
       "entitlements": {
         "com.apple.developer.in-app-payments": [
           "merchant.com.wizzmo.app"

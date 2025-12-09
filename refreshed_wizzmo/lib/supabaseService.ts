@@ -10,6 +10,7 @@
 import { supabase } from './supabase'
 import { RealtimeChannel } from '@supabase/supabase-js'
 import { CURRENT_VERTICAL_KEY } from '../config/current-vertical'
+import emailService from './emailService'
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -697,32 +698,77 @@ export async function createAdviceSession(
       throw new Error('Students cannot ask questions to themselves')
     }
 
-    // Create advice session
-    const { data: session, error: sessionError } = await supabase
+    // Check if a session already exists for this question (multi-mentor case)
+    const { data: existingSession, error: existingError } = await supabase
       .from('advice_sessions')
-      .insert({
-        question_id: questionId,
-        student_id: question.student_id,
-        mentor_id: mentorId,
-        status: 'pending'
-      })
-      .select()
-      .single()
+      .select('*')
+      .eq('question_id', questionId)
+      .maybeSingle();
 
-    if (sessionError) {
-      console.error('[createAdviceSession] Error creating session:', sessionError)
-      throw sessionError
+    if (existingError) {
+      console.error('[createAdviceSession] Error checking existing session:', existingError);
+      throw existingError;
     }
 
-    // Update question status to assigned
+    let session;
+    if (existingSession) {
+      // Update existing session (multi-mentor case: assign mentor and activate)
+      console.log('[createAdviceSession] 🔄 Updating existing session:', existingSession.id.slice(0, 8), 'for mentor:', mentorId.slice(0, 8));
+      
+      const { data: updatedSession, error: updateError } = await supabase
+        .from('advice_sessions')
+        .update({
+          mentor_id: mentorId,
+          status: 'active',
+          accepted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingSession.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('[createAdviceSession] Error updating session:', updateError);
+        throw updateError;
+      }
+      session = updatedSession;
+    } else {
+      // Create new advice session (single mentor case)
+      console.log('[createAdviceSession] 📝 Creating new session for mentor:', mentorId.slice(0, 8));
+      
+      const { data: newSession, error: sessionError } = await supabase
+        .from('advice_sessions')
+        .insert({
+          question_id: questionId,
+          student_id: question.student_id,
+          mentor_id: mentorId,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (sessionError) {
+        console.error('[createAdviceSession] Error creating session:', sessionError);
+        throw sessionError;
+      }
+      session = newSession;
+    }
+
+    // Update question status based on session type
+    const questionStatus = existingSession ? 'active' : 'assigned';
     const { error: updateError } = await supabase
       .from('questions')
-      .update({ status: 'assigned' })
+      .update({ 
+        status: questionStatus,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', questionId)
 
     if (updateError) {
-      console.error('[createAdviceSession] Error updating question status:', updateError)
-      // Don't throw here, session was created successfully
+      console.error('[createAdviceSession] Error updating question status to', questionStatus + ':', updateError)
+      // Don't throw here, session was created/updated successfully
+    } else {
+      console.log('[createAdviceSession] ✅ Updated question status to:', questionStatus);
     }
 
     console.log('[createAdviceSession] Session created successfully:', session.id)
@@ -783,7 +829,12 @@ export async function acceptAdviceSession(
       throw new Error(`Mentor mismatch. Expected: ${existingSession.mentor_id}, Got: ${mentorId}`)
     }
     
-    console.log('[acceptAdviceSession] Session found, current status:', existingSession.status)
+    console.log('[acceptAdviceSession] 🔍 Session found:', {
+      sessionId: existingSession.id.slice(0, 8),
+      currentStatus: existingSession.status,
+      currentMentorId: existingSession.mentor_id?.slice(0, 8) || 'null',
+      acceptingMentorId: mentorId.slice(0, 8)
+    });
 
     // Update the session - set mentor_id if it was null (multi-mentor assignment)
     const updateData = {
@@ -792,6 +843,8 @@ export async function acceptAdviceSession(
       updated_at: new Date().toISOString(),
       ...(existingSession.mentor_id === null ? { mentor_id: mentorId } : {})
     };
+    
+    console.log('[acceptAdviceSession] 🔄 Updating session with:', updateData);
 
     const { data: session, error: sessionError } = await supabase
       .from('advice_sessions')
@@ -815,7 +868,12 @@ export async function acceptAdviceSession(
       throw new Error('No session returned after update - possible RLS policy issue')
     }
 
-    console.log('[acceptAdviceSession] Session accepted successfully:', session.id, 'new status:', session.status)
+    console.log('[acceptAdviceSession] ✅ Session updated successfully:', {
+      sessionId: session.id.slice(0, 8),
+      newStatus: session.status,
+      newMentorId: session.mentor_id?.slice(0, 8),
+      updatedAt: session.updated_at
+    });
     
     // For multi-mentor assignments: clean up other mentors' access and update question status
     try {
@@ -1207,7 +1265,15 @@ export async function createQuestion(
 
     // If multiple mentors were selected, create assignments for each
     if (preferredMentorIds && preferredMentorIds.length > 1) {
-      const assignments = preferredMentorIds.map(mentorId => ({
+      // Remove duplicates to prevent wrong count
+      const uniqueMentorIds = Array.from(new Set(preferredMentorIds));
+      console.log('[createQuestion] Creating assignments for mentors:', {
+        original_count: preferredMentorIds.length,
+        unique_count: uniqueMentorIds.length,
+        mentor_ids: uniqueMentorIds.map(id => id.slice(0, 8))
+      });
+      
+      const assignments = uniqueMentorIds.map(mentorId => ({
         question_id: data.id,
         mentor_id: mentorId
       }));
@@ -1220,7 +1286,7 @@ export async function createQuestion(
         console.error('[createQuestion] Error creating mentor assignments:', assignmentError);
         // Continue anyway - question is created, assignments failed
       } else {
-        console.log('[createQuestion] Created assignments for', preferredMentorIds.length, 'mentors');
+        console.log('[createQuestion] ✅ Created assignments for', uniqueMentorIds.length, 'unique mentors');
       }
     }
 
@@ -1249,6 +1315,20 @@ export async function createQuestion(
     }
 
     console.log('[createQuestion] Question created:', data.id, 'with status:', questionStatus)
+    
+    // Trigger email notifications
+    try {
+      // Send confirmation to student
+      await emailService.triggerQuestionSubmitted(data.id);
+      
+      // If it's a pending question (open to all mentors), notify available mentors
+      if (questionStatus === 'pending') {
+        await emailService.triggerNewQuestionForMentors(data.id);
+      }
+    } catch (emailError) {
+      console.error('[createQuestion] Email notification error (non-blocking):', emailError);
+    }
+    
     return { data, error: null }
   } catch (error) {
     console.error('[createQuestion] Error:', error)
@@ -1823,6 +1903,13 @@ export async function sendMessage(
           }
         );
         console.log('[sendMessage] 📧 Notification sent to:', recipientId.slice(0, 8));
+        
+        // Trigger email notification
+        try {
+          await emailService.triggerNewMessageNotification(completeMessage.id);
+        } catch (emailError) {
+          console.warn('[sendMessage] 📧 Email notification error (non-blocking):', emailError);
+        }
       }
     } catch (notificationError) {
       console.warn('[sendMessage] ⚠️ Failed to send notification:', notificationError);

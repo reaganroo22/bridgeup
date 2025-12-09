@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import emailService from './emailService';
 
 // Types for the mentor application
 export interface MentorApplication {
@@ -120,6 +121,20 @@ export async function insertMentorApplications(applications: MentorApplication[]
     }
     
     console.log(`Successfully inserted ${data.length} applications`);
+    
+    // Send application received emails
+    for (const application of data) {
+      try {
+        await emailService.sendEmail('mentor_application_submitted', application.email, {
+          firstName: application.full_name.split(' ')[0],
+          fullName: application.full_name
+        });
+        console.log('✅ Application submitted email sent to:', application.email);
+      } catch (emailError) {
+        console.error('📧 Email notification error (non-blocking):', emailError);
+      }
+    }
+    
     return { success: true, data };
   } catch (err) {
     console.error('Database error:', err);
@@ -223,6 +238,18 @@ export async function approveApplication(applicationId: string, reviewerId: stri
     
     if (profileError) throw profileError;
     
+    // 6. Send approval email to new mentor
+    try {
+      await emailService.sendEmail('mentor_application_approved', application.email, {
+        firstName: application.full_name.split(' ')[0],
+        fullName: application.full_name,
+        university: application.university
+      });
+      console.log('✅ Mentor approval email sent to:', application.email);
+    } catch (emailError) {
+      console.error('📧 Email notification error (non-blocking):', emailError);
+    }
+    
     return { success: true, userId: user.id };
   } catch (error) {
     console.error('Error approving application:', error);
@@ -232,17 +259,45 @@ export async function approveApplication(applicationId: string, reviewerId: stri
 
 // Reject application
 export async function rejectApplication(applicationId: string, reviewerId: string, notes?: string) {
-  const { error } = await supabase
-    .from('mentor_applications')
-    .update({
-      application_status: 'rejected',
-      reviewed_by: reviewerId,
-      reviewed_at: new Date().toISOString(),
-      notes
-    })
-    .eq('id', applicationId);
-  
-  return { success: !error, error };
+  try {
+    // 1. Update application status
+    const { error } = await supabase
+      .from('mentor_applications')
+      .update({
+        application_status: 'rejected',
+        reviewed_by: reviewerId,
+        reviewed_at: new Date().toISOString(),
+        notes
+      })
+      .eq('id', applicationId);
+    
+    if (error) throw error;
+    
+    // 2. Get application details for email
+    const { data: application, error: fetchError } = await supabase
+      .from('mentor_applications')
+      .select('email, full_name')
+      .eq('id', applicationId)
+      .single();
+    
+    if (!fetchError && application) {
+      // 3. Send rejection email
+      try {
+        await emailService.sendEmail('mentor_application_rejected', application.email, {
+          firstName: application.full_name.split(' ')[0],
+          fullName: application.full_name,
+          notes: notes
+        });
+        console.log('✅ Mentor rejection email sent to:', application.email);
+      } catch (emailError) {
+        console.error('📧 Email notification error (non-blocking):', emailError);
+      }
+    }
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error };
+  }
 }
 
 function generateUsername(fullName: string): string {

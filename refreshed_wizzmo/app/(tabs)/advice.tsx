@@ -131,7 +131,10 @@ export default function AdviceScreen() {
       
       const validSessions = (data || []).filter(s => s.student_id) as AdviceSession[];
       
-      console.log('[AdviceScreen] Sessions fetched:', validSessions.length, 'sessions');
+      // Deduplicate sessions by ID (same logic as AppContext)
+      const uniqueSessions = Array.from(new Map(validSessions.map(s => [s.id, s])).values());
+      
+      console.log('[AdviceScreen] Sessions fetched:', validSessions.length, 'raw, deduplicated to:', uniqueSessions.length);
       if (validSessions.length > 0) {
         console.log('[AdviceScreen] First session details:', {
           id: validSessions[0].id?.slice(0, 8),
@@ -143,7 +146,7 @@ export default function AdviceScreen() {
         });
       }
       
-      setSessions(validSessions);
+      setSessions(uniqueSessions);
     } catch (error) {
       console.error('Error fetching sessions:', error);
     }
@@ -231,8 +234,17 @@ export default function AdviceScreen() {
           console.log('[AdviceScreen] Real-time update received:', payload.eventType, 'for session:', payload.new?.id?.slice(0, 8));
           
           // Check if this is a session becoming active (mentor accepted)
-          if (payload.eventType === 'UPDATE' && payload.new?.status === 'active' && payload.old?.status === 'pending') {
-            console.log('[AdviceScreen] Session became active, showing Wizzmo intro');
+          if (payload.eventType === 'UPDATE' && payload.new?.status === 'active' && (payload.old?.status === 'pending' || payload.old?.status === 'assigned')) {
+            console.log('[AdviceScreen] 🔄 Session became active!', {
+              sessionId: payload.new?.id?.slice(0, 8),
+              oldStatus: payload.old?.status,
+              newStatus: payload.new?.status,
+              mentorId: payload.new?.mentor_id?.slice(0, 8)
+            });
+            
+            // Immediately refresh sessions to update UI
+            console.log('[AdviceScreen] 🔃 Refreshing sessions after status change...');
+            fetchSessions();
             
             // Fetch the full session with mentor details
             try {
@@ -420,7 +432,22 @@ export default function AdviceScreen() {
   };
 
   const activeSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'active'));
-  const assignedSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'pending' || s.status === 'assigned')); // both pending and assigned status = assigned in UI
+  
+  // Filter out assigned/pending sessions that have an active session for the same question
+  const activeQuestionIds = new Set(activeSessions.map(s => s.question_id).filter(Boolean));
+  const assignedSessions = sortSessionsByRecentActivity(
+    sessions.filter(s => {
+      const isPendingOrAssigned = s.status === 'pending' || s.status === 'assigned';
+      const hasActiveVersion = s.question_id && activeQuestionIds.has(s.question_id);
+      
+      if (isPendingOrAssigned && hasActiveVersion) {
+        console.log('[AdviceScreen] 🚫 Hiding orphaned session:', s.id.slice(0, 8), 'because active session exists for question:', s.question_id?.slice(0, 8));
+        return false; // Hide this session
+      }
+      
+      return isPendingOrAssigned; // Show if pending/assigned and no active version
+    })
+  );
   
   // State for mentor counts for multi-mentor questions
   const [mentorCounts, setMentorCounts] = useState<{ [questionId: string]: number }>({});
@@ -437,12 +464,24 @@ export default function AdviceScreen() {
         
         for (const session of multiMentorQuestions) {
           if (session.question_id) {
-            const { data } = await supabase
+            const { data, error } = await supabase
               .from('question_mentor_assignments')
               .select('mentor_id')
               .eq('question_id', session.question_id);
             
-            counts[session.question_id] = data?.length || 0;
+            if (error) {
+              console.error('[AdviceScreen] Error fetching mentor assignments:', error);
+            } else {
+              // Remove duplicates by using Set
+              const uniqueMentorIds = Array.from(new Set(data?.map(item => item.mentor_id) || []));
+              counts[session.question_id] = uniqueMentorIds.length;
+              
+              console.log('[AdviceScreen] Mentor count for question', session.question_id.slice(0, 8) + ':', {
+                raw_assignments: data?.length || 0,
+                unique_mentors: uniqueMentorIds.length,
+                mentor_ids: uniqueMentorIds.map(id => id.slice(0, 8))
+              });
+            }
           }
         }
         
