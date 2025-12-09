@@ -31,7 +31,7 @@ export default function BecomeAWizzmoPage() {
   }, []);
 
   const gradYears = [
-    '2024', '2025', '2026', '2027', '2028', '2029', '2030', '2031', '2032'
+    '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027', '2028', '2029', '2030'
   ];
 
 
@@ -44,8 +44,8 @@ export default function BecomeAWizzmoPage() {
     
     let processedValue = value;
     
-    // Auto-add @ for Instagram handle
-    if (name === 'instagram') {
+    // Auto-add @ for Instagram handle (but not for other social media)
+    if (name === 'instagram' && formData.instagram !== 'other-social-media') {
       processedValue = value.startsWith('@') ? value : `@${value}`;
     }
     
@@ -71,7 +71,7 @@ export default function BecomeAWizzmoPage() {
     }
 
     try {
-      const response = await fetch('/api/mentor-application', {
+      const response = await fetch('/api/mentor-application/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -281,17 +281,31 @@ export default function BecomeAWizzmoPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Instagram Handle <span className="text-gray-500">(for verification)</span></label>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="text-sm font-medium text-gray-700">Instagram Handle <span className="text-gray-500">(for verification)</span></label>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, instagram: 'other-social-media' }))}
+                    className="text-xs text-[#C147E9] hover:underline"
+                  >
+                    other social media
+                  </button>
+                </div>
                 <input
                   type="text"
                   name="instagram"
-                  value={formData.instagram}
+                  value={formData.instagram === 'other-social-media' ? '' : formData.instagram}
                   onChange={handleInputChange}
                   className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C147E9] focus:border-[#C147E9] text-base text-gray-900 bg-white"
-                  placeholder="@your_instagram"
+                  placeholder={formData.instagram === 'other-social-media' ? "Your social media URL or username" : "@your_instagram"}
                   required
                   style={{ fontSize: '16px' }}
                 />
+                {formData.instagram === 'other-social-media' && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    You can provide any social media URL (TikTok, Twitter, LinkedIn, etc.)
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3">
