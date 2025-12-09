@@ -168,7 +168,7 @@ export default function PaywallVariantA({ visible = true, onClose, onSuccess }: 
             <View style={styles.titleSection}>
               <Text style={styles.title}>spill the tea with college girls 💅</Text>
               <Text style={styles.subtitle}>
-            connect with verified college mentors who've been through it all and are ready to share their honest experiences
+            connect with wizzmos who've been through it all and are ready to share their honest experiences
               </Text>
             </View>
 
@@ -351,6 +351,7 @@ export default function PaywallVariantA({ visible = true, onClose, onSuccess }: 
                 onPress={() => {
                   setSelectedPlan('wizzmo_monthly');
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handlePurchase('wizzmo_monthly');
                 }}
               >
                 <View style={styles.cardHeader}>
@@ -371,6 +372,7 @@ export default function PaywallVariantA({ visible = true, onClose, onSuccess }: 
                 onPress={() => {
                   setSelectedPlan('wizzmo_annual');
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handlePurchase('wizzmo_annual');
                 }}
               >
                 <View style={styles.cardHeader}>
@@ -414,21 +416,8 @@ export default function PaywallVariantA({ visible = true, onClose, onSuccess }: 
               </Animated.View>
             </View>
 
-            {/* CTA */}
+            {/* CTA - Now handled by direct plan selection */}
             <View style={styles.ctaSection}>
-              <TouchableOpacity
-                style={[styles.ctaButton, { opacity: isPurchasing ? 0.7 : 1 }]}
-                onPress={() => handlePurchase(selectedPlan)}
-                disabled={isPurchasing}
-              >
-                <View style={styles.ctaButtonBg}>
-                  {isPurchasing ? (
-                    <ActivityIndicator color="#FF4DB8" size="small" />
-                  ) : (
-                    <Text style={styles.ctaText}>start getting advice</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
               
               <Text style={styles.disclaimer}>
                 cancel anytime • no commitment
@@ -671,14 +660,17 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   selectedCard: {
-    borderColor: '#FFFFFF',
+    borderColor: '#FF4DB8',
+    borderWidth: 6,
     backgroundColor: '#FFFFFF',
-    transform: [{ scale: 1.02 }],
-    shadowColor: '#FFFFFF',
+    transform: [{ scale: 1.05 }],
+    shadowColor: '#FF4DB8',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOpacity: 1.0,
+    shadowRadius: 20,
+    elevation: 20,
+    // Add a glowing pink outline effect
+    shadowBlur: 25,
   },
   cardHeader: {
     flexDirection: 'row',

@@ -744,7 +744,8 @@ export async function acceptAdviceSession(
   mentorId: string
 ): Promise<ServiceResponse<any>> {
   try {
-    console.log('[acceptAdviceSession] Accepting session:', sessionId, 'by mentor:', mentorId)
+    console.log('🚨🚨🚨 ACCEPT ADVICE SESSION CALLED 🚨🚨🚨')
+    console.log('[acceptAdviceSession] 🚀 FUNCTION CALLED - Accepting session:', sessionId.slice(0,8), 'by mentor:', mentorId.slice(0,8), 'at:', new Date().toISOString())
     
     // First, check if the session exists and the mentor is correctly assigned
     const { data: existingSession, error: fetchError } = await supabase
@@ -762,21 +763,40 @@ export async function acceptAdviceSession(
       throw new Error('Session not found')
     }
     
-    if (existingSession.mentor_id !== mentorId) {
+    // For multi-mentor assignments, mentor_id is null - check if mentor is in assignments table
+    if (existingSession.mentor_id === null) {
+      console.log('[acceptAdviceSession] Multi-mentor session detected, verifying mentor assignment...');
+      
+      const { data: assignment, error: assignmentError } = await supabase
+        .from('question_mentor_assignments')
+        .select('mentor_id')
+        .eq('question_id', (await supabase.from('advice_sessions').select('question_id').eq('id', sessionId).single()).data?.question_id)
+        .eq('mentor_id', mentorId)
+        .single();
+      
+      if (assignmentError || !assignment) {
+        throw new Error(`Mentor ${mentorId} not assigned to this multi-mentor question`);
+      }
+      
+      console.log('[acceptAdviceSession] Mentor verified in assignments table');
+    } else if (existingSession.mentor_id !== mentorId) {
       throw new Error(`Mentor mismatch. Expected: ${existingSession.mentor_id}, Got: ${mentorId}`)
     }
     
     console.log('[acceptAdviceSession] Session found, current status:', existingSession.status)
 
+    // Update the session - set mentor_id if it was null (multi-mentor assignment)
+    const updateData = {
+      status: 'active',
+      accepted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      ...(existingSession.mentor_id === null ? { mentor_id: mentorId } : {})
+    };
+
     const { data: session, error: sessionError } = await supabase
       .from('advice_sessions')
-      .update({ 
-        status: 'active',
-        accepted_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', sessionId)
-      .eq('mentor_id', mentorId) // Security check - only the assigned mentor can accept
       .select()
       .single()
 
@@ -796,6 +816,46 @@ export async function acceptAdviceSession(
     }
 
     console.log('[acceptAdviceSession] Session accepted successfully:', session.id, 'new status:', session.status)
+    
+    // For multi-mentor assignments: clean up other mentors' access and update question status
+    try {
+      // Get the question ID from the accepted session
+      const questionId = session.question_id;
+      
+      // Update the question status to 'active' (removes it from other mentors' inboxes)
+      const { error: questionUpdateError } = await supabase
+        .from('questions')
+        .update({ 
+          status: 'active',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', questionId);
+      
+      if (questionUpdateError) {
+        console.warn('[acceptAdviceSession] Warning: Could not update question status:', questionUpdateError);
+      } else {
+        console.log('[acceptAdviceSession] Updated question status to active:', questionId);
+      }
+      
+      // Note: Session cleanup is now handled in the frontend before creating new sessions
+      
+      // Also remove other mentor assignments for this question (clean up assignment table)
+      const { error: assignmentCleanupError } = await supabase
+        .from('question_mentor_assignments')
+        .delete()
+        .eq('question_id', questionId)
+        .neq('mentor_id', mentorId); // Keep the accepted mentor's assignment
+      
+      if (assignmentCleanupError) {
+        console.warn('[acceptAdviceSession] Warning: Could not clean up mentor assignments:', assignmentCleanupError);
+      } else {
+        console.log('[acceptAdviceSession] Cleaned up other mentor assignments for question:', questionId);
+      }
+      
+    } catch (cleanupError) {
+      console.warn('[acceptAdviceSession] Warning during cleanup:', cleanupError);
+    }
+    
     return { data: session, error: null }
   } catch (error) {
     console.error('[acceptAdviceSession] Error:', error)
@@ -1164,25 +1224,26 @@ export async function createQuestion(
       }
     }
 
-    // For assigned questions (single or multiple mentors), create advice session so it appears in student chat
+    // For assigned questions, create advice sessions based on assignment type
+    // For ALL assigned questions (single or multi-mentor), create a pending session
     if (questionStatus === 'assigned') {
-      const sessionMentorId = finalMentorId || (preferredMentorIds && preferredMentorIds.length > 0 ? preferredMentorIds[0] : null);
-      
-      if (sessionMentorId) {
-        const { error: sessionError } = await supabase
-          .from('advice_sessions')
-          .insert({
-            student_id: studentId,
-            mentor_id: sessionMentorId,
-            question_id: data.id,
-            status: 'pending', // Will change to 'active' when mentor accepts
-            vertical
-          });
+      const { error: sessionError } = await supabase
+        .from('advice_sessions')
+        .insert({
+          student_id: studentId,
+          mentor_id: finalMentorId, // Single mentor ID or null for multi-mentor
+          question_id: data.id,
+          status: 'pending', // All questions start as pending
+          vertical
+        });
 
-        if (sessionError) {
-          console.error('[createQuestion] Error creating advice session:', sessionError);
+      if (sessionError) {
+        console.error('[createQuestion] Error creating session:', sessionError);
+      } else {
+        if (finalMentorId) {
+          console.log('[createQuestion] Created pending session for single mentor:', finalMentorId.slice(0,8));
         } else {
-          console.log('[createQuestion] Created advice session for assigned question');
+          console.log('[createQuestion] Created pending session for multi-mentor question');
         }
       }
     }
@@ -1250,13 +1311,17 @@ export async function getPendingQuestions(mentorId: string, vertical: string = C
 
     console.log('[getPendingQuestions] Mentor profile ID:', profileData.id)
 
-    // Get pending questions that are NOT specifically requested for another mentor
+    // First get questions that could be for this mentor (broader query)
     const { data, error } = await supabase
       .from('questions')
-      .select('*, category:categories(*)')
-      .eq('status', 'pending')
+      .select(`
+        *, 
+        category:categories(*),
+        mentor_passes!left(mentor_id),
+        question_mentor_assignments!left(*)
+      `)
+      .in('status', ['pending', 'assigned'])
       .eq('vertical', vertical)
-      .or(`preferred_mentor_id.is.null,preferred_mentor_id.eq.${mentorId}`)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -1264,11 +1329,87 @@ export async function getPendingQuestions(mentorId: string, vertical: string = C
       throw error
     }
 
-    console.log('[getPendingQuestions] 🔍 DEBUGGING Found', data?.length, 'open requests')
-    console.log('[getPendingQuestions] 🔍 DEBUGGING Questions:', data?.map(q => ({id: q.id.slice(0,8), title: q.title, status: q.status})))
-    return { data: data || [], error: null }
+    // Filter out questions that this mentor has already passed on
+    // But keep questions where mentor has a valid assignment
+    const filteredData = (data || []).filter(question => {
+      const mentorPasses = question.mentor_passes || []
+      const mentorAssignments = question.question_mentor_assignments || []
+      
+      const hasPassedAlready = mentorPasses.some((pass: any) => pass.mentor_id === mentorId)
+      const hasAssignment = mentorAssignments.some((assignment: any) => assignment.mentor_id === mentorId)
+      
+      // Debug logging for assignments
+      if (mentorAssignments.length > 0) {
+        console.log(`[getPendingQuestions] 🎯 Question ${question.id.slice(0,8)} assignments:`, mentorAssignments.map(a => a.mentor_id.slice(0,8)))
+        console.log(`[getPendingQuestions] 🎯 Current mentor: ${mentorId.slice(0,8)}, hasAssignment: ${hasAssignment}`)
+      }
+      const isSingleAssignment = question.preferred_mentor_id === mentorId
+      const isGeneralQuestion = !question.preferred_mentor_id && mentorAssignments.length === 0
+      
+      // Show question if:
+      // 1. Mentor hasn't passed AND (has assignment OR single assignment OR general question)
+      const shouldShow = !hasPassedAlready && (hasAssignment || isSingleAssignment || isGeneralQuestion)
+      
+      if (hasPassedAlready) {
+        console.log('[getPendingQuestions] 🚫 Filtering out passed question:', question.id.slice(0,8), question.title?.slice(0,30))
+      } else if (!shouldShow) {
+        console.log('[getPendingQuestions] 🚫 Filtering out unassigned question:', question.id.slice(0,8), question.title?.slice(0,30))
+      } else {
+        console.log('[getPendingQuestions] ✅ Including question:', question.id.slice(0,8), question.title?.slice(0,30), 'Assignment:', hasAssignment, 'Single:', isSingleAssignment, 'General:', isGeneralQuestion)
+      }
+      
+      return shouldShow
+    })
+
+    console.log('[getPendingQuestions] 🔍 DEBUGGING Found', data?.length, 'total,', filteredData.length, 'after filtering passes')
+    console.log('[getPendingQuestions] 🔍 DEBUGGING Questions:', filteredData.map(q => ({id: q.id.slice(0,8), title: q.title, status: q.status})))
+    
+    // Debug assignment data being returned
+    console.log('[getPendingQuestions] 🔧 Raw question objects structure:', filteredData.slice(0,2).map(q => ({
+      id: q.id.slice(0,8),
+      title: q.title,
+      hasAssignmentsField: !!q.question_mentor_assignments,
+      assignmentsCount: q.question_mentor_assignments?.length || 0,
+      objectKeys: Object.keys(q)
+    })))
+    
+    const questionsWithAssignments = filteredData.filter(q => q.question_mentor_assignments && q.question_mentor_assignments.length > 0)
+    console.log('[getPendingQuestions] 🎯 Questions with assignments being returned:', questionsWithAssignments.map(q => ({
+      id: q.id.slice(0,8),
+      title: q.title,
+      assignments: q.question_mentor_assignments.map(a => a.mentor_id.slice(0,8))
+    })))
+    
+    return { data: filteredData, error: null }
   } catch (error) {
     console.error('[getPendingQuestions] Error:', error)
+    return { data: null, error: error as Error }
+  }
+}
+
+/**
+ * Get a single question by ID
+ * @param questionId - Question UUID
+ * @returns Question data
+ */
+export async function getQuestionById(questionId: string): Promise<ServiceResponse<Question | null>> {
+  try {
+    console.log('[getQuestionById] Fetching question:', questionId)
+    
+    const { data, error } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('id', questionId)
+      .single()
+
+    if (error) {
+      console.error('[getQuestionById] Error:', error)
+      throw error
+    }
+
+    return { data, error: null }
+  } catch (error) {
+    console.error('[getQuestionById] Error:', error)
     return { data: null, error: error as Error }
   }
 }
@@ -1659,6 +1800,34 @@ export async function sendMessage(
       isFromCurrentUser: completeMessage.isFromCurrentUser,
       senderName: completeMessage.senderName
     })
+    
+    // Send notification to the other user
+    try {
+      const { data: session } = await supabase
+        .from('advice_sessions')
+        .select('mentor_id, student_id')
+        .eq('id', sessionId)
+        .single();
+      
+      if (session) {
+        const recipientId = session.mentor_id === senderId ? session.student_id : session.mentor_id;
+        await createNotification(
+          recipientId,
+          'new_message',
+          'New Message',
+          `${completeMessage.senderName}: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`,
+          {
+            sessionId,
+            messageId: completeMessage.id,
+            senderId
+          }
+        );
+        console.log('[sendMessage] 📧 Notification sent to:', recipientId.slice(0, 8));
+      }
+    } catch (notificationError) {
+      console.warn('[sendMessage] ⚠️ Failed to send notification:', notificationError);
+      // Don't fail the message send if notification fails
+    }
     
     return { data: completeMessage, error: null }
   } catch (error) {
@@ -4141,5 +4310,111 @@ export async function getOnlineMentors(
   } catch (error) {
     console.error('[getOnlineMentors] Error:', error);
     return { data: { mentors: [], hasMore: false }, error: error as Error };
+  }
+}
+
+/**
+ * Pass on a mentor question - records the pass and notifies student
+ * @param questionId - UUID of the question
+ * @param mentorId - UUID of the mentor passing
+ * @returns Success response
+ */
+export async function passMentorQuestion(
+  questionId: string,
+  mentorId: string
+): Promise<ServiceResponse<{ success: true }>> {
+  try {
+    console.log('[passMentorQuestion] Processing pass for question:', questionId, 'mentor:', mentorId);
+
+    // Get the question details first
+    const { data: question, error: questionError } = await supabase
+      .from('questions')
+      .select('*, student_id, preferred_mentor_ids')
+      .eq('id', questionId)
+      .single();
+
+    if (questionError) {
+      console.error('[passMentorQuestion] Error fetching question:', questionError);
+      throw questionError;
+    }
+
+    if (!question) {
+      throw new Error('Question not found');
+    }
+
+    // Record the pass in mentor_passes table
+    const { error: passError } = await supabase
+      .from('mentor_passes')
+      .insert({
+        question_id: questionId,
+        mentor_id: mentorId,
+        auto_passed: false
+      });
+
+    if (passError) {
+      console.error('[passMentorQuestion] Error recording pass:', passError);
+      throw passError;
+    }
+
+    // Check if this was a specific mentor request
+    const isSpecificRequest = question.preferred_mentor_ids && 
+      question.preferred_mentor_ids.includes(mentorId);
+
+    if (isSpecificRequest) {
+      console.log('[passMentorQuestion] This was a specific mentor request - refunding question');
+      
+      // Update question status back to pending and clear preferred mentor
+      const { error: questionUpdateError } = await supabase
+        .from('questions')
+        .update({
+          status: 'pending',
+          preferred_mentor_id: null,
+          preferred_mentor_ids: null,
+          question_returned_at: new Date().toISOString()
+        })
+        .eq('id', questionId);
+
+      if (questionUpdateError) {
+        console.error('[passMentorQuestion] Error updating question:', questionUpdateError);
+        throw questionUpdateError;
+      }
+
+      // Refund the question count to the student
+      const { error: refundError } = await supabase.rpc('decrement_question_count', {
+        target_user_id: question.student_id,
+        amount: 1
+      });
+
+      if (refundError) {
+        console.error('[passMentorQuestion] Error refunding question:', refundError);
+        // Don't throw here as the pass was successful, just log the error
+      }
+
+      // Send notification to student about the return
+      await createNotification(
+        question.student_id,
+        'question_returned' as any,
+        'Question Returned',
+        'Your specific mentor request has been returned. You can ask again or choose different mentors.',
+        {
+          questionId,
+          reason: 'mentor_passed'
+        }
+      );
+
+    } else {
+      // For general pool questions, just make available to other mentors
+      console.log('[passMentorQuestion] General pool question - making available to other mentors');
+      
+      // The question remains in the pool for other mentors
+      // No refund needed for general pool questions
+    }
+
+    console.log('[passMentorQuestion] ✅ Question passed successfully');
+    return { data: { success: true }, error: null };
+
+  } catch (error) {
+    console.error('[passMentorQuestion] Error:', error);
+    return { data: null, error: error as Error };
   }
 }

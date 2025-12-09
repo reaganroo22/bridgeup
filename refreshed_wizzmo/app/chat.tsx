@@ -12,7 +12,10 @@ import {
   Image,
   Pressable,
   Modal,
-  Clipboard
+  Clipboard,
+  Keyboard,
+  PanResponder,
+  Animated
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -36,6 +39,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
 import * as supabaseService from '../lib/supabaseService';
 import { supabase } from '../lib/supabase';
+import { uploadChatMedia } from '@/lib/imageUpload';
 
 interface Reaction {
   emoji: string;
@@ -1137,34 +1141,17 @@ export default function ChatScreen() {
       const asset = result.assets[0];
       const uri = asset.uri;
       const isVideo = asset.type === 'video';
-      const fileName = `${user.id}/${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`;
 
-      // Create FormData for upload
-      const formData = new FormData();
-      formData.append('file', {
-        uri: uri,
-        type: isVideo ? 'video/mp4' : 'image/jpeg',
-        name: fileName,
-      } as any);
-
-      // Upload to Supabase Storage
-      const bucketName = 'chat-media';
-      const { error: uploadError } = await supabase.storage
-        .from(bucketName)
-        .upload(fileName, formData, {
-          contentType: isVideo ? 'video/mp4' : 'image/jpeg',
-        });
-
-      if (uploadError) {
-        console.error(`[Chat] Error uploading ${isVideo ? 'video' : 'image'}:`, uploadError);
+      // Upload using proper method
+      const uploadResult = await uploadChatMedia(uri, user.id, isVideo);
+      
+      if (!uploadResult.success) {
+        console.error(`[Chat] Error uploading ${isVideo ? 'video' : 'image'}:`, uploadResult.error);
         Alert.alert('error', `failed to send ${isVideo ? 'video' : 'image'}. please try again.`);
         return;
       }
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(fileName);
+      const publicUrl = uploadResult.url;
 
       // Send message with media URL (all media goes in image_url field)
       const { data, error: messageError } = await supabase
@@ -1237,33 +1224,16 @@ export default function ChatScreen() {
         try {
           const uri = asset.uri;
           const isVideo = asset.type === 'video';
-          const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${isVideo ? 'mp4' : 'jpg'}`;
 
-          // Create FormData for upload
-          const formData = new FormData();
-          formData.append('file', {
-            uri: uri,
-            type: isVideo ? 'video/mp4' : 'image/jpeg',
-            name: fileName,
-          } as any);
-
-          // Upload to Supabase Storage
-          const bucketName = 'chat-media';
-          const { error: uploadError } = await supabase.storage
-            .from(bucketName)
-            .upload(fileName, formData, {
-              contentType: isVideo ? 'video/mp4' : 'image/jpeg',
-            });
-
-          if (uploadError) {
-            console.error(`[Chat] Error uploading ${isVideo ? 'video' : 'image'}:`, uploadError);
+          // Upload using proper method
+          const uploadResult = await uploadChatMedia(uri, user.id, isVideo);
+          
+          if (!uploadResult.success) {
+            console.error(`[Chat] Error uploading ${isVideo ? 'video' : 'image'}:`, uploadResult.error);
             continue; // Continue with other files
           }
 
-          // Get public URL
-          const { data: { publicUrl } } = supabase.storage
-            .from(bucketName)
-            .getPublicUrl(fileName);
+          const publicUrl = uploadResult.url;
 
           // Send message with media URL (all media goes in image_url field)
           const { data, error: messageError } = await supabase
@@ -1467,11 +1437,13 @@ export default function ChatScreen() {
     if (session) {
       if (item.sender_id === session.mentor_id) {
         senderName = session.mentors?.full_name || 'Mentor';
-        senderAvatar = session.mentors?.avatar_url || '🎓';
+        const mentorAvatar = session.mentors?.avatar_url;
+        senderAvatar = mentorAvatar && mentorAvatar.trim() && !mentorAvatar.startsWith('file://') ? mentorAvatar : '🎓';
         isWizzmo = true;
       } else if (item.sender_id === session.student_id) {
         senderName = session.students?.full_name || 'Student';
-        senderAvatar = session.students?.avatar_url || '👤';
+        const studentAvatar = session.students?.avatar_url;
+        senderAvatar = studentAvatar && studentAvatar.trim() && !studentAvatar.startsWith('file://') ? studentAvatar : '👤';
       }
     }
 
@@ -1515,11 +1487,11 @@ export default function ChatScreen() {
                 }
               }}
             >
-              {senderAvatar && senderAvatar.includes('http') ? (
+              {senderAvatar && (senderAvatar.startsWith('http') || senderAvatar.startsWith('data:')) ? (
                 <Image 
                   source={{ uri: senderAvatar }} 
                   style={styles.avatarImage}
-                  defaultSource={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' }}
+                  onError={() => console.log('[Chat] Avatar image failed to load:', senderAvatar?.slice(0, 50))}
                 />
               ) : (
                 <Text style={styles.avatar}>{senderAvatar}</Text>
@@ -2443,7 +2415,9 @@ export default function ChatScreen() {
 
       {/* Input */}
       {session.status === 'active' && (
-        <View style={[styles.inputContainer, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+        <>
+          
+          <View style={[styles.inputContainer, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
 
           {!isRecordingActive && (
             <>
@@ -2575,6 +2549,9 @@ export default function ChatScreen() {
             this chat has been resolved
           </Text>
         </View>
+      )}
+
+        </>
       )}
 
       {/* Rating Modal */}

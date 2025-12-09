@@ -23,6 +23,7 @@ import { useAuth } from '../contexts/AuthContext';
 import * as supabaseService from '../lib/supabaseService';
 import * as Haptics from 'expo-haptics';
 import FullscreenVideoModal from './FullscreenVideoModal';
+import { getInitials, getColorFromString } from '@/lib/avatarUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -341,12 +342,24 @@ const MentorShowcase: React.FC<MentorShowcaseProps> = ({ onMentorPress }) => {
                 style={styles.avatarContainer}
                 onPress={() => handleMentorProfilePress(video.mentor_id)}
               >
-                <Image
-                  source={{
-                    uri: video.mentor_profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(video.mentor_profile?.full_name || 'User')}&background=FF4DB8&color=fff&size=64`
-                  }}
-                  style={styles.avatar}
-                />
+                {video.mentor_profile?.avatar_url && !video.mentor_profile.avatar_url.startsWith('file://') ? (
+                  <Image
+                    source={{ uri: video.mentor_profile.avatar_url }}
+                    style={styles.avatar}
+                    onError={() => {
+                      console.log('[MentorShowcase] Avatar failed to load, will show initials');
+                    }}
+                  />
+                ) : (
+                  <View style={[
+                    styles.avatar,
+                    { backgroundColor: getColorFromString(video.mentor_profile?.full_name || 'User'), alignItems: 'center', justifyContent: 'center' }
+                  ]}>
+                    <Text style={styles.avatarInitials}>
+                      {getInitials(video.mentor_profile?.full_name || 'User')}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
               
               <View style={styles.mentorInfo}>
@@ -503,6 +516,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     textTransform: 'lowercase',
+  },
+  avatarInitials: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
 });
 

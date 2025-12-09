@@ -111,6 +111,65 @@ export async function uploadAvatar(
 }
 
 /**
+ * Uploads media (image or video) to Supabase Storage for chat
+ * @param mediaUri - The local URI of the media to upload
+ * @param userId - The user's ID for naming the file
+ * @param isVideo - Whether the media is a video or image
+ * @returns Promise with upload result containing public URL or error
+ */
+export async function uploadChatMedia(
+  mediaUri: string,
+  userId: string,
+  isVideo: boolean
+): Promise<UploadResult> {
+  try {
+    // Fetch the media as blob
+    const response = await fetch(mediaUri);
+    const arrayBuffer = await response.arrayBuffer();
+
+    // Create file name with timestamp and random suffix
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(7);
+    const fileExtension = isVideo ? 'mp4' : 'jpg';
+    const fileName = `${userId}/${timestamp}_${randomSuffix}.${fileExtension}`;
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('chat-media')
+      .upload(fileName, arrayBuffer, {
+        contentType: isVideo ? 'video/mp4' : 'image/jpeg',
+        upsert: false, // Don't overwrite existing files
+      });
+
+    if (error) {
+      console.error('Supabase chat media upload error:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to upload media',
+      };
+    }
+
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from('chat-media')
+      .getPublicUrl(fileName);
+
+    const publicUrl = publicUrlData.publicUrl;
+
+    return {
+      success: true,
+      url: publicUrl,
+    };
+  } catch (error) {
+    console.error('Chat media upload error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
+}
+
+/**
  * Requests camera permissions
  * @returns Promise<boolean> - true if permission granted
  */

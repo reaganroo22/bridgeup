@@ -16,7 +16,7 @@ export default function HelpScreen() {
   const faqItems = [
     {
       question: "how does matching work?",
-      answer: "when you submit a question, our system matches you with 2-3 verified college mentors (wizzmos) who specialize in your topic. they'll join a private chat to help you out."
+      answer: "when you submit a question, our system matches you with 2-3 wizzmos who specialize in your topic. they'll join a private chat to help you out."
     },
     {
       question: "are my questions really anonymous?",

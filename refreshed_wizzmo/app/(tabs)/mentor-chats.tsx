@@ -17,6 +17,7 @@ import * as Haptics from 'expo-haptics';
 import * as supabaseService from '@/lib/supabaseService';
 import { supabase } from '@/lib/supabase';
 import AdviceScreen from './advice';
+import { getInitials, getColorFromString } from '@/lib/avatarUtils';
 
 // Helper function to get meaningful student name
 const getStudentDisplayName = (student?: { full_name: string; email?: string; username?: string }) => {
@@ -472,12 +473,24 @@ export default function UnifiedChatsScreen() {
                         >
                           {/* Left side with avatar */}
                           <View style={styles.chatLeft}>
-                            <Image
-                              source={{
-                                uri: session.students?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(studentName)}&background=FF4DB8&color=fff&size=128`
-                              }}
-                              style={styles.studentAvatar}
-                            />
+                            {session.students?.avatar_url && !session.students.avatar_url.startsWith('file://') ? (
+                              <Image
+                                source={{ uri: session.students.avatar_url }}
+                                style={styles.studentAvatar}
+                                onError={() => {
+                                  console.log('[MentorChats] Avatar failed to load, will show initials');
+                                }}
+                              />
+                            ) : (
+                              <View style={[
+                                styles.studentAvatar,
+                                { backgroundColor: getColorFromString(studentName), alignItems: 'center', justifyContent: 'center' }
+                              ]}>
+                                <Text style={styles.avatarInitials}>
+                                  {getInitials(studentName)}
+                                </Text>
+                              </View>
+                            )}
                             {unreadCount > 0 && (
                               <View style={[styles.unreadIndicator, { backgroundColor: colors.primary }]} />
                             )}
@@ -684,12 +697,24 @@ export default function UnifiedChatsScreen() {
                     >
                       {/* Left side with avatar */}
                       <View style={styles.chatLeft}>
-                        <Image
-                          source={{
-                            uri: session.students?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(studentName)}&background=FF4DB8&color=fff&size=128`
-                          }}
-                          style={styles.studentAvatar}
-                        />
+                        {session.students?.avatar_url && !session.students.avatar_url.startsWith('file://') ? (
+                          <Image
+                            source={{ uri: session.students.avatar_url }}
+                            style={styles.studentAvatar}
+                            onError={() => {
+                              console.log('[MentorChats] Avatar failed to load, will show initials');
+                            }}
+                          />
+                        ) : (
+                          <View style={[
+                            styles.studentAvatar,
+                            { backgroundColor: getColorFromString(studentName), alignItems: 'center', justifyContent: 'center' }
+                          ]}>
+                            <Text style={styles.avatarInitials}>
+                              {getInitials(studentName)}
+                            </Text>
+                          </View>
+                        )}
                         {unreadCount > 0 && (
                           <View style={[styles.unreadIndicator, { backgroundColor: colors.primary }]} />
                         )}
@@ -1236,5 +1261,11 @@ const styles = StyleSheet.create({
   filterOptionCount: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  avatarInitials: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
 });

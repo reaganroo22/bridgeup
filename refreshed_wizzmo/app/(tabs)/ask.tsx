@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -12,6 +12,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -63,6 +64,7 @@ export default function AskScreen() {
   const [favoriteMentors, setFavoriteMentors] = useState<FavoriteMentor[]>([]);
   const [selectedMentor, setSelectedWizzmo] = useState<string | null>(null);
   const [selectedMentorData, setSelectedWizzmoData] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [preSelectedMentors, setPreSelectedMentors] = useState<Array<{id: string, name: string, avatar_url?: string}>>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{id: string, full_name: string | null, username: string | null, avatar_url?: string | null, mentor_profiles: any}>>([]);
@@ -73,6 +75,7 @@ export default function AskScreen() {
   const [isTyping, setIsTyping] = useState(true);
   const [showAnimation, setShowAnimation] = useState(false);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const titleInputRef = useRef<TextInput>(null);
 
   // Gender-specific static placeholders and examples for split testing
   const getGenderContent = () => {
@@ -82,7 +85,7 @@ export default function AskScreen() {
       // Female-focused content - more emotional, relationship-heavy
       return {
         staticPlaceholders: [
-          "what's on your mind, babe?",
+          "what's on your mind, bestie?",
           "spill the tea, what's happening?"
         ],
         exampleQuestions: [
@@ -279,6 +282,46 @@ export default function AskScreen() {
     fetchFavorites();
   }, [user]);
 
+  // Refresh function to reload categories and favorites
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Re-fetch categories
+      const { data: categoriesData } = await supabaseService.getCategories();
+      if (categoriesData) {
+        setCategories(categoriesData);
+      }
+      
+      // Re-fetch favorites if user exists
+      if (user) {
+        const { data } = await supabase
+          .from('favorite_wizzmos')
+          .select(`
+            id,
+            mentor_id,
+            mentors:users!favorite_wizzmos_mentor_id_fkey (
+              full_name,
+              avatar_url
+            )
+          `)
+          .eq('student_id', user.id);
+        
+        if (data) {
+          setFavoriteMentors(data.map(fav => ({
+            id: fav.id,
+            mentorId: fav.mentor_id,
+            mentorName: fav.mentors?.full_name || 'Unknown Mentor',
+            mentorAvatar: fav.mentors?.avatar_url
+          })));
+        }
+      }
+    } catch (error) {
+      console.error('[Ask] Error refreshing data:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // Reset animation state when screen becomes focused
   useEffect(() => {
     // Reset everything when the component mounts or when navigating to this tab
@@ -448,6 +491,12 @@ export default function AskScreen() {
   }, [params.selectedMentors]);
 
   const handleSubmit = async () => {
+    // Prevent double submission
+    if (isSubmitting) {
+      console.log('[AskScreen] Submit already in progress, ignoring double tap');
+      return;
+    }
+
     // Check if user selected a specific wizzmo (premium feature)
     if (selectedMentor && !isProUser) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -588,21 +637,7 @@ export default function AskScreen() {
         }
       }
 
-      // Increment question count for free users - critical for subscription tracking
-      try {
-        console.log('[Ask] Attempting to increment question count...');
-        await incrementQuestionCount();
-        console.log('[Ask] Successfully incremented question count');
-      } catch (incrementError) {
-        console.error('[Ask] CRITICAL ERROR - Failed to increment question count:', incrementError);
-        // Still continue with question submission but log the critical error
-        // This ensures users can submit questions even if tracking fails
-        Alert.alert(
-          'Warning', 
-          'Your question was submitted but there was an issue updating your usage count. Please contact support if this continues.',
-          [{ text: 'OK' }]
-        );
-      }
+      // Question count increment is handled by submitQuestion in AppContext
 
       // Reset form
       setTitle('');
@@ -610,6 +645,11 @@ export default function AskScreen() {
       setSelectedCategory('');
       setSelectedWizzmo(null);
       setIsSubmitting(false);
+      
+      // Clear mentor selections from mentors tab
+      if ((global as any).clearMentorSelections) {
+        (global as any).clearMentorSelections();
+      }
 
       const message = selectedMentor
         ? 'your chosen wizzmo is getting notified now! 💕'
@@ -666,6 +706,13 @@ export default function AskScreen() {
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={colors.primary}
+                />
+              }
             >
             <View style={[styles.content, { backgroundColor: colors.background }]}>
             {/* Subscription Status Banner */}
@@ -728,23 +775,48 @@ export default function AskScreen() {
             <View style={[styles.inputContainer, { backgroundColor: 'transparent', borderColor: colors.border }]}>
               <View style={styles.titleInputContainer}>
                 <TextInput
+                  ref={titleInputRef}
                   style={[styles.titleInput, { color: colors.text }]}
                   placeholder={!showAnimation ? staticPlaceholders[placeholderIndex] : ""}
                   placeholderTextColor={colors.textTertiary}
                   value={title}
                   onChangeText={setTitle}
+                  onFocus={() => {
+                    // Immediately stop any animation and clear delays for instant cursor
+                    setShowAnimation(false);
+                    setDisplayText('');
+                  }}
                   maxLength={120}
                   multiline={true}
                   numberOfLines={2}
                   textAlignVertical="top"
+                  autoFocus={false}
                 />
                 {!title.trim() && showAnimation && displayText && (
-                  <View style={styles.animatedPlaceholder} pointerEvents="none">
+                  <TouchableOpacity 
+                    style={styles.animatedPlaceholder} 
+                    onPress={() => {
+                      const currentQuestion = exampleQuestions[currentExampleIndex];
+                      setTitle(currentQuestion);
+                      setShowAnimation(false);
+                      setDisplayText('');
+                      // Focus the input and position cursor at the beginning
+                      setTimeout(() => {
+                        const input = titleInputRef.current;
+                        if (input) {
+                          input.focus();
+                          // Position cursor at the beginning
+                          input.setSelection?.(0, 0);
+                        }
+                      }, 50);
+                    }}
+                    activeOpacity={0.7}
+                  >
                     <Text style={[styles.animatedPlaceholderText, { color: colors.textTertiary }]}>
                       {displayText}
                       <Text style={[styles.cursor, { color: colors.textTertiary, opacity: isTyping ? 1 : 0 }]}>|</Text>
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 )}
               </View>
               <Text style={[styles.characterCount, { color: colors.textTertiary }]}>
@@ -1153,9 +1225,18 @@ export default function AskScreen() {
                 colors={[colors.primary, colors.primary]}
                 style={styles.submitButtonGradient}
               >
-                <Text style={[styles.submitButtonText, { color: '#FFFFFF' }]}>
-                  {isSubmitting ? 'connecting you with your wizzmo...' : 'get my advice ✨'}
-                </Text>
+                {isSubmitting ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator color="#FFFFFF" size="small" style={styles.loadingSpinner} />
+                    <Text style={[styles.submitButtonText, { color: '#FFFFFF', marginLeft: 8 }]}>
+                      connecting you with your wizzmo...
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.submitButtonText, { color: '#FFFFFF' }]}>
+                    get my advice ✨
+                  </Text>
+                )}
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -1371,7 +1452,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   submitButtonGradient: {
-    paddingVertical: 16,
+    paddingVertical: 40,
     paddingHorizontal: 20,
     alignItems: 'center',
   },
@@ -1379,6 +1460,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: -0.2,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingSpinner: {
+    marginRight: 8,
   },
   privacyCard: {
     borderWidth: 1,

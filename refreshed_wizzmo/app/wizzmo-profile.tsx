@@ -84,6 +84,26 @@ export default function WizzmoProfileScreen() {
       // Fetch profile data
       const { data: profile } = await supabaseService.getUserProfile(profileUserId);
       if (profile) {
+        // Check if this user has mentor capabilities and mentor profile data
+        if (profile.role === 'mentor' && !profile.mentor_profile) {
+          console.log('[WizzmoProfile] Pure mentor user has no mentor profile - redirecting to student profile');
+          router.replace(`/student-profile?userId=${profileUserId}`);
+          return;
+        }
+        
+        // For users with 'both' role, always try to show mentor profile if accessing wizzmo-profile
+        // If mentor_profile is missing for 'both' users, we'll handle it gracefully in the UI
+        if (profile.role === 'both' && !profile.mentor_profile) {
+          console.log('[WizzmoProfile] User with both roles missing mentor profile data - will show basic mentor view');
+        }
+        
+        // Check if this is actually a student being viewed as mentor (incorrect navigation)
+        if (profile.role === 'student') {
+          console.log('[WizzmoProfile] Pure student user - redirecting to student profile');
+          router.replace(`/student-profile?userId=${profileUserId}`);
+          return;
+        }
+        
         setMentorProfile(profile);
         
         // Update mentor stats to ensure helpful votes are current (now with corrected SQL)

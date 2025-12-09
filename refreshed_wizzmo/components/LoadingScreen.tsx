@@ -91,7 +91,7 @@ export default function LoadingScreen() {
         
         {/* Tagline */}
         <Text style={styles.taglineText}>
-          college advice that matters
+          
         </Text>
       </Animated.View>
     </View>

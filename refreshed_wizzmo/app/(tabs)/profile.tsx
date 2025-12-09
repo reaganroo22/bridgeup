@@ -663,11 +663,9 @@ export default function ProfileScreen() {
 
     const photo = result.assets[0];
     
-    // Optimistic update - show new image immediately
+    // Store original avatar URL for potential rollback
     const currentProfile = getRealtimeProfile(authUser.id);
     const oldAvatarUrl = currentProfile?.avatar_url;
-    updateRealtimeProfile(authUser.id, { avatar_url: photo.uri });
-    setUserProfile(prev => ({ ...prev, avatar_url: photo.uri }));
 
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

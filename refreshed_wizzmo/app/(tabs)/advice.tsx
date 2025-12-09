@@ -15,13 +15,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import * as supabaseService from '../../lib/supabaseService';
 import * as Haptics from 'expo-haptics';
+import { getInitials, getColorFromString } from '@/lib/avatarUtils';
 
 interface AdviceSession {
   id: string;
   student_id: string;
   mentor_id: string;
   question_id: string;
-  status: 'pending' | 'active' | 'resolved';
+  status: 'pending' | 'assigned' | 'active' | 'resolved';
   rating?: number;
   feedback?: string;
   created_at: string;
@@ -103,6 +104,8 @@ export default function AdviceScreen() {
           )
         `)
         .eq('student_id', user.id)
+        .neq('status', 'deleted') // Exclude any sessions that might be marked as deleted
+        .in('status', ['active', 'pending', 'assigned']) // Only show valid sessions
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -119,11 +122,11 @@ export default function AdviceScreen() {
         createdAt: s.created_at 
       })));
       
-      // Log pending sessions specifically
-      const pendingSessions = data?.filter(s => s.status === 'pending') || [];
-      if (pendingSessions.length > 0) {
-        console.log('[AdviceScreen] 🟡 Found pending sessions:', pendingSessions.length);
-        pendingSessions.forEach(s => console.log(`  - ${s.id.slice(0, 8)}: ${s.questions?.title} -> ${s.mentors?.full_name}`));
+      // Log pending/assigned sessions specifically
+      const assignedSessions = data?.filter(s => s.status === 'pending' || s.status === 'assigned') || [];
+      if (assignedSessions.length > 0) {
+        console.log('[AdviceScreen] 🟡 Found assigned sessions:', assignedSessions.length);
+        assignedSessions.forEach(s => console.log(`  - ${s.id.slice(0, 8)}: ${s.questions?.title} -> ${s.mentors?.full_name || 'NULL'} (${s.status}) mentor_id: ${s.mentor_id || 'NULL'}`));
       }
       
       const validSessions = (data || []).filter(s => s.student_id) as AdviceSession[];
@@ -426,7 +429,7 @@ export default function AdviceScreen() {
   useEffect(() => {
     const fetchMentorCounts = async () => {
       const multiMentorQuestions = assignedSessions.filter(session => 
-        session.questions?.preferred_mentor_id === null && session.questions?.status === 'assigned'
+        session.mentor_id === null && (session.status === 'assigned' || session.status === 'pending')
       );
       
       if (multiMentorQuestions.length > 0) {
@@ -586,12 +589,24 @@ export default function AdviceScreen() {
                   >
                     {/* Left side with mentor avatar */}
                     <View style={styles.chatLeft}>
-                      <Image
-                        source={{
-                          uri: session.mentors?.avatar_url || `https://ui-avatars.com/api/?name=Mentor&background=FF4DB8&color=fff&size=128`
-                        }}
-                        style={styles.mentorAvatar}
-                      />
+                      {session.mentors?.avatar_url && !session.mentors.avatar_url.startsWith('file://') ? (
+                        <Image
+                          source={{ uri: session.mentors.avatar_url }}
+                          style={styles.mentorAvatar}
+                          onError={() => {
+                            console.log('[Advice] Mentor avatar failed to load, will show initials');
+                          }}
+                        />
+                      ) : (
+                        <View style={[
+                          styles.mentorAvatar,
+                          { backgroundColor: getColorFromString(session.mentors?.full_name || 'Mentor'), alignItems: 'center', justifyContent: 'center' }
+                        ]}>
+                          <Text style={styles.avatarInitials}>
+                            {getInitials(session.mentors?.full_name || 'Mentor')}
+                          </Text>
+                        </View>
+                      )}
                       {unreadCount > 0 && (
                         <View style={[styles.unreadIndicator, { backgroundColor: colors.primary }]} />
                       )}
@@ -692,7 +707,7 @@ export default function AdviceScreen() {
                 const questionTitle = session.questions?.title || session.questions?.content || 'Question';
                 
                 // Check if this is a multi-mentor question
-                const isMultiMentor = session.questions?.preferred_mentor_id === null && session.questions?.status === 'assigned';
+                const isMultiMentor = session.mentor_id === null && (session.status === 'assigned' || session.status === 'pending');
                 const mentorCount = session.question_id ? (mentorCounts[session.question_id] || 0) : 0;
                 
                 // Debug logging for the "Huh" question
@@ -738,12 +753,24 @@ export default function AdviceScreen() {
                           </Text>
                         </View>
                       ) : (
-                        <Image
-                          source={{
-                            uri: session.mentors?.avatar_url || `https://ui-avatars.com/api/?name=Mentor&background=FF4DB8&color=fff&size=128`
-                          }}
-                          style={styles.mentorAvatar}
-                        />
+                        session.mentors?.avatar_url && !session.mentors.avatar_url.startsWith('file://') ? (
+                          <Image
+                            source={{ uri: session.mentors.avatar_url }}
+                            style={styles.mentorAvatar}
+                            onError={() => {
+                              console.log('[Advice] Mentor avatar failed to load, will show initials');
+                            }}
+                          />
+                        ) : (
+                          <View style={[
+                            styles.mentorAvatar,
+                            { backgroundColor: getColorFromString(session.mentors?.full_name || 'Mentor'), alignItems: 'center', justifyContent: 'center' }
+                          ]}>
+                            <Text style={styles.avatarInitials}>
+                              {getInitials(session.mentors?.full_name || 'Mentor')}
+                            </Text>
+                          </View>
+                        )
                       )}
                     </View>
 
@@ -886,12 +913,24 @@ export default function AdviceScreen() {
                       activeOpacity={0.7}
                     >
                       <View style={styles.chatLeft}>
-                        <Image
-                          source={{
-                            uri: session.mentors?.avatar_url || `https://ui-avatars.com/api/?name=Mentor&background=FF4DB8&color=fff&size=128`
-                          }}
-                          style={styles.mentorAvatar}
-                        />
+                        {session.mentors?.avatar_url && !session.mentors.avatar_url.startsWith('file://') ? (
+                          <Image
+                            source={{ uri: session.mentors.avatar_url }}
+                            style={styles.mentorAvatar}
+                            onError={() => {
+                              console.log('[Advice] Mentor avatar failed to load, will show initials');
+                            }}
+                          />
+                        ) : (
+                          <View style={[
+                            styles.mentorAvatar,
+                            { backgroundColor: getColorFromString(session.mentors?.full_name || 'Mentor'), alignItems: 'center', justifyContent: 'center' }
+                          ]}>
+                            <Text style={styles.avatarInitials}>
+                              {getInitials(session.mentors?.full_name || 'Mentor')}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                       <View style={[styles.chatContent, { flex: 1 }]}>
                         <View style={styles.chatHeader}>
@@ -978,12 +1017,24 @@ export default function AdviceScreen() {
                     activeOpacity={0.8}
                   >
                     <View style={styles.chatLeft}>
-                      <Image
-                        source={{
-                          uri: session.mentors?.avatar_url || `https://ui-avatars.com/api/?name=Mentor&background=FF4DB8&color=fff&size=128`
-                        }}
-                        style={styles.mentorAvatar}
-                      />
+                      {session.mentors?.avatar_url && !session.mentors.avatar_url.startsWith('file://') ? (
+                        <Image
+                          source={{ uri: session.mentors.avatar_url }}
+                          style={styles.mentorAvatar}
+                          onError={() => {
+                            console.log('[Advice] Mentor avatar failed to load, will show initials');
+                          }}
+                        />
+                      ) : (
+                        <View style={[
+                          styles.mentorAvatar,
+                          { backgroundColor: getColorFromString(session.mentors?.full_name || 'Mentor'), alignItems: 'center', justifyContent: 'center' }
+                        ]}>
+                          <Text style={styles.avatarInitials}>
+                            {getInitials(session.mentors?.full_name || 'Mentor')}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                     <View style={styles.chatContent}>
                       <View style={styles.chatHeader}>
@@ -1430,5 +1481,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: -0.2,
+  },
+  avatarInitials: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
 });

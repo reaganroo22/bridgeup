@@ -9,6 +9,8 @@ import { AppProvider } from '../../contexts/AppContext';
 import { SubscriptionProvider } from '../../contexts/SubscriptionContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUserMode } from '../../contexts/UserModeContext';
+import TabBadge from '../../components/TabBadge';
+import { useBadgeCounts } from '../../hooks/useBadgeCounts';
 import * as supabaseService from '../../lib/supabaseService';
 
 export default function TabLayout() {
@@ -16,6 +18,7 @@ export default function TabLayout() {
   const colors = Colors[colorScheme ?? 'dark'];
   const { user: authUser } = useAuth();
   const { currentMode, isLoading } = useUserMode();
+  const badgeCounts = useBadgeCounts();
 
   // Show loading spinner while UserModeContext is loading or currentMode is null
   if (isLoading || currentMode === null) {
@@ -68,7 +71,9 @@ export default function TabLayout() {
               tabBarIcon: ({ color, size, focused }) => (
                 currentMode === 'student' ? 
                   <Ionicons name={focused ? 'home' : 'home-outline'} size={size} color={color} /> :
-                  <Ionicons name={focused ? 'mail' : 'mail-outline'} size={size} color={color} />
+                  <TabBadge count={badgeCounts.pendingQuestions} badgeColor={colors.primary}>
+                    <Ionicons name={focused ? 'mail' : 'mail-outline'} size={size} color={color} />
+                  </TabBadge>
               ),
             }}
           />
@@ -92,7 +97,9 @@ export default function TabLayout() {
               title: '💬 chat',
               href: undefined, // Visible for both students and mentors
               tabBarIcon: ({ color, size, focused }) => (
-                <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={size} color={color} />
+                <TabBadge count={badgeCounts.unreadMessages} badgeColor={colors.primary}>
+                  <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={size} color={color} />
+                </TabBadge>
               ),
             }}
           />

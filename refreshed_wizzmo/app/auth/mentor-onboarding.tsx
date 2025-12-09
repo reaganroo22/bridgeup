@@ -27,6 +27,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
 import * as supabaseService from '@/lib/supabaseService';
 import { supabase } from '@/lib/supabase';
+import { uploadAvatar } from '@/lib/imageUpload';
+import { uploadVideo } from '@/lib/videoUpload';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const topics = [
@@ -583,6 +585,48 @@ export default function MentorOnboarding() {
 
       console.log('[MentorOnboarding] Final role will be:', finalRole, '| Preserve data:', preserveExistingData);
 
+      // Upload profile photo to Supabase if provided
+      let uploadedAvatarUrl = null;
+      if (formData.profilePhoto?.uri) {
+        console.log('[MentorOnboarding] Uploading profile photo to Supabase...');
+        try {
+          const uploadResult = await uploadAvatar(formData.profilePhoto.uri, user.id);
+          if (uploadResult.success && uploadResult.url) {
+            uploadedAvatarUrl = uploadResult.url;
+            console.log('[MentorOnboarding] ✅ Profile photo uploaded successfully:', uploadedAvatarUrl);
+          } else {
+            console.error('[MentorOnboarding] Failed to upload profile photo:', uploadResult.error);
+            throw new Error(uploadResult.error || 'Photo upload failed');
+          }
+        } catch (uploadError) {
+          console.error('[MentorOnboarding] Photo upload error:', uploadError);
+          Alert.alert('Upload Error', 'Failed to upload profile photo. Please try again.');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Upload intro video to Supabase if provided
+      let uploadedVideoUrl = null;
+      if (formData.introVideo?.uri) {
+        console.log('[MentorOnboarding] Uploading intro video to Supabase...');
+        try {
+          const uploadResult = await uploadVideo(formData.introVideo.uri, user.id);
+          if (uploadResult.success && uploadResult.url) {
+            uploadedVideoUrl = uploadResult.url;
+            console.log('[MentorOnboarding] ✅ Intro video uploaded successfully:', uploadedVideoUrl);
+          } else {
+            console.error('[MentorOnboarding] Failed to upload intro video:', uploadResult.error);
+            throw new Error(uploadResult.error || 'Video upload failed');
+          }
+        } catch (uploadError) {
+          console.error('[MentorOnboarding] Video upload error:', uploadError);
+          Alert.alert('Upload Error', 'Failed to upload intro video. Please try again.');
+          setLoading(false);
+          return;
+        }
+      }
+
       // BULLETPROOF: Handle all optional fields gracefully
       const mentorProfileData = {
         username: formData.username?.trim() || `mentor_${user.id.slice(0, 8)}`,
@@ -594,8 +638,8 @@ export default function MentorOnboarding() {
         onboarding_completed: true,
         role: finalRole, // Use determined role instead of hardcoded 'mentor'
         role_selection_completed: true, // CRITICAL: Mark role selection as completed
-        // Profile photo is required for mentors
-        avatar_url: formData.profilePhoto?.uri || null,
+        // Use uploaded Supabase URL instead of local URI
+        avatar_url: uploadedAvatarUrl,
         age: formData.age ? parseInt(formData.age) : null,
         gender: formData.gender || null,
       };
@@ -669,8 +713,8 @@ export default function MentorOnboarding() {
           languages_spoken: formData.languages || 'English',
           social_media_links: formData.socialMediaLinks || null,
           experience_description: formData.motivation?.trim() || null,
-          profile_photo_url: formData.profilePhoto?.uri || null,
-          intro_video_url: formData.introVideo?.uri || null,
+          profile_photo_url: uploadedAvatarUrl,
+          intro_video_url: uploadedVideoUrl,
           major: formData.major?.trim() || null,
         });
         
@@ -679,12 +723,12 @@ export default function MentorOnboarding() {
           mentorSuccess = true;
           
           // SPECIAL: Auto-post intro video if provided
-          if (formData.introVideo?.uri && formData.motivation) {
+          if (uploadedVideoUrl && formData.motivation) {
             try {
               console.log('[MentorOnboarding] 🎥 Auto-posting intro video');
               const { error: videoError } = await supabaseService.createMentorVideo(
                 user.id,
-                formData.introVideo.uri,
+                uploadedVideoUrl,
                 'Intro Video',
                 formData.motivation.trim()
               );
@@ -830,6 +874,7 @@ export default function MentorOnboarding() {
         mediaTypes: ImagePicker.MediaTypeOptions.Videos,
         allowsEditing: true,
         quality: 0.8,
+        videoMaxDuration: 120, // Allow up to 2 minutes (120 seconds)
       });
 
       if (!result.canceled) {
@@ -868,6 +913,25 @@ export default function MentorOnboarding() {
     }
   };
 
+  // Function to handle bear tapping - cycles through expressions
+  const handleBearTap = () => {
+    const bearStates = ['happy', 'interested', 'stargazed', 'glow', 'glowing', 'sleepy'];
+    const currentIndex = bearStates.indexOf(currentBearState);
+    const nextIndex = (currentIndex + 1) % bearStates.length;
+    const nextState = bearStates[nextIndex];
+    
+    setCurrentBearState(nextState);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    console.log('🐻 Mentor Bear tapped! Changed from', currentBearState, 'to', nextState);
+    
+    // Revert back to default after 3 seconds
+    setTimeout(() => {
+      setCurrentBearState('happy');
+      console.log('🐻 Reverted back to happy state');
+    }, 3000);
+  };
+
   // Bear Component with title
   const BearImage = ({ size = 'medium', title }) => {
     const bearSizes = {
@@ -877,13 +941,13 @@ export default function MentorOnboarding() {
     };
 
     return (
-      <View style={styles.bearContainer}>
+      <TouchableOpacity style={styles.bearContainer} onPress={handleBearTap} activeOpacity={0.8}>
         <Image
           source={bearImages[currentBearState]}
           style={[styles.bearImage, bearSizes[size]]}
           resizeMode="contain"
         />
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -913,8 +977,8 @@ export default function MentorOnboarding() {
   };
 
   const handleUsernameChange = (text: string) => {
-    // Clean username: lowercase, alphanumeric + underscore only
-    const cleanUsername = text.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    // Clean username: lowercase, alphanumeric + underscore + dots only
+    const cleanUsername = text.toLowerCase().replace(/[^a-z0-9_.]/g, '');
     setFormData(prev => ({ ...prev, username: cleanUsername }));
     
     // Clear existing timeout
@@ -967,7 +1031,7 @@ export default function MentorOnboarding() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>username</Text>
-        <Text style={styles.inputSubtitle}>this will be your unique handle on wizzmo</Text>
+        <Text style={styles.inputSubtitle}>your mentees will see this</Text>
         <View style={styles.usernameInputContainer}>
           <TextInput
             style={[
@@ -1016,7 +1080,7 @@ export default function MentorOnboarding() {
           <Text style={styles.usernameHint}>username must be at least 3 characters</Text>
         )}
         {formData.username.length === 0 && (
-          <Text style={styles.usernameHint}>letters, numbers, and underscores only</Text>
+          <Text style={styles.usernameHint}>letters, numbers, underscores, and dots allowed</Text>
         )}
       </View>
     </View>
@@ -1120,7 +1184,7 @@ export default function MentorOnboarding() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>bio</Text>
-        <Text style={styles.inputSubtitle}>tell students about yourself</Text>
+        <Text style={styles.inputSubtitle}>tell your mentees about yourself</Text>
         <TextInput
           style={[styles.textInput, styles.bioInput]}
           value={formData.bio}
@@ -1335,7 +1399,7 @@ export default function MentorOnboarding() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>intro video (optional)</Text>
-        <Text style={styles.inputSubtitle}>30-60 seconds introducing yourself</Text>
+        <Text style={styles.inputSubtitle}>10-40 seconds introducing yourself</Text>
         <TouchableOpacity style={styles.uploadButton} onPress={handleIntroVideoUpload}>
           <LinearGradient
             colors={['#FFFFFF', '#F8F9FA']}
@@ -1503,16 +1567,18 @@ export default function MentorOnboarding() {
                 </TouchableOpacity>
               )}
               
-              {/* Test Sign Out Button */}
-              <TouchableOpacity
-                style={styles.signOutButton}
-                onPress={async () => {
-                  await signOut();
-                  router.replace('/auth');
-                }}
-              >
-                <Text style={styles.signOutText}>Sign Out</Text>
-              </TouchableOpacity>
+              {/* Test Sign Out Button - Development only */}
+              {__DEV__ && (
+                <TouchableOpacity
+                  style={styles.signOutButton}
+                  onPress={async () => {
+                    await signOut();
+                    router.replace('/auth');
+                  }}
+                >
+                  <Text style={styles.signOutText}>Sign Out</Text>
+                </TouchableOpacity>
+              )}
               
               <View style={styles.progressContainer}>
                 <View style={styles.progressTrack}>

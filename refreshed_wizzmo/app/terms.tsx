@@ -43,7 +43,7 @@ export default function TermsScreen() {
             </Text>
             <View style={[styles.infoCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
               <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• college students asking for dating & life advice</Text>
-              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• verified college women ("wizzmos") providing guidance</Text>
+              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• college wizzmos providing guidance</Text>
               <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• peer-to-peer advice platform, not professional therapy</Text>
               <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• community focused on respectful, helpful interactions</Text>
             </View>
@@ -72,7 +72,7 @@ export default function TermsScreen() {
             <Text style={[styles.subsectionTitle, { color: colors.text }]}>age requirement</Text>
             <View style={[styles.infoCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
               <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• you must be 18+ to use wizzmo</Text>
-              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• wizzmos are verified college students or recent graduates</Text>
+              <Text style={[styles.cardItem, { color: colors.textSecondary }]}>• wizzmos are college students or recent graduates</Text>
             </View>
           </View>
 

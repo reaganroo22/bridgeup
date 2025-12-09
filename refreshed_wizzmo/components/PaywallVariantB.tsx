@@ -108,6 +108,7 @@ export default function PaywallVariantB({ visible, onClose }: PaywallVariantBPro
                 onPress={() => {
                   setSelectedPlan('wizzmo_monthly');
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handlePurchase('wizzmo_monthly');
                 }}
               >
                 <View style={styles.cardHeader}>
@@ -124,6 +125,7 @@ export default function PaywallVariantB({ visible, onClose }: PaywallVariantBPro
                 onPress={() => {
                   setSelectedPlan('wizzmo_annual');
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handlePurchase('wizzmo_annual');
                 }}
               >
                 <View style={styles.cardHeader}>
@@ -139,21 +141,8 @@ export default function PaywallVariantB({ visible, onClose }: PaywallVariantBPro
               </TouchableOpacity>
             </View>
 
-            {/* CTA */}
+            {/* CTA - Now handled by direct plan selection */}
             <View style={styles.ctaSection}>
-              <TouchableOpacity
-                style={[styles.ctaButton, { opacity: isPurchasing ? 0.7 : 1 }]}
-                onPress={() => handlePurchase(selectedPlan)}
-                disabled={isPurchasing}
-              >
-                <View style={styles.ctaButtonBg}>
-                  {isPurchasing ? (
-                    <ActivityIndicator color="#8B5CF6" size="small" />
-                  ) : (
-                    <Text style={styles.ctaText}>get unlimited access</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
               
               <Text style={styles.disclaimer}>
                 cancel anytime • instant access
@@ -258,14 +247,15 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   selectedCard: {
-    borderColor: '#FFFFFF',
+    borderColor: '#8B5CF6',
+    borderWidth: 6,
     backgroundColor: '#FFFFFF',
-    transform: [{ scale: 1.02 }],
-    shadowColor: '#FFFFFF',
+    transform: [{ scale: 1.05 }],
+    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOpacity: 1.0,
+    shadowRadius: 20,
+    elevation: 20,
   },
   cardHeader: {
     flexDirection: 'row',

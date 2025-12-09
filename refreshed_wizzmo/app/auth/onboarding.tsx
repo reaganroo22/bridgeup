@@ -33,16 +33,18 @@ import PaywallVariantA from '@/components/PaywallVariantA';
 import { CURRENT_VERTICAL_KEY } from '@/config/current-vertical';
 
 const categories = [
-  { id: 'dating-advice', name: 'dating advice', emoji: '💕' },
-  { id: 'crushes', name: 'crushes & confessions', emoji: '😍' },
-  { id: 'first-dates', name: 'first dates', emoji: '🌹' },
-  { id: 'relationships', name: 'relationships', emoji: '💕' },
-  { id: 'breakups', name: 'breakups & healing', emoji: '💙' },
-  { id: 'self-confidence', name: 'self confidence', emoji: '✨' },
-  { id: 'friendships', name: 'friendships', emoji: '👯' },
-  { id: 'college-life', name: 'college life', emoji: '🏫' },
-  { id: 'social-anxiety', name: 'social anxiety', emoji: '😰' },
-  { id: 'mental-health', name: 'mental health', emoji: '🧠' },
+  { id: 'dating-advice', name: 'dating advice', emoji: '💕', genders: ['female', 'male'] },
+  { id: 'crushes', name: 'crushes & confessions', emoji: '😍', genders: ['female', 'male'] },
+  { id: 'first-dates', name: 'first dates', emoji: '🌹', genders: ['female', 'male'] },
+  { id: 'relationships', name: 'relationships', emoji: '💕', genders: ['female', 'male'] },
+  { id: 'breakups', name: 'breakups & healing', emoji: '💙', genders: ['female', 'male'] },
+  { id: 'self-confidence', name: 'self confidence', emoji: '✨', genders: ['female', 'male'] },
+  { id: 'friendships', name: 'friendships', emoji: '👯', genders: ['female', 'male'] },
+  { id: 'college-life', name: 'college life', emoji: '🏫', genders: ['female', 'male'] },
+  { id: 'social-anxiety', name: 'social anxiety', emoji: '😰', genders: ['female', 'male'] },
+  { id: 'mental-health', name: 'mental health', emoji: '🧠', genders: ['female', 'male'] },
+  { id: 'getting-women', name: 'understanding women', emoji: '👩', genders: ['male'] },
+  { id: 'approach-tips', name: 'approach tips', emoji: '🗣️', genders: ['male'] },
 ];
 
 const ages = Array.from({ length: 30 }, (_, i) => (i + 16).toString()); // Ages 16-45
@@ -55,7 +57,7 @@ const educationLevels = [
 ];
 
 const currentYear = new Date().getFullYear();
-const graduationYears = Array.from({ length: 8 }, (_, i) => (currentYear + i).toString());
+const graduationYears = Array.from({ length: 16 }, (_, i) => (2015 + i).toString());
 
 const universities = [
   'Georgetown University', 'George Washington University', 'American University', 'Harvard University',
@@ -120,7 +122,7 @@ export default function Onboarding() {
   
   // Fun interaction state
   const [showWizzmiss, setShowWizzmiss] = useState(false);
-  const wizzmissTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const wizzmissTimeoutRef = useRef<number | null>(null);
 
   // PROGRESS SAVING: Auto-save form progress
   const saveProgress = async () => {
@@ -207,6 +209,26 @@ export default function Onboarding() {
     }, 1500);
   };
 
+  // Function to handle bear tapping - cycles through expressions
+  const handleBearTap = () => {
+    const bearStates = ['happy', 'interested', 'stargazed', 'glow', 'glowing', 'sleepy'];
+    const currentIndex = bearStates.indexOf(currentBearState);
+    const nextIndex = (currentIndex + 1) % bearStates.length;
+    const nextState = bearStates[nextIndex];
+    
+    setCurrentBearState(nextState);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    console.log('🐻 Bear tapped! Changed from', currentBearState, 'to', nextState);
+    
+    // Revert back to step-appropriate state after 3 seconds
+    setTimeout(() => {
+      const stepState = bearStateMapping[currentStep] || 'happy';
+      setCurrentBearState(stepState);
+      console.log('🐻 Reverted back to step state:', stepState);
+    }, 3000);
+  };
+
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -284,6 +306,18 @@ export default function Onboarding() {
         }
         return true;
       case 3:
+        if (!gender) {
+          Alert.alert('gender required', 'please select your gender');
+          return false;
+        }
+        return true;
+      case 4:
+        if (!age) {
+          Alert.alert('age required', 'please select your age');
+          return false;
+        }
+        return true;
+      case 5:
         if (!bio.trim()) {
           Alert.alert('bio required', 'please add a short bio');
           return false;
@@ -293,9 +327,9 @@ export default function Onboarding() {
           return false;
         }
         return true;
-      case 4:
-        if (!gender || !educationLevel) {
-          Alert.alert('details required', 'please fill in gender and education status');
+      case 6:
+        if (!educationLevel) {
+          Alert.alert('education status required', 'please select your education status');
           return false;
         }
         if (['high_school', 'university', 'graduate'].includes(educationLevel) && !graduationYear) {
@@ -316,9 +350,9 @@ export default function Onboarding() {
 
     triggerWizzmissReaction(); // Fun reaction when user progresses
 
-    if (currentStep === 4) {
+    if (currentStep === 6) {
       await saveProfileData();
-    } else if (currentStep === 10) {
+    } else if (currentStep === 12) {
       // Final step - just navigate to main app
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -329,6 +363,7 @@ export default function Onboarding() {
   const handleBack = () => {
     if (currentStep > 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
       handleStepChange(currentStep - 1);
     }
   };
@@ -354,10 +389,10 @@ export default function Onboarding() {
         vertical: CURRENT_VERTICAL_KEY,
         onboarding_completed: false, // Not completed yet, just profile saved
         bio: bio?.trim() || '',
-        age: age?.trim() ? parseInt(age) : undefined,
-        gender: gender || undefined,
+        age: age?.trim() ? parseInt(age) : null,
+        gender: gender || null,
         education_level: educationLevel || 'unknown',
-        graduation_year: (educationLevel !== 'not_student' && graduationYear?.trim()) ? parseInt(graduationYear) : undefined,
+        graduation_year: (educationLevel !== 'not_student' && graduationYear?.trim()) ? parseInt(graduationYear) : null,
         university: (educationLevel === 'university' && university?.trim()) ? university.trim() : undefined,
         interests: Array.isArray(selectedInterests) ? selectedInterests : [],
         created_at: new Date().toISOString(),
@@ -394,7 +429,7 @@ export default function Onboarding() {
             interests: profileData.interests,
             updated_at: new Date().toISOString(),
           })
-          .eq('email', user.email)
+          .eq('email', user.email!)
           .select()
           .single();
 
@@ -451,10 +486,10 @@ export default function Onboarding() {
       const finalProfileData = {
         username: username?.trim() || `user_${user.id.slice(0, 8)}`,
         bio: bio?.trim() || '',
-        age: age?.trim() ? parseInt(age) : undefined,
-        gender: gender || undefined,
+        age: age?.trim() ? parseInt(age) : null,
+        gender: gender || null,
         education_level: educationLevel || 'unknown',
-        graduation_year: (educationLevel !== 'not_student' && graduationYear?.trim()) ? parseInt(graduationYear) : undefined,
+        graduation_year: (educationLevel !== 'not_student' && graduationYear?.trim()) ? parseInt(graduationYear) : null,
         university: (educationLevel === 'university' && university?.trim()) ? university.trim() : undefined,
         interests: Array.isArray(selectedInterests) ? selectedInterests : [],
         onboarding_completed: true, // Set completion flag
@@ -550,7 +585,7 @@ export default function Onboarding() {
         
         // Continue to next step after review request
         setTimeout(() => {
-          handleStepChange(8);
+          handleStepChange(10);
         }, 1000); // Small delay to let review complete
       } else {
         // Fallback to store URL for older devices
@@ -565,7 +600,7 @@ export default function Onboarding() {
         Alert.alert(
           'Thanks! 💕',
           'Your rating helps us reach more college students who need advice!',
-          [{ text: 'Continue', onPress: () => handleStepChange(8) }]
+          [{ text: 'Continue', onPress: () => handleStepChange(10) }]
         );
       }
     } catch (error) {
@@ -575,14 +610,14 @@ export default function Onboarding() {
       Alert.alert(
         'Thanks! 💕',
         'Your support means the world to us!',
-        [{ text: 'Continue', onPress: () => handleStepChange(8) }]
+        [{ text: 'Continue', onPress: () => handleStepChange(10) }]
       );
     }
   };
 
   const handleSkipRating = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    handleStepChange(8); // Go to share step
+    handleStepChange(10); // Go to notifications step
   };
 
 
@@ -604,13 +639,13 @@ export default function Onboarding() {
     });
 
     return (
-      <View style={styles.bearContainer} pointerEvents="none">
+      <TouchableOpacity style={styles.bearContainer} onPress={handleBearTap} activeOpacity={0.8}>
         <Image
           source={imageSource}
           style={[styles.bearImage, bearSizes[size as keyof typeof bearSizes]]}
           resizeMode="contain"
         />
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -631,7 +666,7 @@ export default function Onboarding() {
         </View>
         <View style={styles.feature} pointerEvents="none">
           <Ionicons name="people-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.featureText}>verified college mentors</Text>
+          <Text style={styles.featureText}>connect with wizzmos</Text>
         </View>
         <View style={styles.feature} pointerEvents="none">
           <Ionicons name="shield-checkmark-outline" size={20} color="#FFFFFF" />
@@ -650,7 +685,9 @@ export default function Onboarding() {
           style={styles.textInput}
           value={username}
           onChangeText={(text) => {
-            setUsername(text);
+            // Remove spaces and special characters, allow only letters, numbers, underscores, and dots
+            const cleanText = text.replace(/[^a-zA-Z0-9_.]/g, '');
+            setUsername(cleanText);
             triggerWizzmissReaction(); // Fun reaction when user types
           }}
           placeholder="enter a unique username"
@@ -673,6 +710,74 @@ export default function Onboarding() {
       <View style={styles.noteContainer}>
         <Text style={styles.noteText}>
           your username will be visible to other users when you ask questions
+        </Text>
+      </View>
+    </View>
+  );
+
+  const renderGender = () => (
+    <View style={styles.stepContent} pointerEvents="box-none">
+      <BearImage size="medium" />
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>what's your gender?</Text>
+        <View style={styles.optionsGrid}>
+          {genders.map((option) => (
+            <TouchableOpacity
+              key={option}
+              style={[
+                styles.optionButton,
+                gender === option && styles.optionButtonSelected
+              ]}
+              onPress={() => {
+                setGender(option);
+                triggerWizzmissReaction(); // Fun reaction when user selects
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <Text style={[
+                styles.optionText,
+                gender === option && styles.optionTextSelected
+              ]}>
+                {option}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      <View style={styles.noteContainer}>
+        <Text style={styles.noteText}>
+          this helps us personalize your experience and show relevant advice
+        </Text>
+      </View>
+    </View>
+  );
+
+  const renderAge = () => (
+    <View style={styles.stepContent} pointerEvents="box-none">
+      <BearImage size="medium" />
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>how old are you?</Text>
+        <View style={styles.wheelPickerContainer}>
+          <Picker
+            selectedValue={age}
+            style={styles.wheelPicker}
+            itemStyle={styles.wheelPickerItem}
+            onValueChange={(itemValue) => {
+              setAge(itemValue);
+              triggerWizzmissReaction(); // Fun reaction when user selects
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Picker.Item label="Select your age" value="" />
+            {ages.map((option) => (
+              <Picker.Item key={option} label={option} value={option} />
+            ))}
+          </Picker>
+        </View>
+      </View>
+      <View style={styles.noteContainer}>
+        <Text style={styles.noteText}>
+          this helps us match you with mentors who understand your perspective
         </Text>
       </View>
     </View>
@@ -707,7 +812,10 @@ export default function Onboarding() {
         <Text style={styles.inputLabel}>what interests you?</Text>
         <Text style={styles.inputSubtitle}>select all that apply</Text>
         <View style={styles.interestsGrid}>
-          {categories.map((category) => (
+          {categories.filter(category => {
+            console.log(`[Onboarding] Filtering category ${category.name}, gender: ${gender}, genders: ${JSON.stringify(category.genders)}, included: ${!gender || category.genders.includes(gender)}`);
+            return !gender || category.genders.includes(gender);
+          }).map((category) => (
             <TouchableOpacity
               key={category.id}
               style={[
@@ -730,57 +838,9 @@ export default function Onboarding() {
     </View>
   );
 
-  const renderDetails = () => (
+  const renderEducation = () => (
     <View style={styles.stepContent} pointerEvents="box-none">
       <BearImage size="medium" />
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>age (helpful)</Text>
-        <View style={styles.wheelPickerContainer}>
-          <Picker
-            selectedValue={age}
-            style={styles.wheelPicker}
-            itemStyle={styles.wheelPickerItem}
-            onValueChange={(itemValue) => {
-              setAge(itemValue);
-              triggerWizzmissReaction(); // Fun reaction when user selects
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-          >
-            <Picker.Item label="Select your age" value="" />
-            {ages.map((option) => (
-              <Picker.Item key={option} label={option} value={option} />
-            ))}
-          </Picker>
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>gender</Text>
-        <View style={styles.optionsGrid}>
-          {genders.map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={[
-                styles.optionButton,
-                gender === option && styles.optionButtonSelected
-              ]}
-              onPress={() => {
-                setGender(option);
-                triggerWizzmissReaction(); // Fun reaction when user selects
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
-            >
-              <Text style={[
-                styles.optionText,
-                gender === option && styles.optionTextSelected
-              ]}>
-                {option}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>education status</Text>
         <View style={styles.optionsGrid}>
@@ -961,7 +1021,7 @@ export default function Onboarding() {
       <View>
         <TouchableOpacity 
           style={styles.continueButton} 
-          onPress={() => handleStepChange(6)}
+          onPress={handleNext}
         >
           <LinearGradient
             colors={['#FFFFFF', '#F8F9FA']}
@@ -1012,91 +1072,82 @@ export default function Onboarding() {
   const renderPaywall = () => (
     <View style={styles.stepContent} pointerEvents="box-none">
       <PaywallVariantA 
-        onClose={() => handleStepChange(7)}
-        onSuccess={() => handleStepChange(7)}
+        onClose={() => handleStepChange(9)}
+        onSuccess={() => handleStepChange(9)}
       />
     </View>
   );
 
   const renderNotifications = () => (
-    <View style={styles.stepContent}>
-      <LinearGradient
-        colors={['#FF4DB8', '#8B5CF6']}
-        style={styles.finalIcon}
-      >
-        <Ionicons name="notifications" size={40} color="#FFFFFF" />
-      </LinearGradient>
+    <View style={styles.stepContent} pointerEvents="box-none">
+      <View style={styles.ratingIconContainer}>
+        <Ionicons name="notifications" size={48} color="#8B5CF6" />
+      </View>
       
-      <Text style={styles.finalTitle}>stay in the loop</Text>
-      <Text style={styles.finalSubtitle}>
+      <Text style={styles.ratingTitle}>stay in the loop</Text>
+      <Text style={styles.ratingSubtitle}>
         get notified when mentors respond to your questions
       </Text>
 
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={styles.startButton} 
-          onPress={async () => {
-            try {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              
-              // Request permission first
-              const granted = await requestPermissions();
-              
-              if (granted && user?.id) {
-                console.log('[Onboarding] Notifications enabled');
-                await scheduleWelcomeFlow(user.id);
-                await scheduleWeeklyReminder(user.id);
-              } else {
-                console.log('[Onboarding] Notifications denied or no user');
-              }
-            } catch (error) {
-              console.error('[Onboarding] Error enabling notifications:', error);
-            }
+      <TouchableOpacity 
+        style={styles.rateButton} 
+        onPress={async () => {
+          try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             
-            handleStepChange(9);
-          }}
+            // Request permission first
+            const granted = await requestPermissions();
+            
+            if (granted && user?.id) {
+              console.log('[Onboarding] Notifications enabled');
+              await scheduleWelcomeFlow(user.id);
+              await scheduleWeeklyReminder(user.id);
+            } else {
+              console.log('[Onboarding] Notifications denied or no user');
+            }
+          } catch (error) {
+            console.error('[Onboarding] Error enabling notifications:', error);
+          }
+          
+          handleStepChange(11);
+        }}
+      >
+        <LinearGradient
+          colors={['#FFFFFF', '#F8F9FA']}
+          style={styles.rateGradient}
         >
-          <LinearGradient
-            colors={['#FFFFFF', '#F8F9FA']}
-            style={styles.startGradient}
-          >
-            <Text style={styles.startButtonText}>enable notifications</Text>
-            <Ionicons name="notifications" size={20} color="#FF4DB8" />
-          </LinearGradient>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.skipButton} 
-          onPress={() => handleStepChange(9)}
-        >
-          <Text style={styles.skipButtonText}>maybe later</Text>
-        </TouchableOpacity>
-      </View>
+          <Ionicons name="notifications-outline" size={20} color="#FF4DB8" />
+          <Text style={styles.rateButtonText}>enable notifications</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.skipButton} 
+        onPress={() => handleStepChange(11)}
+      >
+        <Text style={styles.skipButtonText}>maybe later</Text>
+      </TouchableOpacity>
     </View>
   );
 
   const renderShareFriends = () => (
-    <View style={styles.stepContent}>
-      <LinearGradient
-        colors={['#FF4DB8', '#8B5CF6']}
-        style={styles.finalIcon}
-      >
-        <Ionicons name="share-social" size={40} color="#FFFFFF" />
-      </LinearGradient>
+    <View style={styles.stepContent} pointerEvents="box-none">
+      <View style={styles.ratingIconContainer}>
+        <Ionicons name="share-social" size={48} color="#8B5CF6" />
+      </View>
       
-      <Text style={styles.finalTitle}>spread the love</Text>
-      <Text style={styles.finalSubtitle}>
+      <Text style={styles.ratingTitle}>spread the love</Text>
+      <Text style={styles.ratingSubtitle}>
         help your friends discover wizzmo for dating & relationship advice
       </Text>
 
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={styles.startButton} 
+      <TouchableOpacity 
+        style={styles.rateButton} 
           onPress={async () => {
             try {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               const result = await Share.share({
-                message: 'Just joined Wizzmo - the best app for college dating advice! Get real help from verified college girls 💕',
+                message: 'I just discovered Wizzmo and OMG it\'s exactly what we needed! 😍 Get honest dating & relationship advice from actual college girls who\'ve been through it all. Download it now! 💕',
                 url: 'https://wizzmo.app',
               });
             } catch (error) {
@@ -1104,28 +1155,27 @@ export default function Onboarding() {
             }
             
             // Go to final excitement step
-            handleStepChange(10);
+            handleStepChange(12);
           }}
+      >
+        <LinearGradient
+          colors={['#FFFFFF', '#F8F9FA']}
+          style={styles.rateGradient}
         >
-          <LinearGradient
-            colors={['#FFFFFF', '#F8F9FA']}
-            style={styles.startGradient}
-          >
-            <Text style={styles.startButtonText}>share with friends</Text>
-            <Ionicons name="share-social" size={20} color="#FF4DB8" />
-          </LinearGradient>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.skipButton} 
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            handleStepChange(10);
-          }}
-        >
-          <Text style={styles.skipButtonText}>skip for now</Text>
-        </TouchableOpacity>
-      </View>
+          <Ionicons name="share-social" size={20} color="#FF4DB8" />
+          <Text style={styles.rateButtonText}>share with friends</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.skipButton} 
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          handleStepChange(12);
+        }}
+      >
+        <Text style={styles.skipButtonText}>skip for now</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -1161,42 +1211,49 @@ export default function Onboarding() {
   );
 
   const renderReadyToAsk = () => (
-    <View style={styles.stepContent}>
-      <View style={styles.bearCouple}>
+    <View style={styles.stepContent} pointerEvents="box-none">
+      <View style={styles.bearCoupleContainer}>
         <Image
           source={bearImages['happy']}
-          style={styles.bearCoupleImage}
+          style={styles.bearCoupleImageSmall}
           resizeMode="contain"
         />
         <Text style={styles.bearCoupleHeart}>💕</Text>
         <Image
           source={bearImages['wizzmiss']}
-          style={styles.bearCoupleImage}
+          style={styles.bearCoupleImageSmall}
           resizeMode="contain"
         />
       </View>
       
-      <Text style={styles.finalTitle}>ready to spill the tea? ☕</Text>
-      <Text style={styles.finalSubtitle}>
+      <Text style={styles.ratingTitle}>ready to spill the tea? ☕</Text>
+      <Text style={styles.ratingSubtitle}>
         connect with your wizzmo to get real advice on crushes, dating drama, and relationship questions
       </Text>
 
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={styles.startButton} 
-          onPress={async () => {
+      <TouchableOpacity 
+        style={[styles.rateButton, loading && styles.disabledButton]} 
+        onPress={async () => {
+          if (!loading) {
             await completeOnboarding();
-          }}
+          }
+        }}
+        disabled={loading}
+      >
+        <LinearGradient
+          colors={loading ? ['#E0E0E0', '#F0F0F0'] : ['#FFFFFF', '#F8F9FA']}
+          style={styles.rateGradient}
         >
-          <LinearGradient
-            colors={['#FFFFFF', '#F8F9FA']}
-            style={styles.startGradient}
-          >
-            <Text style={styles.startButtonText}>ask my first question</Text>
-            <Ionicons name="arrow-forward" size={20} color="#FF4DB8" />
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+          {loading ? (
+            <ActivityIndicator size="small" color="#FF4DB8" />
+          ) : (
+            <Ionicons name="chatbubble-ellipses" size={20} color="#FF4DB8" />
+          )}
+          <Text style={[styles.rateButtonText, { color: loading ? '#999999' : '#FF4DB8' }]}>
+            {loading ? 'loading...' : 'ask my first question'}
+          </Text>
+        </LinearGradient>
+      </TouchableOpacity>
     </View>
   );
 
@@ -1204,14 +1261,16 @@ export default function Onboarding() {
     switch (currentStep) {
       case 1: return { title: 'welcome', subtitle: 'let\'s get you started' };
       case 2: return { title: 'username', subtitle: 'how should we call you?' };
-      case 3: return { title: 'about you', subtitle: 'help us personalize your experience' };
-      case 4: return { title: 'details', subtitle: 'just a few more things' };
-      case 5: return { title: 'complete', subtitle: 'profile setup finished!' };
-      case 6: return { title: 'enhance', subtitle: 'unlock your full wizzmo experience' };
-      case 7: return { title: 'rate us', subtitle: 'help us grow' };
-      case 8: return { title: 'notifications', subtitle: 'stay connected' };
-      case 9: return { title: 'friends', subtitle: 'share with others' };
-      case 10: return { title: 'spill time!', subtitle: 'let\'s hear your tea ☕' };
+      case 3: return { title: 'gender', subtitle: 'help us personalize your experience' };
+      case 4: return { title: 'age', subtitle: 'tell us your age' };
+      case 5: return { title: 'about you', subtitle: 'tell us what you\'re interested in' };
+      case 6: return { title: 'details', subtitle: 'just a few more things' };
+      case 7: return { title: 'complete', subtitle: 'profile setup finished!' };
+      case 8: return { title: 'enhance', subtitle: 'unlock your full wizzmo experience' };
+      case 9: return { title: 'rate us', subtitle: 'help us grow' };
+      case 10: return { title: 'notifications', subtitle: 'stay connected' };
+      case 11: return { title: 'friends', subtitle: 'share with others' };
+      case 12: return { title: 'spill time!', subtitle: 'let\'s hear your tea' };
       default: return { title: '', subtitle: '' };
     }
   };
@@ -1227,7 +1286,7 @@ export default function Onboarding() {
           <SafeAreaView style={styles.safeArea}>
             {/* Header */}
             <View style={styles.header}>
-              {currentStep > 1 && currentStep < 9 && (
+              {currentStep > 1 && currentStep < 12 && (
                 <TouchableOpacity
                   style={styles.backButton}
                   onPress={handleBack}
@@ -1236,29 +1295,15 @@ export default function Onboarding() {
                 </TouchableOpacity>
               )}
               
-              {/* Test Sign Out Button */}
-              <TouchableOpacity
-                style={styles.signOutButton}
-                onPress={async () => {
-                  await signOut();
-                  router.replace('/auth');
-                }}
-              >
-                <Text style={styles.signOutText}>Sign Out</Text>
-              </TouchableOpacity>
-              
               <View style={styles.progressContainer}>
                 <View style={styles.progressTrack}>
                   <View 
                     style={[
                       styles.progressFill,
-                      { width: `${(currentStep / 10) * 100}%` }
+                      { width: `${(currentStep / 12) * 100}%` }
                     ]} 
                   />
                 </View>
-                <Text style={styles.stepCounter}>
-                  step {currentStep} of 10
-                </Text>
               </View>
 
               <View style={styles.headerSpacer} />
@@ -1293,34 +1338,36 @@ export default function Onboarding() {
                 <View style={styles.transparentScrollArea}>
                   {currentStep === 1 && renderWelcome()}
                   {currentStep === 2 && renderUsername()}
-                  {currentStep === 3 && renderBioAndInterests()}
-                  {currentStep === 4 && renderDetails()}
-                  {currentStep === 5 && renderComplete()}
-                  {currentStep === 6 && renderPaywall()}
-                  {currentStep === 7 && renderRating()}
-                  {currentStep === 8 && renderNotifications()}
-                  {currentStep === 9 && renderShareFriends()}
-                  {currentStep === 10 && renderReadyToAsk()}
+                  {currentStep === 3 && renderGender()}
+                  {currentStep === 4 && renderAge()}
+                  {currentStep === 5 && renderBioAndInterests()}
+                  {currentStep === 6 && renderEducation()}
+                  {currentStep === 7 && renderComplete()}
+                  {currentStep === 8 && renderPaywall()}
+                  {currentStep === 9 && renderRating()}
+                  {currentStep === 10 && renderNotifications()}
+                  {currentStep === 11 && renderShareFriends()}
+                  {currentStep === 12 && renderReadyToAsk()}
                 </View>
               </ScrollView>
             </KeyboardAvoidingView>
 
             {/* Next Button */}
-            {currentStep <= 4 && (
-              <View style={[styles.buttonContainer, currentStep === 3 && styles.buttonContainerRow]}>
-                {currentStep === 3 && (
+            {currentStep <= 6 && (
+              <View style={[styles.buttonContainer, currentStep === 5 && styles.buttonContainerRow]}>
+                {currentStep === 5 && (
                   <TouchableOpacity
                     style={styles.skipButtonBordered}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      handleStepChange(4); // Skip to step 4 (details)
+                      handleStepChange(6); // Skip to step 6 (education)
                     }}
                   >
                     <Text style={styles.skipButtonBorderedText}>skip</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
-                  style={[styles.nextButton, currentStep === 3 && styles.nextButtonWithSkip]}
+                  style={[styles.nextButton, currentStep === 5 && styles.nextButtonWithSkip]}
                   onPress={handleNext}
                   disabled={loading}
                 >
@@ -1333,7 +1380,7 @@ export default function Onboarding() {
                     ) : (
                       <>
                         <Text style={styles.nextButtonText}>
-                          {currentStep === 4 ? 'complete setup' : 'continue'}
+                          {currentStep === 6 ? 'complete setup' : 'continue'}
                         </Text>
                         <Ionicons name="chevron-forward" size={20} color="#FF4DB8" />
                       </>
@@ -1394,12 +1441,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 0,
-  },
-  stepCounter: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
-    textTransform: 'lowercase',
   },
   headerSpacer: {
     width: 44,
@@ -1788,6 +1829,10 @@ const styles = StyleSheet.create({
     color: '#FF4DB8',
     textTransform: 'lowercase',
   },
+  teaEmoji: {
+    fontSize: 48,
+    textAlign: 'center',
+  },
 
   // Share Screen
   shareIconContainer: {
@@ -1906,6 +1951,12 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     textTransform: 'lowercase',
   },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.5)',
+    textTransform: 'lowercase',
+  },
 
   // Final Screen
   finalIcon: {
@@ -1988,11 +2039,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
-    gap: 8,
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    gap: 16,
   },
   startButtonText: {
-    fontSize: 18,
+    fontSize: 36,
     fontWeight: '800',
     color: '#FF4DB8',
     textTransform: 'lowercase',
@@ -2105,19 +2157,18 @@ const styles = StyleSheet.create({
     fontSize: 32,
     marginHorizontal: 8,
   },
-  
-  // Test Sign Out Button
-  signOutButton: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    padding: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 8,
+  bearCoupleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    backgroundColor: 'transparent',
   },
-  signOutText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+  bearCoupleImageSmall: {
+    width: 120,
+    height: 120,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });

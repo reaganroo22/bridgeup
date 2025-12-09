@@ -418,7 +418,7 @@ export default function FeedScreen() {
         <View style={[styles.disclaimer, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
           <Ionicons name="shield-checkmark-outline" size={16} color={colors.primary} />
           <Text style={[styles.disclaimerText, { color: colors.textSecondary }]}>
-            mentor advice is private • only questions are shared publicly
+            mentor advice is private • you can choose to share your question publicly
           </Text>
         </View>
 

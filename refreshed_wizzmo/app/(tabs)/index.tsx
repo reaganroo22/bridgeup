@@ -151,6 +151,7 @@ export default function HomeScreen() {
             category_id,
             preferred_mentor_id,
             status,
+            student_id,
             categories (name)
           ),
           students:users!advice_sessions_student_id_fkey (
@@ -171,7 +172,10 @@ export default function HomeScreen() {
         id: q.id.slice(0, 8), 
         title: q.title?.slice(0, 30), 
         preferred_mentor_id: q.preferred_mentor_id,
-        hasPreferredMentor: !!q.preferred_mentor_id 
+        hasPreferredMentor: !!q.preferred_mentor_id,
+        question_mentor_assignments: (q as any).question_mentor_assignments?.length || 0,
+        assignments_data: (q as any).question_mentor_assignments?.map(a => a.mentor_id?.slice(0,8)) || [],
+        full_question_object_keys: Object.keys(q)
       })));
       // Transform assigned sessions into question format
       const transformedAssignedSessions = (assignedSessions || []).map(session => ({
@@ -187,6 +191,7 @@ export default function HomeScreen() {
         preferred_mentor_id: session.questions?.preferred_mentor_id,
         is_specific_request: session.questions?.status === 'assigned',
         student_name: session.questions?.preferred_mentor_id ? (session.students?.full_name || 'Student') : null,
+        student_id: session.questions?.student_id || session.student_id, // Include student_id for self-mentoring check
         is_assigned_session: true, // Flag to identify these as assigned sessions
       }));
 
@@ -203,13 +208,35 @@ export default function HomeScreen() {
           return !isAlreadyAssigned;
         })
         .map(q => {
-          const isSpecificRequest = q.preferred_mentor_id === user.id || 
-                                   ((q as any).preferred_mentor_ids && (q as any).preferred_mentor_ids.includes(user.id));
+          // Check if this is a specific request for this mentor:
+          // 1. Single mentor assignment (preferred_mentor_id)
+          // 2. Multi-mentor assignment (question_mentor_assignments table)
+          const hasDirectAssignment = q.preferred_mentor_id === user.id;
+          const mentorAssignments = (q as any).question_mentor_assignments || [];
+          const hasMentorAssignment = Array.isArray(mentorAssignments) && 
+            mentorAssignments.some((assignment: any) => assignment.mentor_id === user.id);
+          const isSpecificRequest = hasDirectAssignment || hasMentorAssignment;
+          
+          // Enhanced debugging for assignment logic
+          if (mentorAssignments.length > 0 || hasDirectAssignment) {
+            console.log(`[HomeScreen] 🎯 Assignment check for question ${q.id.slice(0,8)}:`, {
+              title: q.title?.slice(0, 30),
+              preferred_mentor_id: q.preferred_mentor_id?.slice(0,8),
+              current_mentor: user.id.slice(0,8),
+              hasDirectAssignment,
+              mentorAssignments: mentorAssignments.map(a => a.mentor_id?.slice(0,8)),
+              hasMentorAssignment,
+              isSpecificRequest
+            });
+          }
           console.log('[HomeScreen] 📝 Pending question:', {
             id: q.id.slice(0, 8),
             title: q.title?.slice(0, 30),
             preferred_mentor_id: q.preferred_mentor_id?.slice(0, 8),
             current_mentor: user.id.slice(0, 8),
+            has_direct_assignment: hasDirectAssignment,
+            has_mentor_assignment: hasMentorAssignment,
+            mentor_assignments: (q as any).question_mentor_assignments?.length || 0,
             is_specific_request: isSpecificRequest
           });
           return {
@@ -326,10 +353,20 @@ export default function HomeScreen() {
     setProcessingQuestions(prev => new Set(prev).add(questionId));
 
     try {
-      // Find the question in our current list to check if it's an assigned session
+      // Find the question in our current list
       const question = pendingQuestions.find(q => q.id === questionId);
       
       if (question?.is_assigned_session && question?.session_id) {
+        // Check for self-mentoring using session data (question.student_id from the joined query)
+        if (question.student_id === user.id) {
+          Alert.alert(
+            'Cannot Accept Own Question', 
+            "You can't answer your own question. This helps maintain objective advice.",
+            [{ text: 'OK', style: 'default' }]
+          );
+          return;
+        }
+        
         // This is an assigned session - need to activate it first
         console.log('[HomeScreen] 🔄 Activating assigned session:', question.session_id);
         
@@ -340,7 +377,17 @@ export default function HomeScreen() {
 
         if (acceptError) {
           console.error('[HomeScreen] Error activating assigned session:', acceptError);
-          Alert.alert('Error', 'Failed to activate chat. Please try again.');
+          
+          // Handle specific error for self-mentoring attempts
+          if (acceptError.message === 'Students cannot ask questions to themselves') {
+            Alert.alert(
+              'Cannot Accept Own Question', 
+              "You can't accept questions you asked yourself. This helps maintain objective advice.",
+              [{ text: 'OK', style: 'default' }]
+            );
+          } else {
+            Alert.alert('Error', 'Failed to activate chat. Please try again.');
+          }
           return;
         }
 
@@ -350,11 +397,33 @@ export default function HomeScreen() {
         return;
       }
 
+      // For general pending questions, check if it's the user's own question
+      const { data: fullQuestion } = await supabaseService.getQuestionById(questionId);
+      if (fullQuestion && fullQuestion.student_id === user.id) {
+        Alert.alert(
+          'Cannot Accept Own Question', 
+          "You can't answer your own question. This helps maintain objective advice.",
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
+
       // For general pending questions, create a new session  
       const { data: existingSession } = await supabaseService.getSessionByQuestionId(questionId);
       
       if (existingSession) {
         console.log('[HomeScreen] Session already exists for question:', questionId);
+        
+        // Check for self-mentoring scenario
+        if (existingSession.student_id === user.id && existingSession.mentor_id === user.id) {
+          Alert.alert(
+            'Cannot Accept Own Question', 
+            "You can't accept questions you asked yourself. This helps maintain objective advice.",
+            [{ text: 'OK', style: 'default' }]
+          );
+          setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
+          return;
+        }
         
         // For students: redirect to existing chat
         // For mentors: only redirect if they are the assigned mentor
@@ -370,6 +439,8 @@ export default function HomeScreen() {
         }
       }
 
+      // Accept the question (creates session for this mentor)
+      console.log('[HomeScreen] 🆕 Creating session for mentor acceptance...');
       const { data: session, error } = await supabaseService.createAdviceSession(questionId, user.id);
       if (error) {
         console.error('[HomeScreen] Error creating session:', error);
@@ -388,29 +459,27 @@ export default function HomeScreen() {
       }
 
       console.log('[HomeScreen] Session created:', session?.id, 'with status:', session?.status);
+      const sessionId = session?.id!;
 
-      // Accept the session to make it active
-      if (session?.id) {
-        console.log('[HomeScreen] Accepting session to make it active...');
-        const { data: acceptedSession, error: acceptError } = await supabaseService.acceptAdviceSession(
-          session.id,
-          user.id
-        );
+      // Accept/activate the session
+      const { data: acceptedSession, error: acceptError } = await supabaseService.acceptAdviceSession(
+        sessionId,
+        user.id
+      );
 
-        if (acceptError) {
-          console.error('[HomeScreen] Error accepting session:', acceptError);
-          Alert.alert('Error', 'Failed to activate chat. Please try again.');
-          return;
-        }
-
-        console.log('[HomeScreen] ✅ Session accepted successfully, new status:', acceptedSession?.status);
-
-        setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
-        
-        // Navigate to chat
-        console.log('[HomeScreen] 🚀 Navigating to chat with session:', session.id);
-        router.push(`/chat?chatId=${session.id}`);
+      if (acceptError) {
+        console.error('[HomeScreen] Error accepting session:', acceptError);
+        Alert.alert('Error', 'Failed to activate chat. Please try again.');
+        return;
       }
+
+      console.log('[HomeScreen] ✅ Session accepted successfully, new status:', acceptedSession?.status);
+
+      setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
+      
+      // Navigate to chat
+      console.log('[HomeScreen] 🚀 Navigating to chat with session:', sessionId);
+      router.push(`/chat?chatId=${sessionId}`);
     } catch (error) {
       console.error('[HomeScreen] Error accepting question:', error);
     } finally {
@@ -855,7 +924,7 @@ export default function HomeScreen() {
         label="spill tea"
         onPress={() => handlePress('/(tabs)/ask')}
         position="bottom-right"
-        size="large"
+        size="extra-large"
       />
       </View>
     </>

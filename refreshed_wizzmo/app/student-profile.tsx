@@ -77,8 +77,12 @@ export default function StudentProfileScreen() {
             <View style={styles.topRow}>
               {/* Avatar */}
               <View style={[styles.avatarContainer, { borderColor: colors.border }]}>
-                {studentProfile.avatar_url ? (
-                  <Image source={{ uri: studentProfile.avatar_url }} style={styles.avatar} />
+                {studentProfile.avatar_url && !studentProfile.avatar_url.startsWith('file://') ? (
+                  <Image 
+                    source={{ uri: studentProfile.avatar_url }} 
+                    style={styles.avatar}
+                    onError={() => console.log('[StudentProfile] Avatar failed to load, showing initials')}
+                  />
                 ) : (
                   <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceElevated }]}>
                     <Text style={[styles.avatarText, { color: colors.text }]}>

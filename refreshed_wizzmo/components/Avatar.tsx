@@ -225,7 +225,7 @@ export default function Avatar({
         },
       ]}
     >
-      {currentImageUrl ? (
+      {currentImageUrl && !currentImageUrl.startsWith('file://') ? (
         <Image
           source={{ uri: currentImageUrl }}
           style={[
@@ -236,6 +236,10 @@ export default function Avatar({
               borderRadius: avatarSize / 2,
             },
           ]}
+          onError={(error) => {
+            console.log('[Avatar] Image failed to load, falling back to initials:', error);
+            setCurrentImageUrl(undefined);
+          }}
         />
       ) : (
         <Text style={[styles.initials, { fontSize }]}>{initials}</Text>

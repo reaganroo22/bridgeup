@@ -11,7 +11,7 @@ interface FloatingActionButtonProps {
   label?: string;
   onPress: () => void;
   position?: 'bottom-right' | 'bottom-center' | 'bottom-left';
-  size?: 'small' | 'medium' | 'large';
+  size?: 'small' | 'medium' | 'large' | 'extra-large';
   variant?: 'primary' | 'secondary';
 }
 
@@ -47,6 +47,8 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
         return { width: 48, height: 48, iconSize: 20 };
       case 'large':
         return { width: 72, height: 72, iconSize: 28 };
+      case 'extra-large':
+        return { width: 88, height: 88, iconSize: 32 };
       default:
         return { width: 56, height: 56, iconSize: 24 };
     }

@@ -12,6 +12,7 @@ import { Animated } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
 import * as supabaseService from '@/lib/supabaseService';
+import { supabase } from '@/lib/supabase';
 
 interface Question {
   id: string;
@@ -161,7 +162,7 @@ export default function MentorInboxScreen() {
       console.log('[MentorInbox] Accepting question:', questionId, 'by user:', authUser.id);
 
       // First check if this is a dual role user trying to accept their own question
-      const { data: questionData } = await supabaseService.supabase
+      const { data: questionData } = await supabase
         .from('questions')
         .select('student_id')
         .eq('id', questionId)
@@ -175,8 +176,8 @@ export default function MentorInboxScreen() {
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Create advice session
-      console.log('[MentorInbox] Creating advice session...');
+      // Accept the question (creates session for this mentor)  
+      console.log('[MentorInbox] 🆕 Creating session for mentor acceptance...');
       const { data: session, error } = await supabaseService.createAdviceSession(
         questionId,
         authUser.id
@@ -198,41 +199,41 @@ export default function MentorInboxScreen() {
         return;
       }
 
-      console.log('[MentorInbox] Session created:', session?.id, 'with status:', session?.status);
+      const sessionId = session?.id!;
+
+      console.log('[MentorInbox] Using session:', sessionId);
 
       // Accept the session to make it active
-      if (session?.id) {
-        console.log('[MentorInbox] Accepting session to make it active...');
-        
-        // Debug: Check current auth state
-        const { data: authData } = await supabaseService.supabase.auth.getUser();
-        console.log('[MentorInbox] Current auth state:', {
-          authUserId: authUser.id,
-          supabaseUserId: authData?.user?.id,
-          match: authUser.id === authData?.user?.id
-        });
-        
-        const { data: acceptedSession, error: acceptError } = await supabaseService.acceptAdviceSession(
-          session.id,
-          authUser.id
-        );
+      console.log('[MentorInbox] Accepting session to make it active...');
+      
+      // Debug: Check current auth state
+      const { data: authData } = await supabase.auth.getUser();
+      console.log('[MentorInbox] Current auth state:', {
+        authUserId: authUser.id,
+        supabaseUserId: authData?.user?.id,
+        match: authUser.id === authData?.user?.id
+      });
+      
+      const { data: acceptedSession, error: acceptError } = await supabaseService.acceptAdviceSession(
+        sessionId,
+        authUser.id
+      );
 
-        if (acceptError) {
-          console.error('[MentorInbox] Error accepting session:', acceptError);
-          Alert.alert('error', 'Failed to activate chat. Please try again.');
-          return;
-        }
-
-        console.log('[MentorInbox] ✅ Session accepted successfully, new status:', acceptedSession?.status);
-
-        // Remove from both pending and requested lists
-        setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
-        setRequestedQuestions(prev => prev.filter(q => q.id !== questionId));
-
-        // Navigate to chat immediately - the chat screen will poll for status updates
-        console.log('[MentorInbox] 🚀 Navigating to chat with session:', session.id);
-        router.push(`/chat?chatId=${session.id}`);
+      if (acceptError) {
+        console.error('[MentorInbox] Error accepting session:', acceptError);
+        Alert.alert('error', 'Failed to activate chat. Please try again.');
+        return;
       }
+
+      console.log('[MentorInbox] ✅ Session accepted successfully, new status:', acceptedSession?.status);
+
+      // Remove from both pending and requested lists
+      setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
+      setRequestedQuestions(prev => prev.filter(q => q.id !== questionId));
+
+      // Navigate to chat immediately - the chat screen will poll for status updates
+      console.log('[MentorInbox] 🚀 Navigating to chat with session:', sessionId);
+      router.push(`/chat?chatId=${sessionId}`);
     } catch (error) {
       console.error('[MentorInbox] Error:', error);
       Alert.alert('error', 'Something went wrong');
@@ -240,12 +241,38 @@ export default function MentorInboxScreen() {
   };
 
   const handleDeclineQuestion = async (questionId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('[MentorInbox] Declining question:', questionId);
+    if (!authUser) {
+      Alert.alert('Error', 'You must be signed in to pass on questions');
+      return;
+    }
 
-    // Remove from both pending and requested lists
-    setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
-    setRequestedQuestions(prev => prev.filter(q => q.id !== questionId));
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      console.log('[MentorInbox] Passing on question:', questionId);
+
+      const { data, error } = await supabaseService.passMentorQuestion(
+        questionId, 
+        authUser.id
+      );
+
+      if (error) {
+        console.error('[MentorInbox] Error passing question:', error);
+        Alert.alert('Error', 'Failed to pass on question. Please try again.');
+        return;
+      }
+
+      console.log('[MentorInbox] ✅ Question passed successfully');
+      
+      // Remove from both pending and requested lists
+      setPendingQuestions(prev => prev.filter(q => q.id !== questionId));
+      setRequestedQuestions(prev => prev.filter(q => q.id !== questionId));
+
+      // Show success message
+      Alert.alert('Question Passed', 'The question has been returned to the pool for other mentors to answer.');
+    } catch (error) {
+      console.error('[MentorInbox] Error passing question:', error);
+      Alert.alert('Error', 'Failed to pass on question. Please try again.');
+    }
   };
 
   const getUrgencyColor = (urgency: string) => {
@@ -282,7 +309,11 @@ export default function MentorInboxScreen() {
       <ScrollView
         style={[styles.container, { backgroundColor: colors.background }]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor={colors.primary}
+          />
         }
       >
         <View style={{ height: insets.top + 100 }} />

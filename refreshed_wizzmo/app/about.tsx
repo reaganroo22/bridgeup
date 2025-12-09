@@ -60,7 +60,7 @@ export default function AboutScreen() {
             <View style={styles.stepContent}>
               <Text style={[styles.stepTitle, { color: colors.text }]}>get real advice</Text>
               <Text style={[styles.stepDescription, { color: colors.textSecondary }]}>
-                verified college girls share honest takes from real experience
+                verified college wizzmos share honest takes from real experience
               </Text>
             </View>
           </View>

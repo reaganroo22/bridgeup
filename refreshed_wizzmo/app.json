@@ -9,11 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/icon.png",
+      "image": "./assets/images/wizzmo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1A1A1A"
+      "backgroundColor": "#FF4DB8"
     },
-    "backgroundColor": "#1A1A1A",
+    "backgroundColor": "#FF4DB8",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.wizzmo.app",

@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   StyleSheet,
   ScrollView,
@@ -16,6 +17,7 @@ import {
   Modal,
   ActivityIndicator,
   useColorScheme,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -26,6 +28,7 @@ import { useSubscription } from '../../contexts/SubscriptionContext';
 import CustomHeader from '@/components/CustomHeader';
 import ModeToggle from '@/components/ModeToggle';
 import * as supabaseService from '../../lib/supabaseService';
+import { getInitials, getColorFromString } from '../../lib/avatarUtils';
 import * as Haptics from 'expo-haptics';
 
 interface AdvisorProfile {
@@ -98,9 +101,25 @@ export default function MentorsScreen() {
 
   // Selected mentors for multi-select functionality
   const [selectedMentors, setSelectedMentors] = useState<string[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   
   const searchInputRef = useRef<TextInput>(null);
   const universityInputRef = useRef<TextInput>(null);
+
+  // Clear mentor selections when navigating away from this tab
+  // Only clear selections when the user actually leaves the app section or completes request
+  // Removed automatic clearing on tab focus change
+  
+  // Manual clear function for when request is completed
+  const clearMentorSelections = () => {
+    console.log('[MentorsScreen] Manually clearing', selectedMentors.length, 'selected mentors');
+    setSelectedMentors([]);
+  };
+  
+  // Expose clear function globally for other screens to call
+  React.useEffect(() => {
+    (global as any).clearMentorSelections = clearMentorSelections;
+  }, [clearMentorSelections]);
 
   // Format response time based on minutes
   const formatResponseTime = (minutes: number): string => {
@@ -349,6 +368,12 @@ export default function MentorsScreen() {
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadMentors(0, false);
+    setRefreshing(false);
+  };
+
 
   const applyFilters = () => {
     let filtered = [...mentors];
@@ -578,12 +603,19 @@ export default function MentorsScreen() {
       >
       <View style={styles.cardHeader}>
         <View style={styles.avatar}>
-          <Image
-            source={{
-              uri: mentor.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(mentor.full_name || 'User')}&background=FF4DB8&color=fff&size=128`
-            }}
-            style={styles.avatarImage}
-          />
+          {mentor.avatar_url && !mentor.avatar_url.startsWith('file://') ? (
+            <Image
+              source={{ uri: mentor.avatar_url }}
+              style={styles.avatarImage}
+              onError={() => console.log('[Mentors] Avatar failed to load for:', mentor.full_name)}
+            />
+          ) : (
+            <View style={[styles.avatarImage, styles.avatarPlaceholder, { backgroundColor: getColorFromString(mentor.full_name || 'User') }]}>
+              <Text style={styles.avatarText}>
+                {getInitials(mentor.full_name)}
+              </Text>
+            </View>
+          )}
         </View>
         <View style={styles.info}>
           <Text style={[styles.name, { color: colors.text }]}>
@@ -757,6 +789,13 @@ export default function MentorsScreen() {
           columnWrapperStyle={styles.row}
           onEndReached={loadMoreMentors}
           onEndReachedThreshold={0.1}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
           ListFooterComponent={() => {
             if (loadingMore) {
               return (
@@ -1390,6 +1429,16 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: '100%',
     height: '100%',
+  },
+  avatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
   info: {
     flex: 1,
