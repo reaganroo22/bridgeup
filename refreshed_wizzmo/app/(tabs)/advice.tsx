@@ -105,7 +105,6 @@ export default function AdviceScreen() {
         `)
         .eq('student_id', user.id)
         .neq('status', 'deleted') // Exclude any sessions that might be marked as deleted
-        .in('status', ['active', 'pending', 'assigned']) // Only show valid sessions
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -432,6 +431,9 @@ export default function AdviceScreen() {
   };
 
   const activeSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'active'));
+  
+  // Add resolved sessions (using profile.tsx pattern)
+  const resolvedSessions = sortSessionsByRecentActivity(sessions.filter(s => s.status === 'resolved'));
   
   // Filter out assigned/pending sessions that have an active session for the same question
   const activeQuestionIds = new Set(activeSessions.map(s => s.question_id).filter(Boolean));
@@ -861,6 +863,90 @@ export default function AdviceScreen() {
           </View>
         )}
 
+        {/* Resolved Chats */}
+        {(activeFilter === 'all' || activeFilter === 'resolved') && resolvedSessions.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              resolved
+            </Text>
+
+            <View style={styles.chatsList}>
+              {resolvedSessions.map((session, index) => {
+                const lastMessage = getLastMessage(session);
+                const categoryName = session.questions?.categories?.name || 'chat';
+                const questionTitle = session.questions?.title || session.questions?.content || 'Question';
+                const mentorName = session.mentors?.full_name || session.mentors?.username || 'Anonymous';
+
+                // Check if session needs rating (resolved but no rating)
+                const needsRating = session.status === 'resolved' && !session.rating;
+
+                return (
+                  <TouchableOpacity
+                    key={session.id}
+                    style={[
+                      styles.chatItem,
+                      { 
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                        shadowColor: colors.text,
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.05,
+                        shadowRadius: 2,
+                        elevation: 1,
+                      },
+                      index < resolvedSessions.length - 1 && { marginBottom: 8 },
+                    ]}
+                    onPress={() => {
+                      console.log('[AdviceScreen] 📱 Opening resolved chat:', session.id?.slice(0, 8));
+                      router.push({
+                        pathname: '/chat',
+                        params: { sessionId: session.id }
+                      });
+                    }}
+                  >
+                    <View style={styles.chatContent}>
+                      <Text style={[styles.mentorName, { color: colors.text }]} numberOfLines={1}>
+                        {mentorName}
+                      </Text>
+                      <Text style={[styles.questionTitle, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {questionTitle}
+                      </Text>
+                      {lastMessage && (
+                        <Text style={[styles.lastMessage, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {lastMessage.content || (lastMessage.audio_url ? '🎵 Voice message' : 'Message')}
+                        </Text>
+                      )}
+                    </View>
+
+                    <View style={styles.chatMeta}>
+                      {lastMessage && (
+                        <Text style={[styles.timeStamp, { color: colors.textSecondary }]}>
+                          {getTimeAgo(lastMessage.created_at)}
+                        </Text>
+                      )}
+                      {needsRating ? (
+                        <View style={[styles.statusContainer, { backgroundColor: colors.accent }]}>
+                          <Text style={[styles.statusText, { color: '#FFFFFF' }]}>rate mentor</Text>
+                        </View>
+                      ) : (
+                        <View style={[styles.statusContainer, { backgroundColor: colors.success }]}>
+                          <Text style={[styles.statusText, { color: '#FFFFFF' }]}>completed</Text>
+                        </View>
+                      )}
+                      <Ionicons 
+                        name="chevron-forward" 
+                        size={16} 
+                        color={colors.textSecondary} 
+                        style={{ marginTop: 4 }}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         {/* Pending Questions */}
         {(activeFilter === 'all' || activeFilter === 'pending') && pendingQuestions.length > 0 && (
           <View style={styles.section}>
@@ -1156,7 +1242,7 @@ export default function AdviceScreen() {
               { key: 'assigned', label: 'assigned', count: assignedSessions.length },
               { key: 'pending', label: 'pending', count: pendingQuestions.length },
               { key: 'unrated', label: 'rate mentors', count: unratedResolvedSessions.length },
-              { key: 'resolved', label: 'resolved', count: ratedResolvedSessions.length },
+              { key: 'resolved', label: 'resolved', count: resolvedSessions.length },
             ].map((option) => (
               <TouchableOpacity
                 key={option.key}
