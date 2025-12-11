@@ -9,6 +9,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -1039,6 +1040,24 @@ export default function MentorProfileScreen() {
                 <View style={styles.settingContent}>
                   <Text style={[styles.settingTitle, { color: colors.text }]}>help & support</Text>
                   <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>get help</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+              </TouchableOpacity>
+
+              {/* Report Inappropriate Content */}
+              <TouchableOpacity
+                style={[styles.settingItem, { borderBottomColor: colors.separator }]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  Linking.openURL('https://wizzmo.app/safety');
+                }}
+              >
+                <Ionicons name="flag-outline" size={20} color={colors.textSecondary} />
+                <View style={styles.settingContent}>
+                  <Text style={[styles.settingTitle, { color: colors.text }]}>report inappropriate content</Text>
+                  <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>
+                    if you see content that violates our guidelines, please report it immediately
+                  </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
               </TouchableOpacity>
