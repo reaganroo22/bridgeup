@@ -41,6 +41,8 @@ export type EmailType =
   | 'inactive_student'
   // Mentor emails
   | 'mentor_application_submitted'
+  | 'mentor_application_confirmation'
+  | 'mentor_application_admin_alert'
   | 'mentor_application_approved'
   | 'mentor_application_rejected'
   | 'new_question_available'
@@ -729,6 +731,91 @@ export const EMAIL_TEMPLATES: Record<EmailType, (data: any) => EmailTemplate> = 
       </div>
     `,
   }),
+
+  mentor_application_confirmation: (data: { 
+    firstName: string; 
+    lastName: string; 
+    university: string; 
+    applicationId: string;
+  }) => ({
+    subject: "✨ Your Wizzmo mentor application is submitted!",
+    html: `
+      ${WIZZMO_STYLES}
+      <div class="container">
+        <div class="header">
+          <div class="logo">wizzmo</div>
+          <div>Application Received</div>
+        </div>
+        <div class="content">
+          <div class="greeting">Hey ${data.firstName}! <span class="emoji">🎉</span></div>
+          <div class="main-text">
+            We just received your mentor application and we're so excited you want to join the Wizzmo family!
+            <br><br>
+            <strong>Application Details:</strong><br>
+            📚 University: ${data.university}<br>
+            🆔 Application ID: ${data.applicationId}<br>
+            <br>
+            <strong>What happens next:</strong><br>
+            <br>
+            ✨ Our team will review your application within 2-3 business days<br>
+            💕 We'll email you once your application is approved<br>
+            🚀 You'll get access to help amazing students with their college questions
+            <br><br>
+            Thanks for wanting to make a difference in someone's college journey! 🌟
+          </div>
+          <a href="https://wizzmo.app" class="cta-button">Visit Wizzmo</a>
+        </div>
+        <div class="footer">
+          Can't wait to have you on the team,<br>
+          The Wizzmo Family 💕
+        </div>
+      </div>
+    `,
+  }),
+
+  mentor_application_admin_alert: (data: { 
+    firstName: string; 
+    lastName: string;
+    email: string;
+    university: string; 
+    graduationYear: string;
+    whyJoin: string;
+    applicationId: string;
+  }) => ({
+    subject: `🔔 New Mentor Application: ${data.firstName} ${data.lastName}`,
+    html: `
+      ${WIZZMO_STYLES}
+      <div class="container">
+        <div class="header">
+          <div class="logo">wizzmo</div>
+          <div>New Mentor Application</div>
+        </div>
+        <div class="content">
+          <div class="greeting">Admin Alert 🚨</div>
+          <div class="main-text">
+            A new mentor application has been submitted and requires review:
+            <br><br>
+            <strong>Applicant Information:</strong><br>
+            👤 Name: ${data.firstName} ${data.lastName}<br>
+            📧 Email: ${data.email}<br>
+            🏫 University: ${data.university}<br>
+            🎓 Graduation Year: ${data.graduationYear}<br>
+            🆔 Application ID: ${data.applicationId}<br>
+            <br>
+            <strong>Why they want to join:</strong><br>
+            "${data.whyJoin}"
+            <br><br>
+            Please review and approve/reject within 2-3 business days.
+          </div>
+          <a href="https://supabase.com/dashboard/project/miygmdboiesbxwlqgnsx" class="cta-button">Review Application</a>
+        </div>
+        <div class="footer">
+          Automated notification,<br>
+          Wizzmo Admin System 📋
+        </div>
+      </div>
+    `,
+  }),
 };
 
 // ============================================================================
@@ -991,6 +1078,68 @@ export async function triggerContentReportResolved(reportData: {
   }
 }
 
+/**
+ * Send mentor application confirmation email
+ */
+export async function triggerMentorApplicationSubmitted(applicationId: string) {
+  try {
+    const { data: application } = await supabase
+      .from('mentor_applications')
+      .select('*')
+      .eq('id', applicationId)
+      .single();
+
+    if (!application) {
+      console.error('[EmailService] Application not found:', applicationId);
+      return false;
+    }
+
+    return await sendEmail('mentor_application_confirmation', application.email, {
+      firstName: application.first_name,
+      lastName: application.last_name,
+      university: application.university,
+      applicationId: application.id
+    });
+  } catch (error) {
+    console.error('[EmailService] Error sending mentor application confirmation:', error);
+    return false;
+  }
+}
+
+/**
+ * Send admin notification about new mentor application
+ */
+export async function triggerMentorApplicationReceived(applicationId: string) {
+  try {
+    const { data: application } = await supabase
+      .from('mentor_applications')
+      .select('*')
+      .eq('id', applicationId)
+      .single();
+
+    if (!application) {
+      console.error('[EmailService] Application not found:', applicationId);
+      return false;
+    }
+
+    // Send to admin/review team
+    const adminEmail = 'team@wizzmo.app'; // Configure this
+    
+    return await sendEmail('mentor_application_admin_alert', adminEmail, {
+      firstName: application.first_name,
+      lastName: application.last_name,
+      email: application.email,
+      university: application.university,
+      graduationYear: application.graduation_year,
+      whyJoin: application.why_join,
+      applicationId: application.id
+    });
+  } catch (error) {
+    console.error('[EmailService] Error sending admin notification:', error);
+    return false;
+  }
+}
+
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -1003,5 +1152,7 @@ export default {
   triggerNewQuestionForMentors,
   triggerNewMessageNotification,
   triggerContentReportAlert,
-  triggerContentReportResolved
+  triggerContentReportResolved,
+  triggerMentorApplicationSubmitted,
+  triggerMentorApplicationReceived
 };

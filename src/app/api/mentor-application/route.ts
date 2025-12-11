@@ -135,8 +135,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send confirmation email (optional - could be done via database trigger)
-    // For now, just return success
+    // Send confirmation emails
+    try {
+      const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'mentor_application_confirmation',
+          to: data.email,
+          data: {
+            firstName: data.first_name,
+            lastName: data.last_name,
+            university: data.university,
+            applicationId: data.id
+          }
+        }),
+      });
+
+      // Send admin notification
+      await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'mentor_application_admin_alert',
+          to: 'team@wizzmo.app',
+          data: {
+            firstName: data.first_name,
+            lastName: data.last_name,
+            email: data.email,
+            university: data.university,
+            graduationYear: data.graduation_year,
+            whyJoin: data.why_join,
+            applicationId: data.id
+          }
+        }),
+      });
+
+      console.log('[API] Mentor application emails sent successfully');
+    } catch (emailError) {
+      console.error('[API] Failed to send mentor application emails:', emailError);
+      // Don't fail the entire application if email fails
+    }
 
     return NextResponse.json(
       { 

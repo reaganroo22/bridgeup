@@ -25,18 +25,39 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const fetchUserRole = async () => {
       if (!user?.id) {
+        console.log('🔧 [UserMode] No user ID available, setting loading to false');
         setIsLoading(false);
         return;
       }
 
       try {
-        const { data: userProfile } = await supabaseService.getUserProfile(user.id);
+        console.log(`🔧 [UserMode] Fetching profile for user: ${user.id}`);
+        
+        // Add retry logic for profile fetch
+        let userProfile = null;
+        let retries = 3;
+        
+        while (!userProfile && retries > 0) {
+          const { data } = await supabaseService.getUserProfile(user.id);
+          userProfile = data;
+          
+          if (!userProfile && retries > 1) {
+            console.log(`🔧 [UserMode] Profile not found, retrying in 1s... (${retries - 1} attempts left)`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          retries--;
+        }
+        
         if (userProfile?.role) {
           setUserRole(userProfile.role);
-          console.log(`🔧 [UserMode] User role fetched: ${userProfile.role}`);
+          console.log(`🔧 [UserMode] User role fetched: ${userProfile.role} for ${userProfile.email}`);
+        } else {
+          console.warn(`🔧 [UserMode] No profile found for user ${user.id} after retries`);
+          setUserRole('student'); // Default fallback
         }
       } catch (error) {
-        console.error('Error fetching user role:', error);
+        console.error('🔧 [UserMode] Error fetching user role:', error);
+        setUserRole('student'); // Default fallback
       }
     };
 
@@ -94,7 +115,9 @@ export function UserModeProvider({ children }: { children: React.ReactNode }) {
           const defaultMode = userRole === 'mentor' || userRole === 'both' ? 'mentor' : 'student';
           if (availableModes.includes(defaultMode)) {
             setCurrentMode(defaultMode);
-            console.log(`🔧 [UserMode] Set default mode: ${defaultMode}`);
+            console.log(`🔧 [UserMode] Set default mode: ${defaultMode} (userRole: ${userRole})`);
+          } else {
+            console.warn(`🔧 [UserMode] Default mode ${defaultMode} not available in modes:`, availableModes);
           }
         }
       } catch (error) {

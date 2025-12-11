@@ -21,7 +21,6 @@ import * as supabaseService from '@/lib/supabaseService';
 import { supabase } from '@/lib/supabase';
 import * as WebBrowser from 'expo-web-browser';
 import { Animated } from 'react-native';
-import { CURRENT_VERTICAL } from '../../config/current-vertical';
 
 const { width } = Dimensions.get('window');
 
@@ -31,6 +30,7 @@ export default function OAuthSignIn() {
   
   const [loading, setLoading] = useState<string | null>(null);
   const [hasNavigated, setHasNavigated] = useState(false);
+
   
   // Animation values
   const logoScale = useRef(new Animated.Value(1)).current;
@@ -75,7 +75,13 @@ export default function OAuthSignIn() {
       console.log(`[OAuthSignIn] Starting ${provider} sign-in`);
       
       // Ensure we start with a clean auth state
-      await supabase.auth.signOut({ scope: 'local' });
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+        // Add a small delay to ensure clean state
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (signOutError) {
+        console.warn('[OAuthSignIn] Sign out warning (continuing):', signOutError);
+      }
       
       const { data, error } = await oauthService.signInWithProvider(provider);
 
@@ -100,6 +106,14 @@ export default function OAuthSignIn() {
         // Extract user data from OAuth
         const userData = oauthService.extractUserDataFromOAuth(data.user);
         
+        // Wait a moment for auth session to fully establish
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Debug: Check auth session is properly established
+        console.log('[OAuthSignIn] Checking auth session...');
+        const { data: sessionCheck } = await supabase.auth.getSession();
+        console.log('[OAuthSignIn] Current session user:', sessionCheck?.session?.user?.email || 'none');
+
         // Check if user profile exists, if not create it
         const { data: existingProfile } = await supabaseService.getUserProfile(data.user.id);
         
@@ -107,7 +121,7 @@ export default function OAuthSignIn() {
           console.log('[OAuthSignIn] Creating new user profile for OAuth user');
           
           // Create user profile with OAuth data using the new function
-          const { error: profileError } = await supabaseService.createOAuthUserProfile(
+          const { data: createdProfile, error: profileError } = await supabaseService.createOAuthUserProfile(
             data.user.id,
             userData.email,
             userData.full_name,
@@ -116,7 +130,12 @@ export default function OAuthSignIn() {
 
           if (profileError) {
             console.error('[OAuthSignIn] Error creating profile:', profileError);
+            // Continue anyway - the profile might exist from account linking
+          } else if (createdProfile) {
+            console.log('[OAuthSignIn] Profile created successfully:', createdProfile.email);
           }
+        } else {
+          console.log('[OAuthSignIn] Profile already exists:', existingProfile.email, 'role:', existingProfile.role);
         }
 
         // Check onboarding status and redirect accordingly
@@ -131,6 +150,7 @@ export default function OAuthSignIn() {
     }
   };
 
+
   const checkOnboardingStatus = async (userId: string) => {
     if (hasNavigated) return; // Prevent double navigation
     
@@ -140,13 +160,92 @@ export default function OAuthSignIn() {
       // Add a small delay to prevent race conditions
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const { data: userProfile } = await supabaseService.getUserProfile(userId);
+      let { data: userProfile } = await supabaseService.getUserProfile(userId);
       
-      if (!userProfile || !userProfile.onboarding_completed) {
-        console.log('[OAuthSignIn] Redirecting to onboarding');
+      if (!userProfile) {
+        console.log('[OAuthSignIn] No user profile found, redirecting to onboarding');
         router.replace('/auth/onboarding');
+        return;
+      }
+
+      // Check for mentor application to determine available roles
+      console.log('[OAuthSignIn] Checking for mentor application for:', userProfile.email);
+      
+      let hasApprovedMentorApplication = false;
+      let hasPendingMentorApplication = false;
+      
+      try {
+        const { data: application, error } = await supabase
+          .from('mentor_applications')
+          .select('*')
+          .eq('email', userProfile.email.toLowerCase())
+          .single();
+
+        if (!error && application) {
+          console.log('[OAuthSignIn] Found mentor application with status:', application.application_status);
+          
+          if (application.application_status === 'approved') {
+            hasApprovedMentorApplication = true;
+          } else if (application.application_status === 'pending') {
+            hasPendingMentorApplication = true;
+          }
+        } else if (error && error.code !== 'PGRST116') {
+          console.error('[OAuthSignIn] Error checking mentor application:', error);
+        } else {
+          console.log('[OAuthSignIn] No mentor application found');
+        }
+      } catch (mentorError) {
+        console.error('[OAuthSignIn] Error in mentor check:', mentorError);
+      }
+
+      // Handle pending applications - only block NEW users, not existing students
+      if (hasPendingMentorApplication) {
+        console.log('[OAuthSignIn] User profile check - onboarding_completed:', userProfile.onboarding_completed, 'role:', userProfile.role);
+        
+        if (userProfile.onboarding_completed && userProfile.role === 'student') {
+          console.log('[OAuthSignIn] Existing student has pending mentor application - allowing normal app access');
+          // Let existing students continue to use the app normally
+        } else {
+          console.log('[OAuthSignIn] New user with pending mentor application, redirecting to pending approval');
+          router.replace('/auth/pending-approval');
+          return;
+        }
+      }
+
+      // Check if user needs role selection (existing student with approved mentor application)
+      if (hasApprovedMentorApplication && userProfile.role === 'student' && userProfile.onboarding_completed) {
+        console.log('[OAuthSignIn] User eligible for both roles, showing role selection');
+        router.replace('/auth/role-selection');
+        return;
+      }
+
+      // Auto-upgrade role for new users with approved mentor applications
+      if (hasApprovedMentorApplication && !userProfile.onboarding_completed && userProfile.role !== 'mentor' && userProfile.role !== 'both') {
+        const newRole = userProfile.role === 'student' ? 'both' : 'mentor';
+        console.log('[OAuthSignIn] Auto-upgrading new user role from', userProfile.role, 'to:', newRole);
+        
+        const { error: updateError } = await supabaseService.updateUserProfile(userId, { role: newRole });
+        if (!updateError) {
+          userProfile = { ...userProfile, role: newRole };
+          console.log('[OAuthSignIn] Role upgraded successfully to:', newRole);
+        } else {
+          console.error('[OAuthSignIn] Failed to update role:', updateError);
+        }
+      }
+
+      // Check onboarding status and redirect accordingly  
+      if (!userProfile.onboarding_completed) {
+        // Check if this is a mentor who needs mentor onboarding
+        if ((userProfile.role === 'mentor' || userProfile.role === 'both')) {
+          console.log('[OAuthSignIn] Redirecting new mentor to mentor onboarding');
+          router.replace('/auth/mentor-onboarding');
+        } else {
+          console.log('[OAuthSignIn] Redirecting to student onboarding');
+          router.replace('/auth/onboarding');
+        }
       } else {
-        console.log('[OAuthSignIn] Redirecting to app');
+        // For BridgeUp, mentors with completed onboarding can go straight to app
+        console.log('[OAuthSignIn] Onboarding completed, redirecting to app');
         router.replace('/(tabs)/');
       }
     } catch (error) {
@@ -238,6 +337,31 @@ export default function OAuthSignIn() {
                 { provider: 'apple', label: 'Continue with Apple' },
                 { provider: 'google', label: 'Continue with Google' }
               ].map(renderOAuthButton)}
+              
+              {/* Demo Button */}
+              <TouchableOpacity
+                style={[styles.oauthButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)', borderColor: 'rgba(255, 255, 255, 0.3)' }]}
+                onPress={() => router.push('/demo')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="play-circle" size={20} color="#FFFFFF" />
+                <Text style={[styles.oauthButtonText, { color: '#FFFFFF' }]}>
+                  View Live Demo
+                </Text>
+              </TouchableOpacity>
+              
+              {/* Bypass Button for Development */}
+              <TouchableOpacity
+                style={[styles.oauthButton, { backgroundColor: 'rgba(34, 197, 94, 0.9)', borderColor: 'rgba(34, 197, 94, 1)' }]}
+                onPress={() => router.replace('/(tabs)/')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                <Text style={[styles.oauthButtonText, { color: '#FFFFFF' }]}>
+                  Enter App (Bypass)
+                </Text>
+              </TouchableOpacity>
+              
             </View>
 
             {/* Info Text */}
@@ -279,7 +403,7 @@ export default function OAuthSignIn() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: CURRENT_VERTICAL.primaryColor, // Ensure no white background shows
+    backgroundColor: '#FF4DB8', // Ensure no white background shows
   },
   gradientBackground: {
     flex: 1,
@@ -300,18 +424,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   logoText: {
-    fontSize: 48,
-    fontWeight: '900',
+    fontSize: 54,
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -2,
+    letterSpacing: -2.5,
     textAlign: 'center',
+    fontFamily: 'System',
   },
   subtitle: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: 18,
+    fontWeight: '300',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 24,
     paddingHorizontal: 20,
+    fontFamily: 'System',
+    letterSpacing: 0.5,
   },
   authSection: {
     gap: 16,

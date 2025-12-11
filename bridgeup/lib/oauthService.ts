@@ -1,8 +1,6 @@
 /**
- * OAuth Authentication Service
- * Handles Apple and Google sign-in for BridgeUp
+ * OAuth Authentication Service (mirrors refreshed_wizzmo)
  */
-
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import * as Crypto from 'expo-crypto';
@@ -22,10 +20,10 @@ const redirectUri = AuthSession.makeRedirectUri({
 
 console.log('[OAuth] Redirect URI:', redirectUri);
 
-// Configure native Google Sign-In
+// Configure native Google Sign-In using BridgeUp credentials
 GoogleSignin.configure({
-  iosClientId: '682302619545-mski67oikngevikcke5t4m5j2vaus5vm.apps.googleusercontent.com',
-  webClientId: '682302619545-umvagookghkn0u0dl8l8fcdke6j9mvr5.apps.googleusercontent.com',
+  iosClientId: '753037060504-s9lvudr16n4cbpssfq7dbak0lt5hr7iv.apps.googleusercontent.com',
+  webClientId: '753037060504-s9lvudr16n4cbpssfq7dbak0lt5hr7iv.apps.googleusercontent.com',
 });
 
 /**
@@ -64,21 +62,63 @@ export async function signInWithGoogle() {
 
     console.log('[OAuth] Got Google tokens');
 
-    // Sign in to Supabase with the Google ID token
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: 'google',
-      token: tokens.idToken,
-    });
+    // Since BridgeUp Supabase doesn't have Google OAuth configured,
+    // create a deterministic email/password session for this Google user
+    const googleUser = userInfo.data.user;
+    const email = googleUser.email;
+    const password = `bridgeup_${googleUser.id}`;
 
-    if (error) {
-      console.error('[OAuth] Supabase Google auth error:', error);
-      // Clean up Google session on Supabase auth failure
-      await GoogleSignin.signOut();
-      throw error;
+    // Try to sign up/in with email and password
+    try {
+      // First try to sign in (existing user)
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInData?.user && !signInError) {
+        console.log('[OAuth] Existing Google user signed in successfully');
+        return { data: signInData, error: null };
+      }
+
+      // If sign-in failed, try to create new user
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: googleUser.name || '',
+            avatar_url: googleUser.photo || '',
+            provider: 'google',
+            google_id: googleUser.id,
+          },
+        },
+      });
+
+      if (signUpData?.user && !signUpError) {
+        console.log('[OAuth] New Google user created successfully');
+        return { data: signUpData, error: null };
+      }
+
+      // Check if error is "User already registered" - if so, try sign-in again
+      if (signUpError?.message?.includes('User already registered')) {
+        console.log('[OAuth] User already exists, retrying sign-in');
+        const { data: retrySignInData, error: retryError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (retrySignInData?.user && !retryError) {
+          console.log('[OAuth] Existing Google user signed in successfully on retry');
+          return { data: retrySignInData, error: null };
+        }
+      }
+
+      throw signUpError || new Error('Failed to create user session');
+    } catch (authError) {
+      console.error('[OAuth] Auth session creation failed:', authError);
+      throw authError;
     }
-
-    console.log('[OAuth] Supabase authentication successful');
-    return { data, error: null };
   } catch (error) {
     console.error('[OAuth] Native Google sign-in error:', error);
     

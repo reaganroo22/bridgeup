@@ -1,0 +1,88 @@
+{
+  "expo": {
+    "name": "BridgeUp",
+    "slug": "bridgeup-college-prep",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "mobile",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#4A90E2"
+    },
+    "backgroundColor": "#4A90E2",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bridgeupapp.app",
+      "usesAppleSignIn": true,
+      "buildNumber": "1",
+      "entitlements": {
+        "com.apple.developer.in-app-payments": [
+          "merchant.com.bridgeupapp.app"
+        ],
+        "aps-environment": "production"
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
+        "NSUserNotificationAlertStyle": "alert",
+        "UIFileSharingEnabled": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "google-oauth-bridgeup",
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.753037060504-s9lvudr16n4cbpssfq7dbak0lt5hr7iv"
+            ]
+          }
+        ]
+      },
+      "googleServicesFile": "./Client ID for iOS BridgeUp (1).plist"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#E8F2FF"
+      },
+      "edgeToEdgeEnabled": false,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.bridgeupapp.app",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "com.android.vending.BILLING"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-web-browser",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "jsEngine": "jsc",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3748d3ed-2b19-497a-b64b-0fa745efbd4e"
+      }
+    },
+    "runtimeVersion": "1.0.0"
+  }
+}

@@ -134,7 +134,7 @@ function RootLayoutNav() {
           }
           
           // Check if user has mentor profile - mentors bypass onboarding
-          const hasMentorProfile = userProfile?.mentor_profile || userProfile?.role === 'mentor' || userProfile?.role === 'both';
+          const hasMentorProfile = userProfile?.role === 'mentor' || userProfile?.role === 'both';
           
           // Check if user completed onboarding specifically for this vertical
           const hasCompletedOnboardingForVertical = userProfile?.onboarding_completed && userProfile?.vertical === CURRENT_VERTICAL.name.toLowerCase();
@@ -201,6 +201,7 @@ function RootLayoutNav() {
                   <Stack.Screen name="help" options={{ headerShown: false }} />
                   <Stack.Screen name="privacy" options={{ headerShown: false }} />
                   <Stack.Screen name="about" options={{ headerShown: false }} />
+                  <Stack.Screen name="demo" options={{ headerShown: false }} />
                 </Stack>
                 </ThemeProvider>
                     </NotificationProvider>

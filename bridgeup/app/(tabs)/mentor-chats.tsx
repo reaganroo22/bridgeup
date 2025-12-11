@@ -67,7 +67,11 @@ export default function UnifiedChatsScreen() {
 
   // Fetch mentor's advice sessions
   const fetchSessions = useCallback(async () => {
-    if (!user || !isAdvisor) return;
+    console.log(`[MentorChats] fetchSessions called - user: ${user?.email}, currentMode: ${currentMode}, isAdvisor: ${isAdvisor}`);
+    if (!user || !isAdvisor) {
+      console.log(`[MentorChats] Early return - user: ${!!user}, isAdvisor: ${isAdvisor}`);
+      return;
+    }
 
     try {
       const { data, error } = await supabase
