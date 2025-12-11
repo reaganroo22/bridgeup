@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, View } from '@/components/Themed';
@@ -7,15 +7,20 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CustomHeader from '@/components/CustomHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/AuthContext';
 import * as supabaseService from '@/lib/supabaseService';
+import { blockUser, unblockUser, isUserBlocked } from '@/lib/contentModeration';
+import * as Haptics from 'expo-haptics';
 
 export default function StudentProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'dark'];
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
+  const { user: authUser } = useAuth();
   const [studentProfile, setStudentProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   const profileUserId = (params.userId || params.id) as string;
 
@@ -32,10 +37,59 @@ export default function StudentProfileScreen() {
       if (profile) {
         setStudentProfile(profile);
       }
+      
+      // Check if user is blocked
+      if (authUser && authUser.id !== profileUserId) {
+        const blocked = await isUserBlocked(authUser.id, profileUserId);
+        setIsBlocked(blocked);
+      }
     } catch (error) {
       console.error('[StudentProfile] Error fetching profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBlockUser = async () => {
+    if (!authUser || !profileUserId || authUser.id === profileUserId) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (isBlocked) {
+      // Unblock without confirmation
+      try {
+        const result = await unblockUser(authUser.id, profileUserId);
+        if (result.success) {
+          setIsBlocked(false);
+          console.log('[StudentProfile] User unblocked');
+        }
+      } catch (error) {
+        console.error('[StudentProfile] Error unblocking user:', error);
+      }
+    } else {
+      // Block with confirmation
+      Alert.alert(
+        'Block User',
+        'This will prevent them from messaging you and hide their content from your feed.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Block', 
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const result = await blockUser(authUser.id, profileUserId);
+                if (result.success) {
+                  setIsBlocked(true);
+                  console.log('[StudentProfile] User blocked');
+                }
+              } catch (error) {
+                console.error('[StudentProfile] Error blocking user:', error);
+              }
+            }
+          }
+        ]
+      );
     }
   };
 
@@ -120,6 +174,25 @@ export default function StudentProfileScreen() {
                 </Text>
               )}
             </View>
+            
+            {/* Block User Button - Only show for other users */}
+            {authUser && authUser.id !== profileUserId && (
+              <View style={styles.actionSection}>
+                <TouchableOpacity
+                  style={[styles.blockButton, { borderColor: colors.border }]}
+                  onPress={handleBlockUser}
+                >
+                  <Ionicons 
+                    name={isBlocked ? "person-remove" : "ban-outline"} 
+                    size={16} 
+                    color={colors.text} 
+                  />
+                  <Text style={[styles.blockButtonText, { color: colors.text }]}>
+                    {isBlocked ? "unblock user" : "block user"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
           </View>
 
@@ -318,6 +391,24 @@ const styles = StyleSheet.create({
   activityDivider: {
     width: 1,
     marginHorizontal: 16,
+  },
+
+  // Action Section
+  actionSection: {
+    marginTop: 16,
+  },
+  blockButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+  blockButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 
   // Privacy Notice

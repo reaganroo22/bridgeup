@@ -53,7 +53,10 @@ export type EmailType =
   // Transactional
   | 'password_reset'
   | 'email_verification'
-  | 'profile_updated';
+  | 'profile_updated'
+  // Moderation
+  | 'content_report_alert'
+  | 'content_report_resolved';
 
 // ============================================================================
 // EMAIL TEMPLATES
@@ -641,6 +644,91 @@ export const EMAIL_TEMPLATES: Record<EmailType, (data: any) => EmailTemplate> = 
       </div>
     `,
   }),
+
+  // ============================================================================
+  // MODERATION EMAIL TEMPLATES
+  // ============================================================================
+
+  content_report_alert: (data: { 
+    reportType: string; 
+    reportedUserName?: string; 
+    reporterName?: string; 
+    content?: string; 
+    reportId: string;
+    contextType?: string;
+  }) => ({
+    subject: `🚨 Content Report Alert - ${data.reportType}`,
+    html: `
+      ${WIZZMO_STYLES}
+      <div class="container">
+        <div class="header">
+          <div class="logo">wizzmo</div>
+          <div>Content Moderation Alert</div>
+        </div>
+        <div class="content">
+          <div class="greeting">Moderation Team 🛡️</div>
+          <div class="main-text">
+            A new content report has been submitted that requires review:
+            <br><br>
+            <strong>Report Type:</strong> ${data.reportType}<br>
+            <strong>Reported User:</strong> ${data.reportedUserName || 'Unknown'}<br>
+            <strong>Reporter:</strong> ${data.reporterName || 'Unknown'}<br>
+            <strong>Context:</strong> ${data.contextType || 'General'}<br>
+            <strong>Report ID:</strong> ${data.reportId}
+            <br><br>
+            ${data.content ? `<strong>Content:</strong><br><em>"${data.content.substring(0, 200)}${data.content.length > 200 ? '...' : ''}"</em><br><br>` : ''}
+            This report requires moderation action within 24 hours per Apple App Store guidelines.
+          </div>
+          <div class="main-text">
+            <strong>Next Steps:</strong><br>
+            1. Review the reported content and context<br>
+            2. Take appropriate action (warning, temporary restriction, or account suspension)<br>
+            3. Respond to both the reporter and reported user<br>
+            4. Document the resolution in the moderation system
+          </div>
+        </div>
+        <div class="footer">
+          Keeping Wizzmo safe,<br>
+          The Moderation System 🔐
+        </div>
+      </div>
+    `,
+  }),
+
+  content_report_resolved: (data: { 
+    reportType: string; 
+    reportedUserName?: string; 
+    action: string; 
+    reportId: string;
+  }) => ({
+    subject: `✅ Content Report Resolved - ${data.reportType}`,
+    html: `
+      ${WIZZMO_STYLES}
+      <div class="container">
+        <div class="header">
+          <div class="logo">wizzmo</div>
+          <div>Report Resolution Update</div>
+        </div>
+        <div class="content">
+          <div class="greeting">Moderation Team ✅</div>
+          <div class="main-text">
+            The following content report has been resolved:
+            <br><br>
+            <strong>Report ID:</strong> ${data.reportId}<br>
+            <strong>Report Type:</strong> ${data.reportType}<br>
+            <strong>Reported User:</strong> ${data.reportedUserName || 'Unknown'}<br>
+            <strong>Action Taken:</strong> ${data.action}
+            <br><br>
+            The appropriate moderation action has been applied and all parties have been notified.
+          </div>
+        </div>
+        <div class="footer">
+          Report resolution complete,<br>
+          The Moderation System 📋
+        </div>
+      </div>
+    `,
+  }),
 };
 
 // ============================================================================
@@ -833,6 +921,77 @@ export async function triggerNewMessageNotification(messageId: string) {
 }
 
 // ============================================================================
+// MODERATION EMAIL TRIGGERS
+// ============================================================================
+
+/**
+ * Send content report alert to moderation team
+ */
+export async function triggerContentReportAlert(reportData: {
+  reportId: string;
+  reportType: string;
+  reportedUserId: string;
+  reporterId: string;
+  content?: string;
+  contextType?: string;
+}) {
+  try {
+    // Get reporter and reported user details
+    const [{ data: reportedUser }, { data: reporter }] = await Promise.all([
+      supabase.from('users').select('full_name, email').eq('id', reportData.reportedUserId).single(),
+      supabase.from('users').select('full_name, email').eq('id', reportData.reporterId).single()
+    ]);
+
+    // Send to moderation team (you can configure this email address)
+    const moderationEmail = 'moderation@wizzmo.app'; // Configure this
+    
+    return await sendEmail('content_report_alert', moderationEmail, {
+      reportType: reportData.reportType,
+      reportedUserName: reportedUser?.full_name,
+      reporterName: reporter?.full_name,
+      content: reportData.content,
+      reportId: reportData.reportId,
+      contextType: reportData.contextType
+    });
+  } catch (error) {
+    console.error('[EmailService] Error sending content report alert:', error);
+    return false;
+  }
+}
+
+/**
+ * Send content report resolution notification
+ */
+export async function triggerContentReportResolved(reportData: {
+  reportId: string;
+  reportType: string;
+  reportedUserId: string;
+  action: string;
+}) {
+  try {
+    // Get reported user details
+    const { data: reportedUser } = await supabase
+      .from('users')
+      .select('full_name, email')
+      .eq('id', reportData.reportedUserId)
+      .single();
+
+    // Send to moderation team
+    const moderationEmail = 'moderation@wizzmo.app'; // Configure this
+    
+    return await sendEmail('content_report_resolved', moderationEmail, {
+      reportType: reportData.reportType,
+      reportedUserName: reportedUser?.full_name,
+      action: reportData.action,
+      reportId: reportData.reportId
+    });
+  } catch (error) {
+    console.error('[EmailService] Error sending content report resolution:', error);
+    return false;
+  }
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -843,4 +1002,6 @@ export default {
   triggerQuestionMatched,
   triggerNewQuestionForMentors,
   triggerNewMessageNotification,
+  triggerContentReportAlert,
+  triggerContentReportResolved
 };

@@ -125,8 +125,21 @@ export async function reportContent(
 
     console.log('[ContentModeration] ✅ Report created:', data.id);
     
-    // Send email notification (implement later)
-    // await sendModerationAlert(data);
+    // Send email notification to moderation team
+    try {
+      const { triggerContentReportAlert } = await import('./emailService');
+      await triggerContentReportAlert({
+        reportId: data.id,
+        reportType: reportType,
+        reportedUserId: reportedUserId,
+        reporterId: reporterId,
+        content: content,
+        contextType: contextType
+      });
+      console.log('[ContentModeration] ✅ Moderation alert email sent');
+    } catch (emailError) {
+      console.error('[ContentModeration] Email notification error (non-blocking):', emailError);
+    }
 
     return { success: true, data };
   } catch (error) {
