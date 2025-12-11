@@ -1,9 +1,47 @@
 "use client";
 
+import { useState } from "react";
 import Navigation from "@/components/sections/navigation";
 import Footer from "@/components/sections/footer";
 
 export default function SafetyPage() {
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportData, setReportData] = useState({
+    reportType: '',
+    description: '',
+    contactEmail: ''
+  });
+
+  const handleReportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Send email to safety@wizzmo.app
+    try {
+      const response = await fetch('/api/report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: reportData.reportType,
+          description: reportData.description,
+          contactEmail: reportData.contactEmail,
+          timestamp: new Date().toISOString()
+        }),
+      });
+
+      if (response.ok) {
+        alert('Report submitted successfully. Our team will review it within 24 hours.');
+        setShowReportForm(false);
+        setReportData({ reportType: '', description: '', contactEmail: '' });
+      } else {
+        alert('Failed to submit report. Please try again or contact safety@wizzmo.app directly.');
+      }
+    } catch (error) {
+      alert('Failed to submit report. Please try again or contact safety@wizzmo.app directly.');
+    }
+  };
+
   return (
     <main className="min-h-screen bg-background">
       <Navigation />
@@ -139,7 +177,10 @@ export default function SafetyPage() {
                   If you see content that violates our guidelines, please report it immediately. Every report is reviewed
                   by our moderation team within 24 hours.
                 </p>
-                <button className="bg-[#FF4DB8] text-white px-6 py-3 rounded-full font-medium hover:bg-[#FF6BCC] transition-colors">
+                <button 
+                  onClick={() => setShowReportForm(true)}
+                  className="bg-[#FF4DB8] text-white px-6 py-3 rounded-full font-medium hover:bg-[#FF6BCC] transition-colors"
+                >
                   Report Content
                 </button>
               </div>
@@ -161,6 +202,75 @@ export default function SafetyPage() {
         </div>
       </section>
 
+      {/* Report Form Modal */}
+      {showReportForm && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1a1a1a] border border-white/20 rounded-lg p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h3 className="text-2xl font-bold text-white mb-6 lowercase">report inappropriate content</h3>
+            
+            <form onSubmit={handleReportSubmit} className="space-y-6">
+              <div>
+                <label className="block text-white font-medium mb-2">Type of Report *</label>
+                <select
+                  value={reportData.reportType}
+                  onChange={(e) => setReportData({...reportData, reportType: e.target.value})}
+                  required
+                  className="w-full p-3 bg-black/50 border border-white/20 rounded text-white"
+                >
+                  <option value="">Select report type</option>
+                  <option value="harassment">Harassment or Bullying</option>
+                  <option value="inappropriate">Inappropriate Content</option>
+                  <option value="spam">Spam or Fake Content</option>
+                  <option value="safety">Safety Concerns</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-white font-medium mb-2">Description *</label>
+                <textarea
+                  value={reportData.description}
+                  onChange={(e) => setReportData({...reportData, description: e.target.value})}
+                  required
+                  placeholder="Please describe the issue in detail..."
+                  rows={4}
+                  className="w-full p-3 bg-black/50 border border-white/20 rounded text-white placeholder-white/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-white font-medium mb-2">Your Email (Optional)</label>
+                <input
+                  type="email"
+                  value={reportData.contactEmail}
+                  onChange={(e) => setReportData({...reportData, contactEmail: e.target.value})}
+                  placeholder="For follow-up (optional)"
+                  className="w-full p-3 bg-black/50 border border-white/20 rounded text-white placeholder-white/50"
+                />
+                <p className="text-white/60 text-sm mt-1">
+                  Providing your email helps us follow up if needed, but it's optional.
+                </p>
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-[#FF4DB8] text-white py-3 rounded-full font-medium hover:bg-[#FF6BCC] transition-colors"
+                >
+                  Submit Report
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowReportForm(false)}
+                  className="flex-1 bg-white/10 text-white py-3 rounded-full font-medium hover:bg-white/20 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </main>
