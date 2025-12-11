@@ -217,7 +217,7 @@ export default function MentorProfileScreen() {
 
         // Fetch mentor stats
         if (profile.mentor_profile) {
-          const { total_questions_answered, average_rating, total_helpful_votes } = profile.mentor_profile;
+          const { total_questions_answered, average_rating, total_helpful_votes, is_searchable } = profile.mentor_profile;
           const helpfulPercentage = total_questions_answered > 0
             ? Math.round((total_helpful_votes / total_questions_answered) * 100)
             : 0;
@@ -227,6 +227,9 @@ export default function MentorProfileScreen() {
             average_rating: average_rating,
             helpful_percentage: helpfulPercentage,
           });
+
+          // Set privacy mode (note: is_searchable true means privacy mode false)
+          setPrivacyMode(!is_searchable);
         }
       }
     } catch (error) {
@@ -993,9 +996,30 @@ export default function MentorProfileScreen() {
                 </View>
                 <Switch
                   value={privacyMode}
-                  onValueChange={(value) => {
+                  onValueChange={async (value) => {
                     setPrivacyMode(value);
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    
+                    // Save privacy mode to database
+                    try {
+                      if (!userProfile?.id) return;
+                      
+                      const { error } = await supabase
+                        .from('mentor_profiles')
+                        .update({ is_searchable: !value })
+                        .eq('user_id', userProfile.id);
+                      
+                      if (error) {
+                        console.error('[MentorProfile] Error updating privacy mode:', error);
+                        // Revert the toggle if save failed
+                        setPrivacyMode(!value);
+                      } else {
+                        console.log('[MentorProfile] Privacy mode updated:', value ? 'hidden' : 'visible');
+                      }
+                    } catch (error) {
+                      console.error('[MentorProfile] Error saving privacy mode:', error);
+                      setPrivacyMode(!value);
+                    }
                   }}
                   trackColor={{ false: colors.border, true: colors.primary }}
                   thumbColor="#FFFFFF"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import { StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Linking } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -330,6 +330,11 @@ export default function WizzmoProfileScreen() {
     }
   };
 
+  const handleReportContent = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Linking.openURL('https://wizzmo.app/safety');
+  };
+
   const handleVideoPress = (video: any) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedVideo({
@@ -514,6 +519,21 @@ export default function WizzmoProfileScreen() {
                   />
                   <Text style={[styles.blockButtonText, { color: colors.text }]}>
                     {isBlocked ? "unblock" : "block"}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Report Content Button */}
+                <TouchableOpacity
+                  style={[styles.reportButton, { borderColor: colors.border }]}
+                  onPress={handleReportContent}
+                >
+                  <Ionicons 
+                    name="flag-outline" 
+                    size={16} 
+                    color={colors.text} 
+                  />
+                  <Text style={[styles.reportButtonText, { color: colors.text }]}>
+                    report
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -970,6 +990,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   blockButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
+    marginTop: 8,
+  },
+  reportButtonText: {
     fontSize: 14,
     fontWeight: '500',
   },

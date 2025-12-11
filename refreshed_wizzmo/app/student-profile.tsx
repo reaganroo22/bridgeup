@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import { StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Linking } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, View } from '@/components/Themed';
@@ -91,6 +91,11 @@ export default function StudentProfileScreen() {
         ]
       );
     }
+  };
+
+  const handleReportContent = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Linking.openURL('https://wizzmo.app/safety');
   };
 
   if (loading || !studentProfile) {
@@ -189,6 +194,20 @@ export default function StudentProfileScreen() {
                   />
                   <Text style={[styles.blockButtonText, { color: colors.text }]}>
                     {isBlocked ? "unblock user" : "block user"}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.reportButton, { borderColor: colors.border }]}
+                  onPress={handleReportContent}
+                >
+                  <Ionicons 
+                    name="flag-outline" 
+                    size={16} 
+                    color={colors.text} 
+                  />
+                  <Text style={[styles.reportButtonText, { color: colors.text }]}>
+                    report
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -407,6 +426,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   blockButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
+    marginTop: 8,
+  },
+  reportButtonText: {
     fontSize: 14,
     fontWeight: '500',
   },

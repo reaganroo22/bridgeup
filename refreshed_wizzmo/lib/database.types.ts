@@ -304,6 +304,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_verified: boolean | null
+          is_searchable: boolean | null
           response_time_avg: number | null
           total_helpful_votes: number | null
           total_questions_answered: number | null
@@ -317,6 +318,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_verified?: boolean | null
+          is_searchable?: boolean | null
           response_time_avg?: number | null
           total_helpful_votes?: number | null
           total_questions_answered?: number | null
@@ -330,6 +332,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_verified?: boolean | null
+          is_searchable?: boolean | null
           response_time_avg?: number | null
           total_helpful_votes?: number | null
           total_questions_answered?: number | null

@@ -3875,8 +3875,8 @@ export async function getAllMentors(page: number = 0, limit: number = 20, exclud
     // First get total count for pagination info
     const { count } = await supabase
       .from('users')
-      .select('id', { count: 'exact', head: true })
-      .not('mentor_profile', 'is', null)
+      .select('id, mentor_profiles!inner(is_searchable)', { count: 'exact', head: true })
+      .eq('mentor_profiles.is_searchable', true)
 
     const totalCount = count || 0
     const hasMore = (page + 1) * limit < totalCount
@@ -3903,10 +3903,13 @@ export async function getAllMentors(page: number = 0, limit: number = 20, exclud
           updated_at,
           session_formats_offered,
           communication_style,
-          specialties
+          specialties,
+          is_searchable
         )
       `)
       // Using inner join to only get users with mentor profiles
+      // Filter out mentors who have privacy mode enabled (is_searchable = false)
+      .eq('mentor_profiles.is_searchable', true)
 
     // Exclude specific user if provided (prevent self-questions)
     if (excludeUserId) {
