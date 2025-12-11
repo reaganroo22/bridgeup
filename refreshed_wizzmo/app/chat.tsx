@@ -706,7 +706,17 @@ export default function ChatScreen() {
 
       if (error) {
         console.error('[Chat] ❌ Failed to edit message:', error);
-        Alert.alert('Error', 'Failed to edit message');
+        
+        // Check if it's a content moderation error
+        if (error.message?.includes('inappropriate content')) {
+          Alert.alert(
+            'Edit Blocked', 
+            error.message, 
+            [{ text: 'OK', style: 'default' }]
+          );
+        } else {
+          Alert.alert('Error', 'Failed to edit message');
+        }
         return;
       }
 
@@ -765,32 +775,60 @@ export default function ChatScreen() {
         timestamp: new Date().toISOString()
       });
 
-      // Send message with optional reply reference
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          advice_session_id: chatId,
-          sender_id: user.id,
-          content: messageText,
-          reply_to_message_id: replyingToMessage?.id || null,
-          is_read: false,
-        })
-        .select(`
-          *,
-          reply_to_message:reply_to_message_id (
-            id,
-            sender_id,
-            content,
-            image_url,
-            audio_url,
-            created_at
-          )
-        `)
-        .single();
+      // Send message using the service layer (includes content moderation)
+      const { data: serviceData, error: serviceError } = await supabaseService.sendMessage(
+        chatId,
+        user.id,
+        messageText
+      );
+
+      let data = null;
+      let error = serviceError;
+
+      if (serviceData && !serviceError) {
+        // If service succeeded, fetch the full message with reply data
+        const { data: fullMessage, error: fetchError } = await supabase
+          .from('messages')
+          .select(`
+            *,
+            reply_to_message:reply_to_message_id (
+              id,
+              sender_id,
+              content,
+              image_url,
+              audio_url,
+              created_at
+            )
+          `)
+          .eq('id', serviceData.id)
+          .single();
+        
+        data = fullMessage;
+        error = fetchError;
+
+        // Update the message with reply reference if needed
+        if (replyingToMessage?.id && fullMessage && !fetchError) {
+          await supabase
+            .from('messages')
+            .update({ reply_to_message_id: replyingToMessage.id })
+            .eq('id', fullMessage.id);
+        }
+      }
 
       if (error) {
         console.error('[Chat] ❌ Error sending message:', error);
-        Alert.alert('error', 'failed to send message. please try again.');
+        
+        // Check if it's a content moderation error
+        if (error.message?.includes('inappropriate content')) {
+          Alert.alert(
+            'Message Blocked', 
+            error.message, 
+            [{ text: 'OK', style: 'default' }]
+          );
+        } else {
+          Alert.alert('Error', 'Failed to send message. Please try again.');
+        }
+        
         setInputText(messageText); // Restore input
       } else if (data) {
         console.log('[Chat] ✅ Message sent successfully:', {
