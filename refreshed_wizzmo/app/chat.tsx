@@ -40,6 +40,7 @@ import { Video, ResizeMode } from 'expo-av';
 import * as supabaseService from '../lib/supabaseService';
 import { supabase } from '../lib/supabase';
 import { uploadChatMedia } from '@/lib/imageUpload';
+import { reportContent } from '@/lib/contentModeration';
 
 interface Reaction {
   emoji: string;
@@ -102,6 +103,7 @@ export default function ChatScreen() {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showMentorResolutionModal, setShowMentorResolutionModal] = useState(false);
   const [showStudentResolutionModal, setShowStudentResolutionModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [session, setSession] = useState<AdviceSession | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
@@ -1977,15 +1979,27 @@ export default function ChatScreen() {
         </TouchableOpacity>
 
         {session.status === 'active' && (user?.id === session.student_id || user?.id === session.mentor_id) && (
-          <TouchableOpacity
-            style={[styles.resolveButton, { borderColor: colors.border }]}
-            onPress={handleMarkAsResolved}
-          >
-            <Ionicons name="checkmark-circle-outline" size={20} color={colors.text} />
-            <Text style={[styles.resolveButtonText, { color: colors.text }]}>
-              resolve
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.mentorActions}>
+            <TouchableOpacity
+              style={[styles.resolveButton, { borderColor: colors.border }]}
+              onPress={handleMarkAsResolved}
+            >
+              <Ionicons name="checkmark-circle-outline" size={20} color={colors.text} />
+              <Text style={[styles.resolveButtonText, { color: colors.text }]}>
+                resolve
+              </Text>
+            </TouchableOpacity>
+            
+            {/* Report option for mentors only */}
+            {user?.id === session.mentor_id && (
+              <TouchableOpacity
+                style={[styles.reportButton, { borderColor: colors.border }]}
+                onPress={() => setShowReportModal(true)}
+              >
+                <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
+              </TouchableOpacity>
+            )}
+          </View>
         )}
       </View>
 
@@ -2715,6 +2729,66 @@ export default function ChatScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Report Modal */}
+      <Modal
+        visible={showReportModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowReportModal(false)}>
+              <Text style={[styles.modalHeaderButton, { color: colors.text }]}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Report User</Text>
+            <View style={{ width: 60 }} />
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            <Text style={[styles.modalDescription, { color: colors.textSecondary }]}>
+              Why are you reporting this user?
+            </Text>
+            
+            {[
+              { key: 'harassment', label: 'Harassment or bullying' },
+              { key: 'inappropriate_content', label: 'Inappropriate content' },
+              { key: 'spam', label: 'Spam or fake profile' },
+              { key: 'other', label: 'Other' }
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.key}
+                style={[styles.reportOption, { borderColor: colors.border }]}
+                onPress={async () => {
+                  const otherUserId = user?.id === session?.student_id ? session?.mentor_id : session?.student_id;
+                  if (user?.id && otherUserId) {
+                    const result = await reportContent(
+                      user.id,
+                      otherUserId,
+                      option.key as any,
+                      `Reported from chat session ${session?.id}`,
+                      'profile'
+                    );
+                    
+                    if (result.success) {
+                      Alert.alert('Report Submitted', 'Thank you for your report. We will review it within 24 hours.');
+                      setShowReportModal(false);
+                    } else {
+                      Alert.alert('Error', 'Failed to submit report. Please try again.');
+                    }
+                  }
+                }}
+              >
+                <Text style={[styles.reportOptionText, { color: colors.text }]}>
+                  {option.label}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -2768,6 +2842,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     letterSpacing: -0.2,
+  },
+  mentorActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderRadius: 20,
   },
   headerTitle: {
     fontSize: 18,
@@ -3565,5 +3651,48 @@ const styles = StyleSheet.create({
   cancelReplyButton: {
     padding: 4,
     marginLeft: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    paddingTop: 50,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  modalHeaderButton: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  modalDescription: {
+    fontSize: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  reportOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  reportOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
