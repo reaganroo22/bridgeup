@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -15,6 +15,7 @@ import { useUserMode } from '@/contexts/UserModeContext';
 import * as supabaseService from '@/lib/supabaseService';
 import { supabase } from '@/lib/supabase';
 import * as Haptics from 'expo-haptics';
+import { blockUser, unblockUser, isUserBlocked } from '@/lib/contentModeration';
 import FullscreenVideoModal from '@/components/FullscreenVideoModal';
 
 interface HelpfulAdvice {
@@ -47,6 +48,7 @@ export default function WizzmoProfileScreen() {
   const [selectedVideo, setSelectedVideo] = useState<any>(null);
   const [showFullscreenVideo, setShowFullscreenVideo] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   const profileUserId = (params.userId || params.id) as string;
   const forcePublic = params.forcePublic === 'true';
@@ -131,6 +133,10 @@ export default function WizzmoProfileScreen() {
               .single();
             setIsFavorited(!!favorite);
           }
+          
+          // Check if user is blocked
+          const blocked = await isUserBlocked(authUser.id, profileUserId);
+          setIsBlocked(blocked);
         }
       }
 
@@ -278,6 +284,49 @@ export default function WizzmoProfileScreen() {
       }
     } catch (error) {
       console.error('[WizzmoProfile] Error toggling favorite:', error);
+    }
+  };
+
+  const handleBlockUser = async () => {
+    if (!authUser || !profileUserId || isViewingSelf) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (isBlocked) {
+      // Unblock without confirmation
+      try {
+        const result = await unblockUser(authUser.id, profileUserId);
+        if (result.success) {
+          setIsBlocked(false);
+          console.log('[WizzmoProfile] User unblocked');
+        }
+      } catch (error) {
+        console.error('[WizzmoProfile] Error unblocking user:', error);
+      }
+    } else {
+      // Block with confirmation
+      Alert.alert(
+        'Block User',
+        'This will prevent them from messaging you and hide their content from your feed.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Block', 
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const result = await blockUser(authUser.id, profileUserId);
+                if (result.success) {
+                  setIsBlocked(true);
+                  console.log('[WizzmoProfile] User blocked');
+                }
+              } catch (error) {
+                console.error('[WizzmoProfile] Error blocking user:', error);
+              }
+            }
+          }
+        ]
+      );
     }
   };
 
@@ -450,6 +499,21 @@ export default function WizzmoProfileScreen() {
                     color: isFavorited ? "#FFFFFF" : colors.text 
                   }]}>
                     {isFavorited ? "favorited" : "+ favorite"}
+                  </Text>
+                </TouchableOpacity>
+                
+                {/* Block User Button */}
+                <TouchableOpacity
+                  style={[styles.blockButton, { borderColor: colors.border }]}
+                  onPress={handleBlockUser}
+                >
+                  <Ionicons 
+                    name={isBlocked ? "person-remove" : "ban-outline"} 
+                    size={16} 
+                    color={colors.text} 
+                  />
+                  <Text style={[styles.blockButtonText, { color: colors.text }]}>
+                    {isBlocked ? "unblock" : "block"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -894,6 +958,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     letterSpacing: -0.1,
+  },
+  blockButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
+    marginTop: 8,
+  },
+  blockButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 
   // Section
