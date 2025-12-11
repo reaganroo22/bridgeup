@@ -137,10 +137,19 @@ export async function POST(request: NextRequest) {
 
     // Send confirmation emails
     try {
-      const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
+      console.log('[API] 4. Attempting to send confirmation emails...');
+      
+      // Use the hardcoded URL since we know it works
+      const supabaseUrl = 'https://miygmdboiesbxwlqgnsx.supabase.co';
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseServiceKey;
+      
+      console.log('[API] Using Supabase URL:', supabaseUrl);
+      console.log('[API] Service key available:', !!serviceKey);
+
+      const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Authorization': `Bearer ${serviceKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -155,11 +164,15 @@ export async function POST(request: NextRequest) {
         }),
       });
 
+      console.log('[API] Confirmation email response status:', emailResponse.status);
+      const emailResult = await emailResponse.json();
+      console.log('[API] Confirmation email result:', emailResult);
+
       // Send admin notification
-      await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
+      const adminResponse = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Authorization': `Bearer ${serviceKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -177,9 +190,17 @@ export async function POST(request: NextRequest) {
         }),
       });
 
-      console.log('[API] Mentor application emails sent successfully');
+      console.log('[API] Admin email response status:', adminResponse.status);
+      const adminResult = await adminResponse.json();
+      console.log('[API] Admin email result:', adminResult);
+
+      if (emailResponse.ok && adminResponse.ok) {
+        console.log('[API] ✅ Both mentor application emails sent successfully');
+      } else {
+        console.log('[API] ⚠️ Some emails may have failed');
+      }
     } catch (emailError) {
-      console.error('[API] Failed to send mentor application emails:', emailError);
+      console.error('[API] ❌ Failed to send mentor application emails:', emailError);
       // Don't fail the entire application if email fails
     }
 
