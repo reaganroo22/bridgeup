@@ -870,6 +870,7 @@ export default function ProfileScreen() {
     Alert.alert('video posted!', 'your video has been posted and will appear in the student feed.');
   };
 
+
   const handleSignOut = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
