@@ -1217,6 +1217,34 @@ export async function createQuestion(
   try {
     console.log('[createQuestion] Creating question:', { studentId, categoryId, title, urgency, vertical, preferredMentorId, preferredMentorIds })
 
+    // Content moderation check for title and content
+    const { moderateContent } = await import('./contentModeration');
+    
+    const titleModeration = moderateContent(title);
+    const contentModeration = moderateContent(content);
+    
+    if (!titleModeration.isApproved) {
+      console.log('[createQuestion] ⛔ Question title blocked:', {
+        flaggedWords: titleModeration.flaggedWords,
+        severity: titleModeration.severity
+      });
+      return { 
+        data: null, 
+        error: new Error(`Question title contains inappropriate content: ${titleModeration.flaggedWords.join(', ')}`) 
+      };
+    }
+    
+    if (!contentModeration.isApproved) {
+      console.log('[createQuestion] ⛔ Question content blocked:', {
+        flaggedWords: contentModeration.flaggedWords,
+        severity: contentModeration.severity
+      });
+      return { 
+        data: null, 
+        error: new Error(`Question content contains inappropriate content: ${contentModeration.flaggedWords.join(', ')}`) 
+      };
+    }
+
     // Determine assignment logic:
     // - Any mentor selection (single or multiple) → 'assigned' (specific requests)
     // - No mentor selection → 'pending' (open requests)
@@ -1831,6 +1859,21 @@ export async function sendMessage(
       contentLength: content.length
     })
 
+    // Content moderation check
+    const { moderateContent } = await import('./contentModeration');
+    const moderationResult = moderateContent(content);
+    
+    if (!moderationResult.isApproved) {
+      console.log('[sendMessage] ⛔ Message blocked by content filter:', {
+        flaggedWords: moderationResult.flaggedWords,
+        severity: moderationResult.severity
+      });
+      return { 
+        data: null, 
+        error: new Error(`Message contains inappropriate content: ${moderationResult.flaggedWords.join(', ')}`) 
+      };
+    }
+
     // SQL: INSERT INTO messages (...) VALUES (...) RETURNING *
     const { data: dbMessage, error } = await supabase
       .from('messages')
@@ -1941,6 +1984,21 @@ export async function editMessage(
       senderId: senderId.slice(0, 8),
       contentLength: newContent.length
     })
+
+    // Content moderation check
+    const { moderateContent } = await import('./contentModeration');
+    const moderationResult = moderateContent(newContent);
+    
+    if (!moderationResult.isApproved) {
+      console.log('[editMessage] ⛔ Edited message blocked by content filter:', {
+        flaggedWords: moderationResult.flaggedWords,
+        severity: moderationResult.severity
+      });
+      return { 
+        data: null, 
+        error: new Error(`Edited message contains inappropriate content: ${moderationResult.flaggedWords.join(', ')}`) 
+      };
+    }
 
     // First, get the current message to increment edit count
     const { data: currentMessage, error: fetchError } = await supabase
@@ -2406,6 +2464,21 @@ export async function addFeedComment(
 ): Promise<ServiceResponse<FeedComment>> {
   try {
     console.log('[addFeedComment] Adding comment to question:', questionId)
+
+    // Content moderation check
+    const { moderateContent } = await import('./contentModeration');
+    const moderationResult = moderateContent(content);
+    
+    if (!moderationResult.isApproved) {
+      console.log('[addFeedComment] ⛔ Comment blocked by content filter:', {
+        flaggedWords: moderationResult.flaggedWords,
+        severity: moderationResult.severity
+      });
+      return { 
+        data: null, 
+        error: new Error(`Comment contains inappropriate content: ${moderationResult.flaggedWords.join(', ')}`) 
+      };
+    }
 
     // SQL: INSERT INTO feed_comments (...) VALUES (...) RETURNING *
     const { data, error } = await supabase
